@@ -65,6 +65,20 @@ celerybeat.pid
 *.sqlite3
 
 # =============================================================================
+# ⚠️ SEGURANÇA - NUNCA COMMITAR CHAVES/SECRETS ⚠️
+# =============================================================================
+
+# Pasta de secrets (SSH keys, tokens, credentials)
+.secrets/
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+id_github_*
+
+# =============================================================================
 # PASTAS NÃO NECESSÁRIAS PARA PRODUÇÃO (Vercel)
 # =============================================================================
 
