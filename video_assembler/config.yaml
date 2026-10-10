@@ -1,0 +1,70 @@
+formato:
+  saida: auto
+  resolucao_horizontal:
+  - 1920
+  - 1080
+  resolucao_vertical:
+  - 1080
+  - 1920
+  fps_saida: 30
+cenas:
+  modo_timing: 1
+  duracao_padrao: 6.6
+  excecoes: {}
+audio:
+  silencio:
+    duracao_min: 0.45
+    nivel_db: -35
+    pausa_alvo: 0.25
+    remover_pausas: false
+    margem_seguranca: 0.1
+  narracao:
+    loudness_lufs: -14
+    compressao: false
+  clipes:
+    modo: baixo
+    volume_db: -18
+  musica:
+    ativa: false
+    volume_db: -20
+    ducking: true
+    fade_entrada: 2.0
+    fade_saida: 3.0
+ajuste_duracao:
+  quando_clipe_maior: cortar_fim
+  quando_clipe_menor: segurar_frame
+  limite_segurar: 1.0
+  limite_desacelerar: 0.8
+textos:
+  fonte: Arial
+  tamanho: 48
+  cor: white
+  contorno_cor: black
+  contorno_largura: 2
+  margens_shorts:
+    inferior: 200
+    lateral: 40
+  margens_horizontal:
+    superior: 60
+    inferior: 60
+    lateral: 80
+efeitos:
+  preset: limpo
+  transicoes:
+    ativa: false
+    duracao: 0.15
+  zoom:
+    ativo: false
+    intensidade: 1.05
+    cenas_aplicar: []
+render:
+  codec_video: libx264
+  codec_audio: aac
+  crf: 18
+  preset: medium
+  audio_bitrate: 192k
+  pix_fmt: yuv420p
+preview:
+  altura: 540
+  crf: 28
+  preset: fast

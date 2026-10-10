@@ -304,3 +304,92 @@ create policy ai_generations_all_own on ai_generations
 -- =========================================================================
 -- FIM DO SCHEMA V2.0
 -- =========================================================================
+
+-- =========================================================================
+-- STORAGE: Buckets e RLS Policies
+-- =========================================================================
+
+-- Criar buckets
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values
+  ('media', 'media', false, 524288000, array[
+    'image/jpeg','image/png','image/webp','image/gif',
+    'video/mp4','video/quicktime','video/x-msvideo','video/webm',
+    'audio/mpeg','audio/wav','audio/mp4','audio/x-m4a'
+  ]),
+  ('renders', 'renders', false, 524288000, array['video/mp4','video/quicktime'])
+on conflict (id) do nothing;
+
+-- Media bucket: usuário pode fazer upload apenas em seus próprios projetos
+create policy "media_select_own" on storage.objects
+  for select to public
+  using (
+    bucket_id = 'media' AND 
+    (storage.foldername(name))[1] IN (
+      select id::text from projects where user_id = auth.uid()
+    )
+  );
+
+create policy "media_insert_own" on storage.objects
+  for insert to public
+  with check (
+    bucket_id = 'media' AND
+    (storage.foldername(name))[1] IN (
+      select id::text from projects where user_id = auth.uid()
+    )
+  );
+
+create policy "media_update_own" on storage.objects
+  for update to public
+  using (
+    bucket_id = 'media' AND
+    (storage.foldername(name))[1] IN (
+      select id::text from projects where user_id = auth.uid()
+    )
+  );
+
+create policy "media_delete_own" on storage.objects
+  for delete to public
+  using (
+    bucket_id = 'media' AND
+    (storage.foldername(name))[1] IN (
+      select id::text from projects where user_id = auth.uid()
+    )
+  );
+
+-- Renders bucket: usuário pode acessar apenas seus próprios renders
+create policy "renders_select_own" on storage.objects
+  for select to public
+  using (
+    bucket_id = 'renders' AND 
+    (storage.foldername(name))[1] IN (
+      select id::text from projects where user_id = auth.uid()
+    )
+  );
+
+create policy "renders_insert_own" on storage.objects
+  for insert to public
+  with check (
+    bucket_id = 'renders' AND
+    (storage.foldername(name))[1] IN (
+      select id::text from projects where user_id = auth.uid()
+    )
+  );
+
+create policy "renders_update_own" on storage.objects
+  for update to public
+  using (
+    bucket_id = 'renders' AND
+    (storage.foldername(name))[1] IN (
+      select id::text from projects where user_id = auth.uid()
+    )
+  );
+
+create policy "renders_delete_own" on storage.objects
+  for delete to public
+  using (
+    bucket_id = 'renders' AND
+    (storage.foldername(name))[1] IN (
+      select id::text from projects where user_id = auth.uid()
+    )
+  );

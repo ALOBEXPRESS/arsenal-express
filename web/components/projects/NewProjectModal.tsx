@@ -31,7 +31,7 @@ const projectSchema = z.object({
       const num = Number(val)
       return isNaN(num) ? undefined : num
     },
-    z.number().min(5).max(600).optional()
+    z.number().min(5).max(3600).optional() // Aumentado para 1 hora
   ),
   default_transition: z.enum(['cut', 'dissolve', 'fade', 'wipe', 'slide', 'fadeblack', 'fadewhite'] as const),
 })
@@ -154,22 +154,6 @@ export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
             </Select>
           </div>
 
-          {/* Target Duration */}
-          <div className="space-y-2">
-            <Label htmlFor="target_duration">Target Duration (seconds)</Label>
-            <Input
-              id="target_duration"
-              type="number"
-              min="5"
-              max="600"
-              placeholder="60"
-              {...register('target_duration', { valueAsNumber: true })}
-            />
-            {errors.target_duration && (
-              <p className="text-sm text-red-500">{errors.target_duration.message}</p>
-            )}
-          </div>
-
           {/* Default Transition */}
           <div className="space-y-2">
             <Label htmlFor="default_transition">Default Transition *</Label>
@@ -182,6 +166,9 @@ export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
               <option value="wipe">Wipe</option>
               <option value="slide">Slide</option>
             </Select>
+            <p className="text-xs text-gray-400">
+              Duration will be calculated automatically from your media files
+            </p>
           </div>
 
           {/* Actions */}
