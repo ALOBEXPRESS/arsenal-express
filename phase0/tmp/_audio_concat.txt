@@ -1,0 +1,2 @@
+file 'H:/Projetos/Em desenvolvimento/Canal Youtube/GTAEXPRESSBR/workspace/phase0/assets/audio/audio1.wav'
+file 'H:/Projetos/Em desenvolvimento/Canal Youtube/GTAEXPRESSBR/workspace/phase0/assets/audio/audio2.wav'

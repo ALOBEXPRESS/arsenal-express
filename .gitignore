@@ -51,6 +51,7 @@ htmlcov/
 # Media files (too large for git)
 phase0/temp/
 phase0/output/
+video_assembler/saida_videos_*/
 web/public/uploads/
 backend/temp/
 
@@ -62,3 +63,41 @@ celerybeat.pid
 *.db
 *.sqlite
 *.sqlite3
+
+# =============================================================================
+# PASTAS NÃO NECESSÁRIAS PARA PRODUÇÃO (Vercel)
+# =============================================================================
+
+# Kiro IDE configuration (desenvolvimento local apenas)
+.kiro/
+
+# Documentation (manter no repo mas não necessário para deploy)
+docs/
+
+# Arquivos de desenvolvimento/planejamento
+*.draft.md
+encontrar-idéias.md
+ideias.md
+sistema_gta6_vice_city.md
+SOUL.md
+1.encontrar-idéias.md
+2.ideia-escolhida.md
+3.criar-script-video.md
+4.roteiro.txt
+
+# Pasta antiga de teste (fase0_prova_de_fluxo pode ser mantida como referência)
+fase0_prova_de_fluxo/
+
+# Output videos (muito grandes)
+video_assembler/saida_videos_*/
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Scripts de inicialização Windows (usar npm scripts)
+*.bat
+*.ps1
+
+# MCP config local
+.mcp.json

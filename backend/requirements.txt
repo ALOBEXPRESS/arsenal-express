@@ -1,0 +1,27 @@
+# FastAPI Backend Dependencies
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-dotenv==1.0.0
+# Pydantic (updated for Python 3.14 compatibility)
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# Supabase
+supabase==2.3.4
+postgrest==0.13.2
+
+# Celery & Redis
+celery==5.3.6
+redis==5.0.1
+
+# FFmpeg wrapper
+ffmpeg-python==0.2.0
+
+# Progress tracking
+tqdm==4.66.1
+
+# HTTP requests (compatible with supabase 2.3.4)
+httpx>=0.24,<0.26
+
+# CORS
+python-multipart==0.0.6

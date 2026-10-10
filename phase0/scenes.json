@@ -1,0 +1,57 @@
+[
+  {
+    "id": 1,
+    "order_index": 0,
+    "section_index": 0,
+    "narration_text": "O Brasil acordou em estado de choque nesta semana. Uma serie de eventos inesperados abalou o cenario politico nacional e o que veio a tona nas ultimas 48 horas mudou completamente como especialistas enxergam a situacao.",
+    "media_type": "still_image",
+    "image_file": null,
+    "clip_file": null,
+    "animation_type": "none",
+    "transition_in": "dissolve"
+  },
+  {
+    "id": 2,
+    "order_index": 1,
+    "section_index": 0,
+    "narration_text": "Tudo comecou com uma revelacao feita em sessao fechada do Congresso. Documentos obtidos por fontes internas indicam que uma negociacao paralela estava em andamento, longe dos holofotes da imprensa.",
+    "media_type": "still_image",
+    "image_file": null,
+    "clip_file": null,
+    "animation_type": "zoom2",
+    "transition_in": "dissolve"
+  },
+  {
+    "id": 3,
+    "order_index": 2,
+    "section_index": 1,
+    "narration_text": "Analistas politicos apontam que essa nao e a primeira vez que algo assim ocorre, mas a escala desta vez e diferente. Relatorios afirmam que o alcance da operacao pode envolver ao menos cinco estados da federacao.",
+    "media_type": "still_image",
+    "image_file": null,
+    "clip_file": null,
+    "animation_type": "zoom1",
+    "transition_in": "fadeblack"
+  },
+  {
+    "id": 4,
+    "order_index": 3,
+    "section_index": 1,
+    "narration_text": "Criticos argumentam que as instituicoes falharam em detectar o problema a tempo. Mas foi exatamente quando o debate esfriava que um novo elemento surgiu, e a situacao virou de cabeca para baixo.",
+    "media_type": "still_image",
+    "image_file": null,
+    "clip_file": null,
+    "animation_type": "zoom2",
+    "transition_in": "dissolve"
+  },
+  {
+    "id": 5,
+    "order_index": 4,
+    "section_index": 2,
+    "narration_text": "O que parecia encerrado voltou ao centro do palco. E agora a pergunta que ninguem consegue responder e: o que muda a partir de agora? Esse debate promete se estender por semanas, e voce vai querer acompanhar cada capitulo.",
+    "media_type": "still_image",
+    "image_file": null,
+    "clip_file": null,
+    "animation_type": "zoom1",
+    "transition_in": "fadewhite"
+  }
+]
