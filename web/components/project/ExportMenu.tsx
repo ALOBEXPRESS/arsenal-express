@@ -24,35 +24,62 @@ interface ExportMenuProps {
 export function ExportMenu({ projectTitle, timelines, activeSubId, settings, disabled }: ExportMenuProps) {
   const [capCutOpen, setCapCutOpen] = useState(false)
   const [renderOpen, setRenderOpen] = useState(false)
+  const [isExportingAudio, setIsExportingAudio] = useState(false)
 
   const handleExportAudio = async () => {
-    // Mix narration + audio clips into a single MP3
+    // Mix narration + audio clips into a single WAV
+    setIsExportingAudio(true)
     try {
       const chosen = timelines.find((t) => t.id === activeSubId) || timelines[0]
-      if (!chosen) return
+      if (!chosen) {
+        alert('Nenhuma timeline encontrada')
+        return
+      }
+
+      if (!chosen.narration || chosen.narration.length === 0) {
+        alert('Nenhuma narração encontrada para exportar')
+        return
+      }
 
       // Create offline audio context to mix all audio
       const duration = Math.max(...chosen.timeline.map((s) => s.start + s.duration), 0)
       const sampleRate = 48000
       const audioCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate)
 
+      let audioCount = 0
       // Load and schedule narration segments
       for (const narr of chosen.narration) {
         const audioUrl = (narr as any).audio_url
-        if (!audioUrl) continue
-        const response = await fetch(audioUrl)
-        const arrayBuffer = await response.arrayBuffer()
-        const buffer = await audioCtx.decodeAudioData(arrayBuffer)
-        const source = audioCtx.createBufferSource()
-        source.buffer = buffer
-        source.connect(audioCtx.destination)
-        source.start(narr.start)
+        if (!audioUrl) {
+          console.warn('Narração sem audio_url:', narr)
+          continue
+        }
+        
+        try {
+          const response = await fetch(audioUrl)
+          if (!response.ok) throw new Error(`Falha ao buscar áudio: ${response.status}`)
+          
+          const arrayBuffer = await response.arrayBuffer()
+          const buffer = await audioCtx.decodeAudioData(arrayBuffer)
+          const source = audioCtx.createBufferSource()
+          source.buffer = buffer
+          source.connect(audioCtx.destination)
+          source.start(narr.start)
+          audioCount++
+        } catch (err) {
+          console.error('Erro ao carregar narração:', err)
+        }
+      }
+
+      if (audioCount === 0) {
+        alert('Nenhum áudio foi carregado. Verifique se os arquivos de narração estão acessíveis.')
+        return
       }
 
       // Render the mixed audio
       const renderedBuffer = await audioCtx.startRendering()
 
-      // Convert AudioBuffer to WAV/MP3 (using simple WAV encoding for now)
+      // Convert AudioBuffer to WAV (PCM)
       const wav = audioBufferToWav(renderedBuffer)
       const blob = new Blob([wav], { type: 'audio/wav' })
       const url = URL.createObjectURL(blob)
@@ -61,12 +88,19 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, dis
       const a = document.createElement('a')
       a.href = url
       a.download = `${projectTitle.replace(/[^a-z0-9]/gi, '_')}_audio.wav`
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
+      
+      // Cleanup
+      setTimeout(() => URL.revokeObjectURL(url), 100)
 
       console.log('Audio exported successfully')
     } catch (err) {
       console.error('Audio export failed:', err)
       alert(`Erro ao exportar áudio: ${err instanceof Error ? err.message : 'Desconhecido'}`)
+    } finally {
+      setIsExportingAudio(false)
     }
   }
 
@@ -139,10 +173,14 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, dis
             Exportar CapCut
             <span className="ml-auto text-xs text-muted-foreground">Editar</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleExportAudio}>
-            <Music className="mr-2 h-4 w-4" />
-            Exportar Áudio
-            <span className="ml-auto text-xs text-muted-foreground">.mp3</span>
+          <DropdownMenuItem onClick={handleExportAudio} disabled={isExportingAudio}>
+            {isExportingAudio ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Music className="mr-2 h-4 w-4" />
+            )}
+            {isExportingAudio ? 'Exportando...' : 'Exportar Áudio'}
+            <span className="ml-auto text-xs text-muted-foreground">.wav</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setRenderOpen(true)}>
