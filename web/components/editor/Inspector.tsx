@@ -320,7 +320,8 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     const set = (patch: Partial<typeof o>) => tracks.updateOverlay(o.id, patch)
     const maxDur = o.kind === 'video' && a?.duration ? a.duration / (o.speed || 1) : undefined
     return (
-      <div className="flex h-full flex-col">
+      <>
+        <div className="flex h-full flex-col">
         <Header
           icon={o.kind === 'video' ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
           eyebrow={`Sobrepor · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}`}
@@ -378,6 +379,21 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           </Group>
         </div>
       </div>
+      <TrimModalWrapper
+        open={trimModalOpen}
+        asset={trimAsset}
+        scene={trimScene}
+        onOpenChange={setTrimModalOpen}
+        onSave={(inPoint, outPoint) => {
+          if (trimScene) {
+            patchScene(trimScene.id, {
+              in_point: inPoint,
+              trim: outPoint !== null ? outPoint - inPoint : undefined,
+            })
+          }
+        }}
+      />
+    </>
     )
   }
 
@@ -393,7 +409,8 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
         | string
         | undefined
     return (
-      <div className="flex h-full flex-col">
+      <>
+        <div className="flex h-full flex-col">
         <Header
           icon={<SlidersVertical className="h-4 w-4" />}
           eyebrow={`Ajuste · ${formatClock(a.start)} → ${formatClock(a.start + a.duration)}`}
@@ -499,6 +516,21 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           </Group>
         </div>
       </div>
+      <TrimModalWrapper
+        open={trimModalOpen}
+        asset={trimAsset}
+        scene={trimScene}
+        onOpenChange={setTrimModalOpen}
+        onSave={(inPoint, outPoint) => {
+          if (trimScene) {
+            patchScene(trimScene.id, {
+              in_point: inPoint,
+              trim: outPoint !== null ? outPoint - inPoint : undefined,
+            })
+          }
+        }}
+      />
+    </>
     )
   }
 
@@ -510,31 +542,47 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     const a = assetById.get(seg.asset_id)
     const covered = timeline.filter((t) => t.start < seg.start + seg.duration && t.start + t.duration > seg.start).length
     return (
-      <div className="flex h-full flex-col">
-        <Header
-          icon={<Mic className="h-4 w-4" />}
-          eyebrow={`Narração ${i + 1} · ${formatClock(seg.start)} → ${formatClock(seg.start + seg.duration)}`}
-          title={a?.filename || 'Áudio removido'}
-        />
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 text-[12.5px] leading-relaxed text-muted-foreground">
-          <p>
-            {covered > 0
-              ? `${covered} cena(s) por cima deste trecho.`
-              : 'Nenhuma cena neste trecho ainda — arraste clipes da biblioteca pra faixa Mídia.'}
-          </p>
-          <p>A narração toca contínua: os arquivos ficam colados um depois do outro.</p>
-          <Button
-            variant="outline"
-            className="w-full hover:border-destructive/60 hover:text-destructive"
-            onClick={() => {
-              tracks.removeNarration(i)
-              select(null)
-            }}
-          >
-            <Trash2 /> Tirar da narração
-          </Button>
+      <>
+        <div className="flex h-full flex-col">
+          <Header
+            icon={<Mic className="h-4 w-4" />}
+            eyebrow={`Narração ${i + 1} · ${formatClock(seg.start)} → ${formatClock(seg.start + seg.duration)}`}
+            title={a?.filename || 'Áudio removido'}
+          />
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 text-[12.5px] leading-relaxed text-muted-foreground">
+            <p>
+              {covered > 0
+                ? `${covered} cena(s) por cima deste trecho.`
+                : 'Nenhuma cena neste trecho ainda — arraste clipes da biblioteca pra faixa Mídia.'}
+            </p>
+            <p>A narração toca contínua: os arquivos ficam colados um depois do outro.</p>
+            <Button
+              variant="outline"
+              className="w-full hover:border-destructive/60 hover:text-destructive"
+              onClick={() => {
+                tracks.removeNarration(i)
+                select(null)
+              }}
+            >
+              <Trash2 /> Tirar da narração
+            </Button>
+          </div>
         </div>
-      </div>
+        <TrimModalWrapper
+          open={trimModalOpen}
+          asset={trimAsset}
+          scene={trimScene}
+          onOpenChange={setTrimModalOpen}
+          onSave={(inPoint, outPoint) => {
+            if (trimScene) {
+              patchScene(trimScene.id, {
+                in_point: inPoint,
+                trim: outPoint !== null ? outPoint - inPoint : undefined,
+              })
+            }
+          }}
+        />
+      </>
     )
   }
 
@@ -545,52 +593,68 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
   const set = (patch: Partial<typeof c>) => tracks.updateAudio(c.id, patch)
   const maxDur = a?.duration ? a.duration / (c.speed || 1) : undefined
   return (
-    <div className="flex h-full flex-col">
-      <Header
-        icon={<Music className="h-4 w-4" />}
-        eyebrow={`Áudio · ${formatClock(c.start)} → ${formatClock(c.start + c.duration)}`}
-        title={a?.filename || 'Áudio removido'}
-        onDelete={() => {
-          tracks.removeAudio(c.id)
-          select(null)
+    <>
+      <div className="flex h-full flex-col">
+        <Header
+          icon={<Music className="h-4 w-4" />}
+          eyebrow={`Áudio · ${formatClock(c.start)} → ${formatClock(c.start + c.duration)}`}
+          title={a?.filename || 'Áudio removido'}
+          onDelete={() => {
+            tracks.removeAudio(c.id)
+            select(null)
+          }}
+        />
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
+          <Group title="Áudio">
+            <PropSlider
+              label="Volume"
+              value={c.volume}
+              min={0}
+              max={2}
+              step={0.01}
+              format={pct}
+              onChange={(v) => set({ volume: v })}
+              onReset={c.volume !== 1 ? () => set({ volume: 1 }) : undefined}
+              hint={c.volume > 1 ? 'Acima de 100% vale no CapCut; o preview toca no máximo a 100%.' : undefined}
+            />
+            <PropSlider
+              label="Velocidade"
+              value={c.speed}
+              min={0.25}
+              max={4}
+              step={0.05}
+              format={times}
+              onChange={(v) => {
+                const speed = Math.round(v * 100) / 100
+                const max = a?.duration ? a.duration / speed : undefined
+                set({ speed, ...(max && c.duration > max ? { duration: Math.round(max * 1000) / 1000 } : {}) })
+              }}
+              onReset={c.speed !== 1 ? () => set({ speed: 1 }) : undefined}
+            />
+          </Group>
+          <Group title="Tempo">
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Início" value={c.start} onChange={(v) => set({ start: v })} />
+              <NumberField label="Duração" value={c.duration} min={0.2} onChange={(v) => set({ duration: maxDur ? Math.min(v, maxDur) : v })} />
+            </div>
+          </Group>
+        </div>
+      </div>
+      <TrimModalWrapper
+        open={trimModalOpen}
+        asset={trimAsset}
+        scene={trimScene}
+        onOpenChange={setTrimModalOpen}
+        onSave={(inPoint, outPoint) => {
+          if (trimScene) {
+            patchScene(trimScene.id, {
+              in_point: inPoint,
+              trim: outPoint !== null ? outPoint - inPoint : undefined,
+            })
+          }
         }}
       />
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
-        <Group title="Áudio">
-          <PropSlider
-            label="Volume"
-            value={c.volume}
-            min={0}
-            max={2}
-            step={0.01}
-            format={pct}
-            onChange={(v) => set({ volume: v })}
-            onReset={c.volume !== 1 ? () => set({ volume: 1 }) : undefined}
-            hint={c.volume > 1 ? 'Acima de 100% vale no CapCut; o preview toca no máximo a 100%.' : undefined}
-          />
-          <PropSlider
-            label="Velocidade"
-            value={c.speed}
-            min={0.25}
-            max={4}
-            step={0.05}
-            format={times}
-            onChange={(v) => {
-              const speed = Math.round(v * 100) / 100
-              const max = a?.duration ? a.duration / speed : undefined
-              set({ speed, ...(max && c.duration > max ? { duration: Math.round(max * 1000) / 1000 } : {}) })
-            }}
-            onReset={c.speed !== 1 ? () => set({ speed: 1 }) : undefined}
-          />
-        </Group>
-        <Group title="Tempo">
-          <div className="grid grid-cols-2 gap-2">
-            <NumberField label="Início" value={c.start} onChange={(v) => set({ start: v })} />
-            <NumberField label="Duração" value={c.duration} min={0.2} onChange={(v) => set({ duration: maxDur ? Math.min(v, maxDur) : v })} />
-          </div>
-        </Group>
-      </div>
-    </div>
+    </>
   )
 }
 
