@@ -69,8 +69,8 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
         options
       )
 
-      // Create download
-      const blob = new Blob([new Uint8Array(mp4.buffer || mp4)], { type: 'video/mp4' })
+      // Create download (force cast to BlobPart - mp4 is already Uint8Array from mediabunny)
+      const blob = new Blob([mp4 as unknown as BlobPart], { type: 'video/mp4' })
       const url = URL.createObjectURL(blob)
       setResultUrl(url)
 
