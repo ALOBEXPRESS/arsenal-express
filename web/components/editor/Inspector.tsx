@@ -2,7 +2,7 @@
 
 // Right-hand properties panel (CapCut-style): edits the clip selected on the timeline.
 // Every change shows up in the preview immediately and is exported to CapCut.
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   Clapperboard,
   Image as ImageIcon,
@@ -37,7 +37,6 @@ import { CLIP_VOLUME_UNDER_NARRATION } from '@/components/preview/VideoPreview'
 import type { Asset, NarrationSegment, Scene } from '@/types/project'
 import { cn } from '@/lib/utils'
 import { ADJUST_FIELDS, LOOKS, LOOK_BY_ID, ZERO_ADJUST, adjustStyle, matchesLook } from '@/lib/sync/adjust'
-import { TrimModal } from './TrimModal'
 
 interface InspectorProps {
   projectId: string
@@ -106,9 +105,6 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
   const patchScene = usePatchScene(projectId)
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
-  const [trimModalOpen, setTrimModalOpen] = useState(false)
-  const [trimAsset, setTrimAsset] = useState<Asset | null>(null)
-  const [trimScene, setTrimScene] = useState<Scene | null>(null)
 
   // selection from another subproject (or deleted) → show the empty state
   const selection = (() => {
@@ -130,9 +126,8 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
   // ---- Nothing selected --------------------------------------------------------
   if (!selection) {
     return (
-      <>
-        <div className="flex h-full flex-col">
-          <Header icon={<MousePointerClick className="h-4 w-4" />} eyebrow="Propriedades" title="Nada selecionado" />
+      <div className="flex h-full flex-col">
+        <Header icon={<MousePointerClick className="h-4 w-4" />} eyebrow="Propriedades" title="Nada selecionado" />
           <div className="space-y-4 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
             <p>Clique num clipe da timeline pra editar velocidade, animação, escala, posição, opacidade e volume.</p>
             <ul className="space-y-2">
@@ -155,21 +150,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
             </ul>
           </div>
         </div>
-        <TrimModalWrapper
-          open={trimModalOpen}
-          asset={trimAsset}
-          scene={trimScene}
-          onOpenChange={setTrimModalOpen}
-          onSave={(inPoint, outPoint) => {
-            if (trimScene) {
-              patchScene(trimScene.id, {
-                in_point: inPoint,
-                trim: outPoint !== null ? outPoint - inPoint : undefined,
-              })
-            }
-          }}
-        />
-      </>
+      </div>
     )
   }
 
@@ -228,25 +209,6 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
                 onReset={props.volume !== undefined ? () => setMeta({ volume: null }) : undefined}
                 hint={props.volume === undefined && narrationTrack.length ? 'Padrão: baixo (−18 dB) por baixo da narração.' : undefined}
               />
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  if (item.videoAsset) {
-                    setTrimAsset(item.videoAsset)
-                    setTrimScene(scene)
-                    setTrimModalOpen(true)
-                  }
-                }}
-              >
-                <Scissors className="h-4 w-4" /> Cortar Vídeo
-              </Button>
-              {scene.in_point !== undefined && scene.in_point > 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  ✂️ Cortado: inicia em {scene.in_point.toFixed(2)}s
-                  {scene.trim !== undefined && scene.trim > 0 && ` · termina em ${(scene.in_point + scene.trim).toFixed(2)}s`}
-                </p>
-              )}
             </Group>
           )}
 
@@ -294,21 +256,6 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           </Button>
         </div>
       </div>
-      <TrimModalWrapper
-        open={trimModalOpen}
-        asset={trimAsset}
-        scene={trimScene}
-        onOpenChange={setTrimModalOpen}
-        onSave={(inPoint, outPoint) => {
-          if (trimScene) {
-            patchScene(trimScene.id, {
-              in_point: inPoint,
-              trim: outPoint !== null ? outPoint - inPoint : undefined,
-            })
-          }
-        }}
-      />
-    </>
     )
   }
 

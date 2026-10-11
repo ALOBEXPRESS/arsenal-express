@@ -20,6 +20,7 @@ import {
   Gauge,
   SlidersVertical,
   X,
+  Scissors,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode } from '@/lib/hooks/useScenes'
@@ -718,6 +719,88 @@ export function Timeline({
     return a?.type === 'image' || !a?.duration ? undefined : a.duration / (speed || 1)
   }
 
+  // ---- Split scene at playhead ----------------------------------------------------
+  const selectedSceneAtPlayhead = useMemo(() => {
+    if (activeSceneIndex === undefined) return null
+    // Find the scene under the playhead
+    const scene = timeline.find((t) => activeSceneIndex >= t.start && activeSceneIndex < t.start + t.duration)
+    return scene && scene.videoAsset ? scene.scene : null
+  }, [timeline, activeSceneIndex])
+
+  const handleSplitAtPlayhead = useCallback(async () => {
+    if (activeSceneIndex === undefined) return
+    const scene = selectedSceneAtPlayhead
+    if (!scene) return
+    
+    const timedScene = timeline.find((t) => t.scene.id === scene.id)
+    if (!timedScene) return
+
+    const splitPoint = activeSceneIndex - timedScene.start
+    if (splitPoint <= 0.1 || splitPoint >= timedScene.duration - 0.1) {
+      toast.info('Posição muito próxima da borda', { description: 'Mova a linha de tempo para um ponto dentro da cena.' })
+      return
+    }
+
+    try {
+      // Update the first scene to end at the split point
+      await fetch(`/api/projects/${projectId}/scenes/${scene.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metadata: {
+            ...scene.metadata,
+            trim: splitPoint,
+          },
+        }),
+      })
+
+      // Create a copy of the scene for the second part
+      const sceneIndex = scenes.findIndex((s) => s.id === scene.id)
+      await insertScene.mutateAsync({
+        projectId,
+        scenes,
+        index: sceneIndex + 1,
+        input: {
+          narration_text: scene.narration_text,
+          media_type: scene.media_type,
+          video_asset_id: scene.video_asset_id || undefined,
+          image_asset_id: scene.image_asset_id || undefined,
+          audio_asset_id: scene.audio_asset_id || undefined,
+          animation_type: scene.animation_type || undefined,
+          transition_in: scene.transition_in || undefined,
+          generated_in_flow: scene.generated_in_flow,
+          metadata: {
+            ...scene.metadata,
+            in_point: (scene.in_point || 0) + splitPoint,
+            trim: undefined,
+            sub: subId || undefined,
+          },
+        },
+      })
+
+      toast.success('Cena cortada', { description: 'A cena foi dividida em duas no ponto atual.' })
+      select(null)
+    } catch (err) {
+      console.error('Split failed:', err)
+      toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
+    }
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, insertScene, projectId, subId, select, scenes])
+
+  // Keyboard shortcut for split (Ctrl+B or S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault()
+        handleSplitAtPlayhead()
+      } else if (e.key === 's' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault()
+        handleSplitAtPlayhead()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSplitAtPlayhead])
+
   return (
     <div className="flex h-full flex-col bg-surface-1">
       {/* Toolbar */}
@@ -818,6 +901,15 @@ export function Timeline({
           </Button>
           <Button size="sm" onClick={() => onAssemble('scenes_with_audio')} disabled={busy}>
             <Wand2 /> Juntar com áudio
+          </Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={handleSplitAtPlayhead} 
+            disabled={busy || !selectedSceneAtPlayhead}
+            title="Cortar cena na posição atual (Ctrl+B)"
+          >
+            <Scissors /> Cortar
           </Button>
           <Button size="icon" variant="outline" className="h-8 w-8" onClick={onAddScene} aria-label="Adicionar cena manualmente">
             <Plus />
