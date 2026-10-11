@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { AnimationPreset, TransitionPreset } from '@/lib/sync/presets'
+import type { AnimationParams, AnimationPreset, TransitionPreset } from '@/lib/sync/presets'
 import { animationPose, poseToTransform, transitionStyle } from '@/lib/sync/visual'
 
 /** rAF loop returning seconds elapsed (mod period) while `active` */
@@ -96,17 +96,19 @@ export function AnimationTile({
   onToggle,
   thumb,
   role,
+  params,
 }: {
   preset: AnimationPreset
   selected: boolean
   onToggle: () => void
   thumb?: string
   role?: 'checkbox' | 'radio'
+  params?: Partial<AnimationParams>
 }) {
   const [hover, setHover] = useState(false)
   const period = 3
   const t = useLoopTime(hover || selected, period)
-  const pose = animationPose(preset.id, t, period)
+  const pose = animationPose(preset.id, t, period, params)
   return (
     <TileShell selected={selected} onToggle={onToggle} label={preset.label} hint={preset.hint} onHover={setHover} role={role}>
       <Frame src={thumb} style={{ transform: poseToTransform(pose) }} />

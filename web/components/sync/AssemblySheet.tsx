@@ -1,20 +1,28 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck } from 'lucide-react'
+import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { AnimationTile, TransitionTile, ModeSwitch } from './EffectTiles'
+import { AnimationParamsControls } from '@/components/editor/PropControls'
 import {
   ANIMATIONS,
   TRANSITIONS,
   withDefaults,
   type SyncSettings,
+  type SceneOrderBy,
   type PickMode,
 } from '@/lib/sync/presets'
 import { cn } from '@/lib/utils'
+
+const ORDER_HINT: Record<SceneOrderBy, string> = {
+  modified: 'Data de modificação do arquivo (a mesma da coluna “Data de modificação” do Explorer).',
+  upload: 'Ordem em que os arquivos foram enviados — segue a ordem em que apareciam no Explorer ao selecionar.',
+  name: 'Ordem alfabética do nome do arquivo (números em ordem natural: 2 antes de 10).',
+}
 
 interface AssemblySheetProps {
   open: boolean
@@ -133,6 +141,43 @@ export function AssemblySheet({
         </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5">
+          <section aria-labelledby="order-title" className="rounded-xl border border-border bg-surface-2/60 p-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-3 text-muted-foreground" aria-hidden>
+                <ArrowDownUp className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 id="order-title" className="font-display text-[15px] font-bold">
+                  Ordem das cenas
+                </h3>
+                <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
+                  Vale pros dois modos (com ou sem ritmo variável). Depois dá pra arrastar cenas na timeline.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              <ModeSwitch
+                label="Ordenar clipes por"
+                value={s.order.by}
+                onChange={(by) => setS((p) => ({ ...p, order: { ...p.order, by } }))}
+                options={[
+                  { value: 'modified', label: 'Modificação' },
+                  { value: 'upload', label: 'Envio' },
+                  { value: 'name', label: 'Nome' },
+                ]}
+              />
+              <p className="text-[12px] text-muted-foreground">{ORDER_HINT[s.order.by]}</p>
+              <label className="flex cursor-pointer items-center justify-between gap-3 text-[13px]">
+                <span>Inverter ordem {s.order.reverse ? '(mais novo primeiro)' : '(mais antigo primeiro)'}</span>
+                <Switch
+                  checked={s.order.reverse}
+                  onCheckedChange={(reverse) => setS((p) => ({ ...p, order: { ...p.order, reverse } }))}
+                  aria-label="Inverter ordem das cenas"
+                />
+              </label>
+            </div>
+          </section>
+
           <Section
             id="rhythm"
             icon={<AudioWaveform className="h-4 w-4" />}
@@ -168,6 +213,7 @@ export function AssemblySheet({
                   key={a.id}
                   preset={a}
                   thumb={thumbs[0]}
+                  params={anim.params}
                   role={anim.mode === 'fixo' ? 'radio' : 'checkbox'}
                   selected={anim.mode === 'fixo' ? anim.fixed === a.id : anim.selected.includes(a.id)}
                   onToggle={() =>
@@ -176,6 +222,9 @@ export function AssemblySheet({
                 />
               ))}
             </div>
+            <p className="pt-1 text-[12px] font-semibold text-foreground/90">Propriedades (todas as cenas)</p>
+            <AnimationParamsControls value={anim.params} onChange={(params) => setAnim({ params })} />
+            <p className="text-[11px] text-muted-foreground">Dá pra ajustar cena a cena depois, no painel de propriedades.</p>
           </Section>
 
           <Section

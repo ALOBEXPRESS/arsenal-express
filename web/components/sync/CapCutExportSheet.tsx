@@ -17,7 +17,7 @@ import {
   type CanvasFormat,
 } from '@/lib/capcut/package'
 import { formatTime, totalDuration, type TimedScene } from '@/lib/timeline'
-import type { Asset } from '@/types/project'
+import type { Asset, AudioClip, OverlayClip } from '@/types/project'
 import { normalizeAnimation, normalizeTransition, type SyncSettings } from '@/lib/sync/presets'
 import { CapCutPreviewCard, OpenInCapCut } from './CapCutPreview'
 
@@ -29,6 +29,9 @@ interface CapCutExportSheetProps {
   narration: { asset: Asset; start: number; duration: number }[]
   settings: SyncSettings
   defaultFormat?: string
+  overlays?: OverlayClip[]
+  audioClips?: AudioClip[]
+  assets?: Asset[]
 }
 
 const PREFS_KEY = 'syncexpress.capcut'
@@ -41,8 +44,19 @@ export function CapCutExportSheet({
   narration,
   settings,
   defaultFormat,
-
+  overlays = [],
+  audioClips = [],
+  assets = [],
 }: CapCutExportSheetProps) {
+  const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
+  const overlayItems = useMemo(
+    () => overlays.flatMap((clip) => (assetById.get(clip.asset_id) ? [{ clip, asset: assetById.get(clip.asset_id)! }] : [])),
+    [overlays, assetById]
+  )
+  const audioItems = useMemo(
+    () => audioClips.flatMap((clip) => (assetById.get(clip.asset_id) ? [{ clip, asset: assetById.get(clip.asset_id)! }] : [])),
+    [audioClips, assetById]
+  )
   const [system, setSystem] = useState<CapCutSystem>('windows')
   const [format, setFormat] = useState<CanvasFormat>('auto')
   const [username, setUsername] = useState('')
@@ -98,6 +112,8 @@ export function CapCutExportSheet({
     narration,
     settings,
     outputFormat: format,
+    overlays: overlayItems,
+    audioClips: audioItems,
     onProgress: (done, totalFiles, label) => setProgress({ done, total: totalFiles, label }),
   })
 

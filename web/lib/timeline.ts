@@ -1,6 +1,6 @@
 // Shared timeline math used by Auto Assemble, Timeline, Preview and Render.
 // Mirrors the CLI assembler (video_assembler/core/scene_timing.py + edl.py).
-import type { Asset, Scene, NarrationSegment } from '@/types/project'
+import type { Asset, Scene, NarrationSegment, SceneProps } from '@/types/project'
 
 export const DEFAULT_SCENE_DURATION = 6.6 // config.yaml -> cenas.duracao_padrao
 export const TRANSITION_DURATION = 0.5 // seconds (default; project setting overrides)
@@ -31,6 +31,24 @@ export function sortByModificationDate<T extends Asset>(assets: T[]): T[] {
   return [...assets].sort((a, b) => assetSortKey(a) - assetSortKey(b) || a.filename.localeCompare(b.filename))
 }
 
+/**
+ * Clip order for Auto Assemble.
+ * - modified: file modification date (File.lastModified)
+ * - upload: order the files were sent (= order they were listed in Explorer when picked)
+ * - name: natural filename order
+ */
+export function sortAssets<T extends Asset>(assets: T[], by: 'modified' | 'upload' | 'name', reverse = false): T[] {
+  const name = (a: Asset, b: Asset) => a.filename.localeCompare(b.filename, 'pt-BR', { numeric: true, sensitivity: 'base' })
+  const uploaded = (a: Asset) => new Date(a.created_at).getTime()
+  const sorted =
+    by === 'name'
+      ? [...assets].sort(name)
+      : by === 'upload'
+        ? [...assets].sort((a, b) => uploaded(a) - uploaded(b) || name(a, b))
+        : sortByModificationDate(assets)
+  return reverse ? sorted.reverse() : sorted
+}
+
 export interface TimedScene {
   scene: Scene
   index: number
@@ -38,8 +56,22 @@ export interface TimedScene {
   duration: number
   videoAsset?: Asset
   imageAsset?: Asset
-  /** Playback rate applied to the clip (slow-down when clip is a bit shorter than the scene) */
+  /** Playback rate applied to the clip (user speed, or slow-down when the clip is a bit short) */
   rate: number
+  /** true when the user set the speed by hand */
+  manualSpeed: boolean
+}
+
+/** Editable per-scene properties stored in scenes.metadata */
+export function sceneProps(scene: Scene): SceneProps {
+  const m = (scene.metadata || {}) as Record<string, unknown>
+  const speed = m.speed == null ? NaN : Number(m.speed)
+  const volume = m.volume == null ? NaN : Number(m.volume)
+  return {
+    speed: Number.isFinite(speed) && speed > 0 ? speed : undefined,
+    volume: Number.isFinite(volume) && volume >= 0 ? volume : undefined,
+    anim: (m.anim as SceneProps['anim']) || undefined,
+  }
 }
 
 export function sceneDuration(scene: Scene, videoAsset?: Asset): number {
@@ -62,6 +94,7 @@ export function buildTimeline(scenes: Scene[], assets: Asset[]): TimedScene[] {
     const videoAsset = scene.video_asset_id ? byId.get(scene.video_asset_id) : undefined
     const imageAsset = scene.image_asset_id ? byId.get(scene.image_asset_id) : undefined
     const duration = sceneDuration(scene, videoAsset)
+    const manual = sceneProps(scene).speed
     const timed: TimedScene = {
       scene,
       index,
@@ -69,7 +102,8 @@ export function buildTimeline(scenes: Scene[], assets: Asset[]): TimedScene[] {
       duration,
       videoAsset,
       imageAsset,
-      rate: clipRate(videoAsset?.duration, duration),
+      rate: manual ?? clipRate(videoAsset?.duration, duration),
+      manualSpeed: manual !== undefined,
     }
     cursor += duration
     return timed
@@ -120,4 +154,18 @@ export function formatClock(seconds: number): string {
 export function formatSeconds(seconds: number): string {
   if (!Number.isFinite(seconds)) return '0s'
   return `${seconds.toFixed(1)}s`
+}
+
+/** Assigns each clip to the first row where it doesn't overlap (CapCut tracks can't overlap) */
+export function packRows<T>(clips: T[], key: (c: T) => { start: number; duration: number }): T[][] {
+  const rows: T[][] = []
+  for (const clip of [...clips].sort((a, b) => key(a).start - key(b).start)) {
+    const row = rows.find((r) => {
+      const last = key(r[r.length - 1])
+      return last.start + last.duration <= key(clip).start + 1e-3
+    })
+    if (row) row.push(clip)
+    else rows.push([clip])
+  }
+  return rows
 }

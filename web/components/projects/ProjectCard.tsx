@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Trash2, Mic } from 'lucide-react'
 import type { Project } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
+import { confirmDialog } from '@/components/ui/confirm'
 
 interface ProjectCardProps {
   project: Project
@@ -70,9 +71,15 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
 
       {onDelete && (
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.preventDefault()
-            if (confirm(`Excluir o projeto "${project.title}"? Isso não pode ser desfeito.`)) onDelete(project.id)
+            const ok = await confirmDialog({
+              title: `Excluir “${project.title}”?`,
+              description: 'O projeto, as cenas e as mídias enviadas serão apagados. Isso não pode ser desfeito.',
+              confirmLabel: 'Excluir projeto',
+              tone: 'danger',
+            })
+            if (ok) onDelete(project.id)
           }}
           className="absolute right-2 top-2 cursor-pointer rounded-md bg-surface-0/80 p-2 text-muted-foreground opacity-0 backdrop-blur transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
           aria-label={`Excluir ${project.title}`}

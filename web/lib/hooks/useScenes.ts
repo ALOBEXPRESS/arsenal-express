@@ -1,8 +1,10 @@
+import { useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { callRpc } from '@/lib/supabase/rpc'
 import type { Scene, CreateSceneInput, Asset, NarrationSegment } from '@/types/project'
-import { sortByModificationDate, clipRate, DEFAULT_SCENE_DURATION } from '@/lib/timeline'
+import { sortByModificationDate, sortAssets, clipRate, DEFAULT_SCENE_DURATION } from '@/lib/timeline'
 import { withDefaults, pickAnimation, pickTransition, type SyncSettings } from '@/lib/sync/presets'
 import { decodeAudio, detectPauses, planVariableRhythm, type Pause } from '@/lib/sync/rhythm'
 
@@ -92,44 +94,120 @@ export function useDeleteScene() {
   })
 }
 
-// Reorder scenes (update order field for all scenes)
+async function persistOrder(projectId: string, scenes: Scene[]) {
+  // Preferred: one atomic UPDATE in Postgres (deferrable unique)
+  const { missing } = await callRpc(supabase, 'reorder_scenes', {
+    p_project_id: projectId,
+    p_scene_ids: scenes.map((s) => s.id),
+  })
+  if (!missing) return
+
+  // Fallback (migration 002 not applied): two phases to respect unique(project_id, order_index)
+  const OFFSET = 100000
+  const phase = async (offset: number) => {
+    const results = await Promise.all(
+      scenes.map((scene, index) => supabase.from('scenes').update({ order_index: index + offset }).eq('id', scene.id))
+    )
+    const failed = results.find((r) => r.error)
+    if (failed?.error) throw failed.error
+  }
+  await phase(OFFSET)
+  await phase(0)
+}
+
+// Reorder scenes (update order field for all scenes) — optimistic
 export function useReorderScenes() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
-      projectId,
-      scenes,
-    }: {
-      projectId: string
-      scenes: Scene[]
-    }) => {
-      // Preferred: one atomic UPDATE in Postgres (deferrable unique)
-      const { missing } = await callRpc(supabase, 'reorder_scenes', {
-        p_project_id: projectId,
-        p_scene_ids: scenes.map((s) => s.id),
-      })
-      if (!missing) return scenes
-
-      // Fallback (migration 002 not applied): two phases to respect unique(project_id, order_index)
-      const OFFSET = 100000
-      const phase = async (offset: number) => {
-        const results = await Promise.all(
-          scenes.map((scene, index) =>
-            supabase.from('scenes').update({ order_index: index + offset }).eq('id', scene.id)
-          )
-        )
-        const failed = results.find((r) => r.error)
-        if (failed?.error) throw failed.error
-      }
-      await phase(OFFSET)
-      await phase(0)
+    mutationFn: async ({ projectId, scenes }: { projectId: string; scenes: Scene[] }) => {
+      await persistOrder(projectId, scenes)
       return scenes
     },
-    onSuccess: (_, { projectId }) => {
+    onMutate: ({ projectId, scenes }) => {
+      queryClient.setQueryData<Scene[]>(['scenes', projectId], scenes.map((s, i) => ({ ...s, order_index: i })))
+    },
+    onSettled: (_, __, { projectId }) => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] })
     },
   })
+}
+
+/** Inserts a scene at `index` (e.g. media dropped between two clips) */
+export function useInsertScene() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      scenes,
+      index,
+      input,
+    }: {
+      projectId: string
+      scenes: Scene[]
+      index: number
+      input: Omit<CreateSceneInput, 'project_id' | 'order_index'>
+    }) => {
+      const nextOrder = scenes.reduce((m, s) => Math.max(m, s.order_index), -1) + 1
+      const { data, error } = await supabase
+        .from('scenes')
+        .insert([{ ...input, project_id: projectId, order_index: nextOrder }])
+        .select()
+        .single()
+      if (error) throw error
+      const created = data as Scene
+      if (index < scenes.length) {
+        const ordered = [...scenes]
+        ordered.splice(Math.max(0, index), 0, created)
+        await persistOrder(projectId, ordered)
+      }
+      return created
+    },
+    onSettled: (_, __, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: ['scenes', projectId] })
+    },
+  })
+}
+
+/**
+ * Live scene edits from the inspector: cache updated instantly (preview reacts),
+ * DB write debounced so dragging a slider doesn't flood Supabase.
+ */
+export function usePatchScene(projectId: string) {
+  const queryClient = useQueryClient()
+  const pending = useRef(new Map<string, Partial<Scene>>())
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  const flush = useCallback(async () => {
+    const batch = [...pending.current.entries()]
+    pending.current.clear()
+    const results = await Promise.all(batch.map(([id, updates]) => supabase.from('scenes').update(updates).eq('id', id)))
+    const failed = results.find((r) => r.error)
+    if (failed?.error) {
+      toast.error('Não foi possível salvar a alteração da cena', { description: failed.error.message })
+      queryClient.invalidateQueries({ queryKey: ['scenes', projectId] })
+    }
+  }, [projectId, queryClient])
+
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current)
+      if (pending.current.size) void flush()
+    },
+    [flush]
+  )
+
+  return useCallback(
+    (sceneId: string, updates: Partial<Scene>) => {
+      queryClient.setQueryData<Scene[]>(['scenes', projectId], (old) =>
+        old?.map((s) => (s.id === sceneId ? { ...s, ...updates } : s))
+      )
+      pending.current.set(sceneId, { ...(pending.current.get(sceneId) || {}), ...updates })
+      clearTimeout(timer.current)
+      timer.current = setTimeout(() => void flush(), 450)
+    },
+    [projectId, queryClient, flush]
+  )
 }
 
 
@@ -186,7 +264,7 @@ export function useAutoAssemble() {
         url: '',
       })) as Asset[]
 
-      const videos = sortByModificationDate(assets.filter((a) => a.type === 'video'))
+      const videos = sortAssets(assets.filter((a) => a.type === 'video'), settings.order.by, settings.order.reverse)
       if (videos.length === 0) throw new Error('Nenhum vídeo encontrado. Faça upload dos clipes primeiro.')
 
       // Narration: ordered by modification date, identical files (same size + duration) skipped
@@ -255,6 +333,7 @@ export function useAutoAssemble() {
         if (video.duration && video.duration * rate < duration - 0.05) heldFrameScenes++
 
         const seg = narrationTrack.find((s) => cursor >= s.start && cursor < s.start + s.duration)
+        const animation = pickAnimation(settings, index)
         const scene = {
           project_id: projectId,
           order_index: index,
@@ -265,13 +344,14 @@ export function useAutoAssemble() {
           audio_start: seg ? Math.round((cursor - seg.start) * 1000) / 1000 : null,
           audio_duration: Math.round(duration * 1000) / 1000,
           transition_in: pickTransition(settings, index),
-          animation_type: pickAnimation(settings, index),
+          animation_type: animation,
           generated_in_flow: false,
           metadata: {
             video_filename: video.filename,
             timeline_start: Math.round(cursor * 1000) / 1000,
             playback_rate: rate,
             clip_duration: video.duration,
+            ...(animation !== 'none' ? { anim: settings.animation.params } : {}),
           },
         }
         cursor += duration
@@ -318,7 +398,7 @@ export function useAutoAssemble() {
 }
 
 /** Atomic jsonb merge on projects.config (RPC); falls back to read-modify-write */
-async function patchProjectConfig(projectId: string, patch: Record<string, unknown>) {
+export async function patchProjectConfig(projectId: string, patch: Record<string, unknown>) {
   const { missing } = await callRpc(supabase, 'patch_project_config', { p_project_id: projectId, p_patch: patch })
   if (!missing) return
   const { data: project, error } = await supabase.from('projects').select('config').eq('id', projectId).single()
@@ -353,7 +433,11 @@ export function useApplyEffects() {
         scenes.map((scene, index) =>
           supabase
             .from('scenes')
-            .update({ animation_type: pickAnimation(settings, index), transition_in: pickTransition(settings, index) })
+            .update({
+              animation_type: pickAnimation(settings, index),
+              transition_in: pickTransition(settings, index),
+              metadata: { ...(scene.metadata || {}), anim: settings.animation.params },
+            })
             .eq('id', scene.id)
         )
       )

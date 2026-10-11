@@ -1,11 +1,16 @@
 // Visual math shared by the preview monitor and the effect picker tiles,
 // so what you see in the picker is exactly what plays (and what goes to CapCut).
-import { ANIMATION_BY_ID, normalizeAnimation, type TransitionId } from './presets'
+import { ANIMATION_BY_ID, normalizeAnimation, poseWithParams, type AnimationParams, type TransitionId } from './presets'
 
-export function animationPose(animationId: string | null | undefined, local: number, duration: number) {
+export function animationPose(
+  animationId: string | null | undefined,
+  local: number,
+  duration: number,
+  params?: Partial<AnimationParams> | null
+) {
   const preset = ANIMATION_BY_ID.get(normalizeAnimation(animationId) as never)
   if (!preset || duration <= 0) return { scale: 1, x: 0 }
-  return preset.pose(Math.max(0, Math.min(duration, local)), duration)
+  return poseWithParams(preset, local, duration, params)
 }
 
 export function poseToTransform(p: { scale: number; x: number }, extraScale = 1) {

@@ -7,13 +7,16 @@
 // JSON shape validated against pyCapCut output (CapCut 6.x+ format, not encrypted).
 import contentTemplate from './draft_content_template.json'
 import metaTemplate from './draft_meta_template.json'
-import type { TimedScene } from '@/lib/timeline'
-import type { Asset } from '@/types/project'
+import { sceneProps, packRows, type TimedScene } from '@/lib/timeline'
+import type { Asset, AudioClip, OverlayClip } from '@/types/project'
 import {
   ANIMATION_BY_ID,
   TRANSITION_BY_ID,
   normalizeAnimation,
   normalizeTransition,
+  poseWithParams,
+  sampleTimes,
+  type AnimationParams,
   type SyncSettings,
 } from '@/lib/sync/presets'
 
@@ -38,6 +41,10 @@ export interface DraftInput {
   fileNames: Map<string, string>
   /** clip audio level under narration (0..1) */
   clipVolume: number
+  /** image/video layers above the main track */
+  overlays?: { clip: OverlayClip; asset: Asset }[]
+  /** music / SFX */
+  audioClips?: { clip: AudioClip; asset: Asset }[]
 }
 
 export interface DraftOutput {
@@ -101,11 +108,11 @@ function keyframe(timeOffsetUs: number, value: number) {
 }
 
 /** Animation preset -> CapCut common_keyframes (uniform scale + optional X position) */
-function animationKeyframes(animationId: string, durationS: number) {
+function animationKeyframes(animationId: string, durationS: number, params?: Partial<AnimationParams>) {
   const preset = ANIMATION_BY_ID.get(normalizeAnimation(animationId) as never)
   if (!preset) return []
-  const times = preset.samples(durationS)
-  const poses = times.map((t) => ({ t, ...preset.pose(t, durationS) }))
+  const times = sampleTimes(preset, durationS, params)
+  const poses = times.map((t) => ({ t, ...poseWithParams(preset, t, durationS, params) }))
   const out = [
     {
       id: hex(),
@@ -201,24 +208,32 @@ export function buildDraft(input: DraftInput): DraftOutput {
   // ---- Video track ----------------------------------------------------------
   const videoSegments: any[] = []
   const starts = input.timeline.map((t) => toUs(t.start))
-  const totalS = input.timeline.length
+  const mainS = input.timeline.length
     ? input.timeline[input.timeline.length - 1].start + input.timeline[input.timeline.length - 1].duration
     : 0
+  const mainUs = toUs(mainS)
+  const totalS = Math.max(
+    mainS,
+    ...(input.overlays || []).map((o) => o.clip.start + o.clip.duration),
+    ...(input.audioClips || []).map((a) => a.clip.start + a.clip.duration),
+    0
+  )
   const totalUs = toUs(totalS)
 
   input.timeline.forEach((item, i) => {
     const media = item.videoAsset || item.imageAsset
     if (!media) return
     const startUs = starts[i]
-    const durUs = (i + 1 < starts.length ? starts[i + 1] : totalUs) - startUs
+    const durUs = (i + 1 < starts.length ? starts[i + 1] : mainUs) - startUs
     const durS = durUs / US
     const isPhoto = !item.videoAsset
+    const props = sceneProps(item.scene)
 
-    // Speed: keep CLI rule (slow down >= 0.8x); if the clip is still short, slow further
-    // so CapCut has no gap (preview holds the last frame instead).
+    // Speed: user speed (inspector) or 1x. If the clip runs out before the scene ends, slow it
+    // down further so CapCut has no gap (the preview holds the last frame instead).
     const clipS = input.mediaInfo.get(media.id)?.duration || media.duration || durS
-    let speed = 1
-    if (!isPhoto && clipS < durS) speed = Math.max(0.1, Math.floor((clipS / durS) * 1000) / 1000)
+    let speed = item.manualSpeed ? item.rate : 1
+    if (!isPhoto && clipS < durS * speed) speed = Math.max(0.1, Math.floor((clipS / durS) * 1000) / 1000)
     const sourceUs = isPhoto ? durUs : Math.min(Math.round(durUs * speed), toUs(clipS))
 
     const speedMat = speedMaterial(speed)
@@ -254,11 +269,11 @@ export function buildDraft(input: DraftInput): DraftOutput {
       id: hex(),
       material_id: registerVideo(media),
       target_timerange: { start: startUs, duration: durUs },
-      common_keyframes: animationKeyframes(item.scene.animation_type || 'none', durS),
+      common_keyframes: animationKeyframes(item.scene.animation_type || 'none', durS, props.anim),
       keyframe_refs: [],
       source_timerange: { start: 0, duration: sourceUs },
       speed,
-      volume: isPhoto ? 1.0 : input.clipVolume,
+      volume: isPhoto ? 1.0 : props.volume ?? input.clipVolume,
       extra_material_refs: refs,
       is_tone_modify: false,
       clip: {
@@ -298,11 +313,79 @@ export function buildDraft(input: DraftInput): DraftOutput {
     }
   })
 
+  // ---- Overlay tracks (Sobreposição): one CapCut video track per non-overlapping row --------
+  const overlayTracks = packRows(input.overlays || [], (o) => o.clip).map((row, r) => {
+    const layer = r + 1
+    const segments = row.map(({ clip, asset }) => {
+      const isPhoto = asset.type === 'image'
+      const durUs = toUs(clip.duration)
+      const clipS = input.mediaInfo.get(asset.id)?.duration || asset.duration || clip.duration
+      const speed = isPhoto ? 1 : clip.speed || 1
+      const speedMat = speedMaterial(speed)
+      mat.speeds.push(speedMat)
+      return {
+        ...SEGMENT_COMMON,
+        track_render_index: layer,
+        id: hex(),
+        material_id: registerVideo(asset),
+        target_timerange: { start: toUs(clip.start), duration: durUs },
+        common_keyframes: [],
+        keyframe_refs: [],
+        source_timerange: { start: 0, duration: isPhoto ? durUs : Math.min(Math.round(durUs * speed), toUs(clipS)) },
+        speed,
+        volume: isPhoto ? 1.0 : clip.volume ?? 0,
+        extra_material_refs: [speedMat.id],
+        is_tone_modify: false,
+        clip: {
+          alpha: Math.round(clip.opacity * 1000) / 1000,
+          flip: { horizontal: false, vertical: false },
+          rotation: 0.0,
+          scale: { x: clip.scale, y: clip.scale },
+          // CapCut units: fraction of half canvas, y up — same as OverlayClip
+          transform: { x: clip.x, y: clip.y },
+        },
+        uniform_scale: { on: true, value: clip.scale },
+        hdr_settings: { intensity: 1.0, mode: 1, nits: 1000 },
+        render_index: layer,
+      }
+    })
+    return { attribute: 0, flag: 0, id: hex(), is_default_name: false, name: `sobreposicao_${layer}`, type: 'video', segments }
+  })
+
+  // ---- Extra audio tracks (music / SFX) ------------------------------------------------
+  const extraAudioTracks = packRows(input.audioClips || [], (a) => a.clip).map((row, r) => {
+    const segments = row.map(({ clip, asset }) => {
+      const speed = clip.speed || 1
+      const speedMat = speedMaterial(speed)
+      mat.speeds.push(speedMat)
+      const durUs = toUs(clip.duration)
+      return {
+        ...SEGMENT_COMMON,
+        id: hex(),
+        material_id: registerAudio(asset),
+        target_timerange: { start: toUs(clip.start), duration: durUs },
+        common_keyframes: [],
+        keyframe_refs: [],
+        source_timerange: { start: 0, duration: Math.min(Math.round(durUs * speed), toUs(asset.duration || clip.duration * speed)) },
+        speed,
+        volume: clip.volume ?? 1,
+        extra_material_refs: [speedMat.id],
+        is_tone_modify: false,
+        clip: null,
+        hdr_settings: null,
+        render_index: 0,
+      }
+    })
+    return { attribute: 0, flag: 0, id: hex(), is_default_name: false, name: `audio_${r + 1}`, type: 'audio', segments }
+  })
+
   content.tracks = [
     { attribute: 0, flag: 0, id: hex(), is_default_name: false, name: 'video', type: 'video', segments: videoSegments },
+    ...overlayTracks,
     ...(audioSegments.length
       ? [{ attribute: 0, flag: 0, id: hex(), is_default_name: false, name: 'narracao', type: 'audio', segments: audioSegments }]
       : []),
+    ...extraAudioTracks,
   ]
   content.id = upperId()
   content.name = folderName

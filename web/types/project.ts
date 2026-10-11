@@ -1,5 +1,5 @@
 // Types para o sistema de projetos, assets e cenas
-import type { SyncSettings } from '@/lib/sync/presets'
+import type { SyncSettings, AnimationParams } from '@/lib/sync/presets'
 
 export type ProjectMode = 'upload' | 'script-to-prompt'
 export type ProjectStatus = 'draft' | 'in_progress' | 'ready' | 'completed'
@@ -31,6 +31,48 @@ export interface ProjectSettings {
   narration_track?: NarrationSegment[]
   /** SyncExpress assembly options (rhythm, animations, transitions) */
   sync?: Partial<SyncSettings>
+  /** Image/video layers above the main track (CapCut "Sobreposição") */
+  overlays?: OverlayClip[]
+  /** Extra audio (music, SFX) dropped on the audio lane */
+  audio_clips?: AudioClip[]
+}
+
+/** Overlay layer. x/y/scale use CapCut units: x,y = fraction of HALF canvas (y up), scale 1 = fit canvas */
+export interface OverlayClip {
+  id: string
+  asset_id: string
+  kind: 'image' | 'video'
+  /** timeline seconds */
+  start: number
+  duration: number
+  scale: number
+  x: number
+  y: number
+  /** 0..1 */
+  opacity: number
+  /** video only */
+  speed: number
+  /** video only, 0..2 (1 = original) */
+  volume: number
+}
+
+export interface AudioClip {
+  id: string
+  asset_id: string
+  start: number
+  duration: number
+  /** 0..2 (1 = original) */
+  volume: number
+  speed: number
+}
+
+/** Per-scene editable properties kept in scenes.metadata */
+export interface SceneProps {
+  /** user playback speed (overrides the automatic slow-down) */
+  speed?: number
+  /** clip audio level 0..2 (default: low under narration) */
+  volume?: number
+  anim?: Partial<AnimationParams>
 }
 
 export interface NarrationSegment {

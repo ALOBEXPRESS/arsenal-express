@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import { toast } from 'sonner'
 import type { AssetType } from '@/types/project'
 
 interface AssetUploadProps {
@@ -35,23 +36,16 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
       
       // Validate all files first
       const validFiles: File[] = []
+      const badType: string[] = []
+      const tooBig: string[] = []
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
-        
-        // Validate file type
-        if (!acceptTypes.some((t) => file.type.match(t))) {
-          alert(`Invalid file type for "${file.name}". Expected: ${ACCEPT_TYPES[type]}`)
-          continue
-        }
-
-        // Validate file size
-        if (file.size > MAX_SIZES[type]) {
-          alert(`File "${file.name}" too large. Maximum size: ${maxMB}MB`)
-          continue
-        }
-        
-        validFiles.push(file)
+        if (!acceptTypes.some((t) => file.type.match(t))) badType.push(file.name)
+        else if (file.size > MAX_SIZES[type]) tooBig.push(file.name)
+        else validFiles.push(file)
       }
+      if (badType.length) toast.error(`${badType.length} arquivo(s) com formato não suportado`, { description: badType.join('\n') })
+      if (tooBig.length) toast.error(`${tooBig.length} arquivo(s) acima de ${maxMB}MB`, { description: tooBig.join('\n') })
 
       if (validFiles.length === 0) return
 
@@ -75,9 +69,11 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
 
       const ok = validFiles.length - failed.length
       if (failed.length > 0) {
-        alert(`✅ ${ok} enviado(s)\n❌ ${failed.length} falharam:\n${failed.join('\n')}`)
+        toast.warning(`${ok} enviado(s), ${failed.length} falharam`, { description: failed.join('\n') })
       } else {
-        alert(`✅ ${ok} arquivo(s) enviado(s)!`)
+        toast.success(`${ok} arquivo(s) enviado(s)`, {
+          description: type === 'audio' ? 'Narração pronta pra juntar com as cenas.' : 'Arraste da biblioteca pra timeline ou use “Juntar com áudio”.',
+        })
         onComplete?.()
       }
     },

@@ -4,6 +4,8 @@ import { useRef } from 'react'
 import { AudioLines, Clapperboard, Image as ImageIcon, Trash2 } from 'lucide-react'
 import type { Asset } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
+import { confirmDialog } from '@/components/ui/confirm'
+import { useDragAsset, ASSET_MIME } from '@/lib/stores/drag'
 
 interface AssetCardProps {
   asset: Asset
@@ -17,10 +19,21 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const thumb = asset.metadata?.thumbnail as string | undefined
   const Icon = ICONS[asset.type] || Clapperboard
+  const setDragAsset = useDragAsset((s) => s.setAsset)
 
   return (
     <div
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-border bg-surface-2 transition-colors duration-200 hover:border-primary/50"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(ASSET_MIME, asset.id)
+        e.dataTransfer.setData('text/plain', asset.filename)
+        e.dataTransfer.effectAllowed = 'copy'
+        const img = e.currentTarget.querySelector('img')
+        if (img) e.dataTransfer.setDragImage(img, 40, 24)
+        setDragAsset(asset)
+      }}
+      onDragEnd={() => setDragAsset(null)}
+      className="group relative cursor-grab overflow-hidden rounded-lg border border-border bg-surface-2 transition-colors duration-200 hover:border-primary/50 active:cursor-grabbing"
       onClick={() => onSelect?.(asset)}
       onMouseEnter={() => videoRef.current?.play().catch(() => {})}
       onMouseLeave={() => {
@@ -76,9 +89,15 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
 
       {onDelete && (
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation()
-            if (confirm(`Excluir "${asset.filename}"?`)) onDelete(asset)
+            const ok = await confirmDialog({
+              title: `Excluir “${asset.filename}”?`,
+              description: 'O arquivo sai da biblioteca. Cenas que usam essa mídia ficam sem clipe.',
+              confirmLabel: 'Excluir',
+              tone: 'danger',
+            })
+            if (ok) onDelete(asset)
           }}
           className="absolute right-1.5 top-1.5 cursor-pointer rounded bg-black/70 p-1 text-white opacity-0 transition-opacity hover:bg-destructive focus-visible:opacity-100 group-hover:opacity-100"
           aria-label={`Excluir ${asset.filename}`}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { useProjects, useDeleteProject } from '@/lib/hooks/useProjects'
 import { ProjectCard } from './ProjectCard'
 import { Button } from '@/components/ui/button'
@@ -16,7 +17,7 @@ export function ProjectList() {
       await deleteProject.mutateAsync(id)
     } catch (error) {
       console.error('Failed to delete project:', error)
-      alert('Falha ao excluir o projeto. Tente novamente.')
+      toast.error('Falha ao excluir o projeto', { description: 'Tente novamente.' })
     } finally {
       setDeletingId(null)
     }

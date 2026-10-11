@@ -2,7 +2,8 @@
 // (File System Access API, Chrome/Edge).
 import JSZip from 'jszip'
 import { createClient } from '@/lib/supabase/client'
-import type { Asset } from '@/types/project'
+import { confirmDialog } from '@/components/ui/confirm'
+import type { Asset, AudioClip, OverlayClip } from '@/types/project'
 import type { TimedScene } from '@/lib/timeline'
 import { buildDraft, buildTimingCsv, rootMetaEntry, type DraftInput, type MediaInfo, type CapCutSystem } from './draft'
 import type { SyncSettings } from '@/lib/sync/presets'
@@ -17,6 +18,8 @@ export interface PackageOptions {
   narration: { asset: Asset; start: number; duration: number }[]
   settings: SyncSettings
   outputFormat?: CanvasFormat | string
+  overlays?: { clip: OverlayClip; asset: Asset }[]
+  audioClips?: { clip: AudioClip; asset: Asset }[]
   onProgress?: (done: number, total: number, label: string) => void
 }
 
@@ -30,8 +33,13 @@ const slug = (name: string) =>
     .replace(/_+/g, '_')
     .slice(0, 48)
 
-/** Stable media file names: 001_clip.mp4 ... in timeline order, narration_1.wav ... */
-export function mediaFileNames(timeline: TimedScene[], narration: { asset: Asset }[]) {
+/** Stable media file names: 001_clip.mp4 ... in timeline order, narration_1.wav, overlay_/audio_ ... */
+export function mediaFileNames(
+  timeline: TimedScene[],
+  narration: { asset: Asset }[],
+  overlays: { asset: Asset }[] = [],
+  audioClips: { asset: Asset }[] = []
+) {
   const names = new Map<string, string>()
   let i = 1
   for (const t of timeline) {
@@ -40,6 +48,14 @@ export function mediaFileNames(timeline: TimedScene[], narration: { asset: Asset
   }
   narration.forEach((n, k) => {
     if (!names.has(n.asset.id)) names.set(n.asset.id, `narracao_${k + 1}${ext(n.asset.filename) || '.wav'}`)
+  })
+  let o = 1
+  overlays.forEach(({ asset }) => {
+    if (!names.has(asset.id)) names.set(asset.id, `sobrepor_${pad(o++)}_${slug(asset.filename)}${ext(asset.filename)}`)
+  })
+  let s = 1
+  audioClips.forEach(({ asset }) => {
+    if (!names.has(asset.id)) names.set(asset.id, `audio_${pad(s++)}_${slug(asset.filename)}${ext(asset.filename)}`)
   })
   return names
 }
@@ -90,11 +106,13 @@ export async function prepareDraft(opts: PackageOptions) {
     if (a) allAssets.set(a.id, a)
   })
   opts.narration.forEach((n) => allAssets.set(n.asset.id, n.asset))
+  opts.overlays?.forEach((o) => allAssets.set(o.asset.id, o.asset))
+  opts.audioClips?.forEach((c) => allAssets.set(c.asset.id, c.asset))
 
   const mediaInfo = new Map<string, MediaInfo>()
   await Promise.all([...allAssets.values()].map(async (a) => mediaInfo.set(a.id, await probe(a))))
 
-  const fileNames = mediaFileNames(opts.timeline, opts.narration)
+  const fileNames = mediaFileNames(opts.timeline, opts.narration, opts.overlays, opts.audioClips)
   const videoInfos = opts.timeline
     .map((t) => (t.videoAsset ? mediaInfo.get(t.videoAsset.id) : undefined))
     .filter(Boolean) as MediaInfo[]
@@ -110,6 +128,8 @@ export async function prepareDraft(opts: PackageOptions) {
     mediaInfo,
     fileNames,
     clipVolume: opts.narration.length ? 0.125 : 1.0, // -18 dB under narration (CLI config)
+    overlays: opts.overlays,
+    audioClips: opts.audioClips,
   }
   const draft = buildDraft(input)
   return { draft, fileNames, assets: [...allAssets.values()] }
@@ -178,9 +198,11 @@ export async function saveDraftToFolder(opts: PackageOptions) {
   const picker = (window as unknown as { showDirectoryPicker: (o?: object) => Promise<DirHandle> }).showDirectoryPicker
   const rootDir = await picker({ id: 'capcut-drafts', mode: 'readwrite' })
   if (rootDir.name !== 'com.lveditor.draft') {
-    const ok = confirm(
-      `A pasta escolhida é "${rootDir.name}", não "com.lveditor.draft".\nO CapCut só encontra projetos dentro de com.lveditor.draft. Salvar mesmo assim?`
-    )
+    const ok = await confirmDialog({
+      title: 'Pasta diferente da do CapCut',
+      description: `A pasta escolhida é “${rootDir.name}”, não “com.lveditor.draft”. O CapCut só encontra projetos dentro de com.lveditor.draft. Salvar mesmo assim?`,
+      confirmLabel: 'Salvar mesmo assim',
+    })
     if (!ok) return null
   }
   const { draft, fileNames, assets } = await prepareDraft(opts)

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, CreateProjectInput, UpdateProjectInput } from '@/types/project'
 
@@ -101,7 +102,7 @@ export function useCreateProject() {
     onError: (error: { message?: string; hint?: string; details?: string; code?: string }) => {
       const errorMessage = error?.message || error?.hint || error?.details || 'erro desconhecido'
       const errorCode = error?.code ? ` (código ${error.code})` : ''
-      alert(`Não foi possível criar o projeto: ${errorMessage}${errorCode}`)
+      toast.error('Não foi possível criar o projeto', { description: `${errorMessage}${errorCode}` })
     },
   })
 }

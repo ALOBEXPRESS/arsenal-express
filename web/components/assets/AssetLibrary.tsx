@@ -50,7 +50,7 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
       <div className="space-y-3 border-b border-border p-3">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-[15px] font-bold">Mídias</h2>
-          <span className="eyebrow">por data</span>
+          <span className="eyebrow" title="Arraste clipes, imagens e áudios pra timeline">arraste → timeline</span>
         </div>
 
         <div className="grid grid-cols-3 gap-1.5">

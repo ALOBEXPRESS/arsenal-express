@@ -1,37 +1,44 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Scene, Asset, NarrationSegment } from '@/types/project'
+import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip } from '@/types/project'
 import { Play, Pause, Mic } from 'lucide-react'
 import {
   buildTimeline,
   totalDuration,
   sceneAt,
   narrationAt,
+  sceneProps,
   formatTime,
   formatTimecode,
   TRANSITION_DURATION,
   type TimedScene,
 } from '@/lib/timeline'
-import { ANIMATION_BY_ID, normalizeAnimation, normalizeTransition } from '@/lib/sync/presets'
+import { normalizeTransition } from '@/lib/sync/presets'
 import { animationPose, poseToTransform, transitionStyle } from '@/lib/sync/visual'
 import { usePlayhead } from '@/lib/stores/playhead'
+import { cn } from '@/lib/utils'
 
 interface VideoPreviewProps {
   scenes: Scene[]
   assets: Asset[]
   narrationTrack?: NarrationSegment[]
+  overlays?: OverlayClip[]
+  audioClips?: AudioClip[]
   /** Change `nonce` to request a seek to `time` (e.g. clicking a scene card) */
   seekRequest?: { time: number; nonce: number }
   onSceneChange?: (index: number) => void
   transitionDuration?: number
   /** Output frame; "auto" follows the clips */
   format?: string
+  selectedOverlayId?: string | null
+  onSelectOverlay?: (id: string) => void
+  /** Overlay moved by dragging it on the monitor (committed on pointer up) */
+  onOverlayChange?: (id: string, patch: Partial<OverlayClip>) => void
 }
 
-
 // Clip audio is kept low under narration (config.yaml -> audio.clipes.volume_db: -18)
-const CLIP_VOLUME_UNDER_NARRATION = 0.125
+export const CLIP_VOLUME_UNDER_NARRATION = 0.125
 const DRIFT_TOLERANCE = 0.3
 const HARD_SEEK = 0.6
 
@@ -49,25 +56,71 @@ function hasTransition(item?: TimedScene) {
   return !!item && item.index > 0 && normalizeTransition(item.scene.transition_in) !== 'cut'
 }
 
+/**
+ * Keeps a media element on the master clock.
+ * local = position inside the source; end = last playable second.
+ */
+function syncMedia(el: HTMLMediaElement, local: number, rate: number, playing: boolean, active: boolean, end = Infinity) {
+  if (!active || local < 0) {
+    if (!el.paused) el.pause()
+    if (el.currentTime > 0.05 && el.readyState > 0 && local < 0) el.currentTime = 0
+    return
+  }
+  if (local >= end) {
+    // source shorter than the slot: hold the last frame
+    if (!el.paused) el.pause()
+    if (Number.isFinite(end) && Math.abs(el.currentTime - end) > 0.1 && el.readyState > 0) el.currentTime = end
+    return
+  }
+  if (el.readyState > 0) {
+    const drift = local - el.currentTime
+    if (!playing) {
+      if (el.playbackRate !== rate) el.playbackRate = rate
+      if (Math.abs(drift) > 0.04) el.currentTime = local
+    } else if (Math.abs(drift) > HARD_SEEK) {
+      el.playbackRate = rate
+      el.currentTime = local
+    } else if (el.playbackRate !== rate) {
+      el.playbackRate = rate
+    }
+  }
+  if (playing) safePlay(el)
+  else if (!el.paused) el.pause()
+}
+
 export function VideoPreview({
   scenes,
   assets,
   narrationTrack = [],
+  overlays = [],
+  audioClips = [],
   seekRequest,
   onSceneChange,
   transitionDuration = TRANSITION_DURATION,
-  format = "auto",
+  format = 'auto',
+  selectedOverlayId,
+  onSelectOverlay,
+  onOverlayChange,
 }: VideoPreviewProps) {
   const TRANSITION = transitionDuration
   const publishTime = usePlayhead((s) => s.setTime)
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
-  const total = totalDuration(timeline)
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
+  const total = useMemo(
+    () =>
+      Math.max(
+        totalDuration(timeline),
+        ...overlays.map((o) => o.start + o.duration),
+        ...audioClips.map((a) => a.start + a.duration),
+        0
+      ),
+    [timeline, overlays, audioClips]
+  )
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [time, setTime] = useState(0)
 
-  const hasScenes = timeline.length > 0
+  const hasContent = timeline.length > 0 || overlays.length > 0
   // Fallback for assets uploaded before width/height were stored: read the loaded <video>
   const [probedVertical, setProbedVertical] = useState(false)
 
@@ -92,7 +145,7 @@ export function VideoPreview({
     const ro = new ResizeObserver(([e]) => setBox({ w: e.contentRect.width, h: e.contentRect.height }))
     ro.observe(el)
     return () => ro.disconnect()
-  }, [hasScenes])
+  }, [hasContent])
   const stage = useMemo(() => {
     if (!box.w || !box.h) return { w: 0, h: 0 }
     const s = Math.min(box.w / aspect.w, box.h / aspect.h)
@@ -101,47 +154,13 @@ export function VideoPreview({
 
   const clockRef = useRef(0)
   const playingRef = useRef(false)
-  const videoRefs = [useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null)]
-  const animRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)]
-  const animations = useRef<(Animation | null)[]>([null, null])
+  const hostRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)]
   const audioRef = useRef<HTMLAudioElement>(null)
+  const overlayEls = useRef(new Map<string, HTMLDivElement>())
+  const audioEls = useRef(new Map<string, HTMLAudioElement>())
 
-  /**
-   * Clip animation on the compositor thread. Keyframes = the same samples exported to CapCut
-   * (linear between keyframes, exactly like CapCut). Main-thread jank can't make it stutter.
-   */
-  const driveAnimation = useCallback((slot: number, item: TimedScene | undefined, local: number, run: boolean) => {
-    const host = animRefs[slot].current
-    if (!host) return
-    const key = item ? `${item.scene.id}|${item.scene.animation_type}|${item.duration.toFixed(3)}` : ''
-    let anim = animations.current[slot]
-    if (host.dataset.anim !== key) {
-      anim?.cancel()
-      anim = null
-      host.dataset.anim = key
-      const preset = item ? ANIMATION_BY_ID.get(normalizeAnimation(item.scene.animation_type) as never) : undefined
-      if (item && preset && item.duration > 0) {
-        const times = [...new Set([0, ...preset.samples(item.duration), item.duration])].sort((a, b) => a - b)
-        anim = host.animate(
-          times.map((s) => ({ offset: Math.min(1, s / item.duration), transform: poseToTransform(preset.pose(s, item.duration)) })),
-          { duration: item.duration * 1000, fill: 'both', easing: 'linear' }
-        )
-        anim.pause()
-      }
-      animations.current[slot] = anim
-    }
-    if (!anim) return
-    const target = Math.max(0, Math.min(item!.duration, local)) * 1000
-    const drift = Math.abs(Number(anim.currentTime ?? 0) - target)
-    if (!run) {
-      if (anim.playState !== 'paused') anim.pause()
-      if (drift > 1) anim.currentTime = target
-    } else {
-      if (drift > 120) anim.currentTime = target // only on seek / scene entry
-      if (anim.playState !== 'running') anim.play()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // natural size of overlay media → fitted box ("contain" in the canvas, like CapCut scale 1)
+  const [natural, setNatural] = useState<Record<string, { w: number; h: number }>>({})
 
   // ---- Derived render state -------------------------------------------------
   const currentIndex = timeline.length ? sceneAt(timeline, time) : 0
@@ -150,7 +169,7 @@ export function VideoPreview({
   const inTransition = hasTransition(current) && sinceStart < TRANSITION
   const progress = inTransition ? Math.min(1, sinceStart / TRANSITION) : 1
 
-  // Two video layers (A/B) so the next clip is preloaded and can crossfade in
+  // Two layers (A/B) so the next clip is preloaded and can crossfade in
   const slotScene: (number | null)[] = [null, null]
   if (current) {
     const slot = currentIndex % 2
@@ -159,7 +178,7 @@ export function VideoPreview({
     slotScene[1 - slot] = other >= 0 && other < timeline.length ? other : null
   }
 
-  // ---- Media sync (runs every animation frame) ------------------------------
+  // ---- Media + motion sync (runs every animation frame) ----------------------
   const sync = useCallback(
     (t: number, playing: boolean) => {
       const idx = timeline.length ? sceneAt(timeline, t) : 0
@@ -167,55 +186,59 @@ export function VideoPreview({
       const transitioning = hasTransition(cur) && t - (cur?.start ?? 0) < TRANSITION
       const narrationActive = narrationTrack.length > 0
 
-      videoRefs.forEach((ref, slot) => {
-        const el = ref.current
-        if (!el || el.dataset.scene === undefined || el.dataset.scene === '') {
-          driveAnimation(slot, undefined, 0, false)
-          return
-        }
-        const k = Number(el.dataset.scene)
+      hostRefs.forEach((ref) => {
+        const host = ref.current
+        if (!host) return
+        const k = host.dataset.scene === undefined || host.dataset.scene === '' ? -1 : Number(host.dataset.scene)
         const item = timeline[k]
-        if (!item) return
+        if (!item) {
+          host.style.transform = ''
+          return
+        }
+        // Clip animation: pose computed from the master clock and written straight to the
+        // compositor-friendly transform (no React render, no WAAPI restart at the cut)
+        const since = t - item.start
+        const pose = animationPose(item.scene.animation_type, since, item.duration, sceneProps(item.scene).anim)
+        host.style.transform = poseToTransform(pose)
 
-        el.volume = narrationActive ? CLIP_VOLUME_UNDER_NARRATION : 1
+        const el = host.querySelector('video')
+        if (!el) return
+        const props = sceneProps(item.scene)
+        el.volume = Math.min(1, props.volume ?? (narrationActive ? CLIP_VOLUME_UNDER_NARRATION : 1))
         const clipDur = item.videoAsset?.duration || (Number.isFinite(el.duration) ? el.duration : 0)
-        const local = (t - item.start) * item.rate
         const visible = k === idx || (transitioning && k === idx - 1)
-        driveAnimation(slot, item, t - item.start, playing && visible && t >= item.start)
-
-        if (!visible || local < 0) {
-          // Preloaded next clip waits on its first frame
-          if (!el.paused) el.pause()
-          if (el.currentTime > 0.05 && el.readyState > 0) el.currentTime = 0
-          return
-        }
-
-        const end = clipDur > 0 ? clipDur - 0.05 : Infinity
-        if (local >= end) {
-          // Clip shorter than scene: hold last frame (same as CLI 'segurar_frame')
-          if (!el.paused) el.pause()
-          if (Number.isFinite(end) && Math.abs(el.currentTime - end) > 0.1 && el.readyState > 0) el.currentTime = end
-          return
-        }
-
-        if (el.readyState > 0) {
-          const drift = local - el.currentTime // >0: video is behind the master clock
-          if (!playing) {
-            if (el.playbackRate !== item.rate) el.playbackRate = item.rate
-            if (Math.abs(drift) > 0.04) el.currentTime = local
-          } else if (Math.abs(drift) > HARD_SEEK) {
-            // Only jump when really out of sync (scrub, scene start, stall)
-            el.playbackRate = item.rate
-            el.currentTime = local
-          } else if (el.playbackRate !== item.rate) {
-            // Exact speed: changing playbackRate repeatedly re-times the decoder (micro-stutter).
-            // Small drift (<0.6s) is invisible on a clip; big drift is fixed by the seek above.
-            el.playbackRate = item.rate
-          }
-        }
-        if (playing) safePlay(el)
-        else if (!el.paused) el.pause()
+        syncMedia(el, since * item.rate, item.rate, playing, visible, clipDur > 0 ? clipDur - 0.05 : Infinity)
       })
+
+      // Overlays: visibility per frame + video sync
+      for (const o of overlays) {
+        const host = overlayEls.current.get(o.id)
+        if (!host) continue
+        const active = t >= o.start && t < o.start + o.duration
+        host.style.visibility = active ? 'visible' : 'hidden'
+        const v = host.querySelector('video')
+        if (v) {
+          const a = assetById.get(o.asset_id)
+          v.volume = Math.min(1, Math.max(0, o.volume ?? 1))
+          const end = a?.duration ? a.duration - 0.05 : Infinity
+          syncMedia(v, (t - o.start) * (o.speed || 1), o.speed || 1, playing, active, end)
+        }
+      }
+
+      // Extra audio lane (music / SFX)
+      for (const c of audioClips) {
+        const el = audioEls.current.get(c.id)
+        if (!el) continue
+        const a = assetById.get(c.asset_id)
+        const active = t >= c.start && t < c.start + c.duration
+        el.volume = Math.min(1, Math.max(0, c.volume ?? 1))
+        const end = a?.duration ? a.duration - 0.02 : Infinity
+        if (!active) {
+          if (!el.paused) el.pause()
+          continue
+        }
+        syncMedia(el, (t - c.start) * (c.speed || 1), c.speed || 1, playing, true, end)
+      }
 
       // Narration: N files played back-to-back on one continuous track
       const audio = audioRef.current
@@ -238,20 +261,22 @@ export function VideoPreview({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [timeline, narrationTrack, assetById, TRANSITION, driveAnimation]
+    [timeline, narrationTrack, overlays, audioClips, assetById, TRANSITION]
   )
 
   // Master clock
   useEffect(() => {
     let raf = 0
     let last = performance.now()
+    let lastUi = 0
+    let lastIdx = -1
     const tick = (now: number) => {
       const dt = (now - last) / 1000
       last = now
       if (playingRef.current) {
         let next = clockRef.current + dt
         // Smooth clock (rAF) gently pulled toward the narration. audio.currentTime only updates
-        // in coarse steps, so snapping to it made animations move in jerks ("tremendo").
+        // in coarse steps, so snapping to it made animations move in jerks.
         const audio = audioRef.current
         const seg = narrationAt(narrationTrack, clockRef.current)
         if (audio && seg && !audio.paused && audio.readyState >= 3 && audio.dataset.asset === seg.asset_id) {
@@ -264,7 +289,7 @@ export function VideoPreview({
           setIsPlaying(false)
         }
         // React re-render budget: ~15fps for slate/timecode/playhead; every frame only around
-        // a cut (layer swap + transition opacity). Fewer main-thread renders = no frame drops.
+        // a cut (layer swap + transition opacity).
         const t = clockRef.current
         const idx = timeline.length ? sceneAt(timeline, t) : 0
         const item = timeline[idx]
@@ -282,21 +307,21 @@ export function VideoPreview({
       sync(clockRef.current, playingRef.current)
       raf = requestAnimationFrame(tick)
     }
-    let lastUi = 0
-    let lastIdx = -1
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [sync, total, narrationTrack, publishTime, timeline, TRANSITION])
 
   // Pause everything on unmount
   useEffect(() => {
-    const vids = videoRefs.map((r) => r.current)
+    const hosts = hostRefs.map((r) => r.current)
     const audio = audioRef.current
-    const anims = animations.current
+    const extra = audioEls.current
+    const layers = overlayEls.current
     return () => {
-      vids.forEach((v) => v?.pause())
+      hosts.forEach((h) => h?.querySelector('video')?.pause())
       audio?.pause()
-      anims.forEach((a) => a?.cancel())
+      extra.forEach((a) => a.pause())
+      layers.forEach((l) => l.querySelector('video')?.pause())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -314,6 +339,15 @@ export function VideoPreview({
     if (seekRequest) seek(seekRequest.time)
   }, [seekRequest, seek])
 
+  // Seeks requested through the shared playhead store (timeline scrubbing)
+  useEffect(
+    () =>
+      usePlayhead.subscribe((s, prev) => {
+        if (s.seekReq && s.seekReq !== prev.seekReq) seek(s.seekReq.t)
+      }),
+    [seek]
+  )
+
   // Keep clock inside bounds when timeline changes
   useEffect(() => {
     if (clockRef.current > total) seek(total)
@@ -323,7 +357,7 @@ export function VideoPreview({
     onSceneChange?.(currentIndex)
   }, [currentIndex, onSceneChange])
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (playingRef.current) {
       playingRef.current = false
       setIsPlaying(false)
@@ -332,21 +366,36 @@ export function VideoPreview({
     if (clockRef.current >= total - 0.05) seek(0)
     playingRef.current = true
     setIsPlaying(true)
-  }
+  }, [total, seek])
 
-  // Space bar toggles playback (ignored while typing in inputs)
+  // Space bar toggles playback (ignored while typing in inputs / using sliders)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (e.code !== 'Space' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      const el = e.target as HTMLElement
+      const tag = el?.tagName
+      if (e.code !== 'Space' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.getAttribute?.('role') === 'slider') return
+      if (tag === 'BUTTON') return // let buttons handle their own Space
       e.preventDefault()
       togglePlay()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  })
+  }, [togglePlay])
 
-  if (timeline.length === 0) {
+  // ---- Overlay drag on the monitor -------------------------------------------
+  const dragRef = useRef<{ id: string; px: number; py: number; x: number; y: number; moved: boolean } | null>(null)
+  const fitted = (o: OverlayClip) => {
+    const n = natural[o.id]
+    const a = assetById.get(o.asset_id)
+    const w = n?.w || Number(a?.metadata?.width) || 1
+    const h = n?.h || Number(a?.metadata?.height) || 1
+    const s = Math.min(stage.w / w, stage.h / h)
+    return { w: w * s, h: h * s }
+  }
+  const overlayTransform = (o: { x: number; y: number; scale: number }) =>
+    `translate3d(${((o.x * stage.w) / 2).toFixed(2)}px, ${((-o.y * stage.h) / 2).toFixed(2)}px, 0) scale(${o.scale.toFixed(4)})`
+
+  if (!hasContent) {
     return (
       <div className="grain flex h-full w-full items-center justify-center rounded-xl border border-dashed border-border bg-surface-1">
         <div className="text-center">
@@ -354,6 +403,8 @@ export function VideoPreview({
           <p className="font-display text-lg font-bold">Monitor vazio</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Suba clipes + narração e clique em <span className="text-primary">Juntar com áudio</span>
+            <br />
+            ou arraste mídias da biblioteca pra timeline
           </p>
         </div>
       </div>
@@ -380,75 +431,158 @@ export function VideoPreview({
           style={{ width: stage.w, height: stage.h }}
           data-stage={`${aspect.w}:${aspect.h}`}
         >
-        {[0, 1].map((slot) => {
-          const k = slotScene[slot]
-          const item = k !== null ? timeline[k] : undefined
-          const isCurrent = k === currentIndex
-          const opacity = !item ? 0 : isCurrent ? fx.incoming : inTransition ? 1 : 0
-          const extra = !inTransition ? 1 : isCurrent ? fx.inScale : fx.outScale
-          return (
-            // layer: opacity + transition scale (JS, only during the short transition window)
-            <div
-              key={slot}
-              className="absolute inset-0"
-              style={{ opacity, zIndex: isCurrent ? 2 : 1, transform: extra !== 1 ? `scale(${extra.toFixed(4)})` : undefined }}
-            >
-              {/* host: clip animation runs on the compositor (Web Animations API), not in React */}
-              <div ref={animRefs[slot]} className="absolute inset-0 will-change-transform">
-                <video
-                  ref={videoRefs[slot]}
-                  data-scene={k ?? ''}
-                  src={item?.videoAsset?.url || undefined}
-                  poster={item?.videoAsset?.metadata?.thumbnail as string | undefined}
-                  preload="auto"
-                  playsInline
-                  onLoadedMetadata={(e) => {
-                    const v = e.currentTarget
-                    if (v.videoWidth && v.videoHeight) setProbedVertical(v.videoHeight > v.videoWidth)
-                  }}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
+          {[0, 1].map((slot) => {
+            const k = slotScene[slot]
+            const item = k !== null ? timeline[k] : undefined
+            const isCurrent = k === currentIndex
+            const opacity = !item ? 0 : isCurrent ? fx.incoming : inTransition ? 1 : 0
+            const extra = !inTransition ? 1 : isCurrent ? fx.inScale : fx.outScale
+            const still = item && !item.videoAsset ? item.imageAsset : undefined
+            return (
+              // layer: opacity + transition scale (only during the short transition window)
+              <div
+                key={slot}
+                className="absolute inset-0"
+                style={{ opacity, zIndex: isCurrent ? 2 : 1, transform: extra !== 1 ? `scale(${extra.toFixed(4)})` : undefined }}
+              >
+                {/* host: clip animation written every frame by the master clock */}
+                <div ref={hostRefs[slot]} data-scene={k ?? ''} data-anim-host className="absolute inset-0 will-change-transform">
+                  {still ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={still.url} alt={still.filename} className="absolute inset-0 h-full w-full object-cover" />
+                  ) : (
+                    <video
+                      src={item?.videoAsset?.url || undefined}
+                      poster={item?.videoAsset?.metadata?.thumbnail as string | undefined}
+                      preload="auto"
+                      playsInline
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget
+                        if (v.videoWidth && v.videoHeight) setProbedVertical(v.videoHeight > v.videoWidth)
+                      }}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
 
-        {current?.imageAsset && !current.videoAsset && (
-          <img
-            src={current.imageAsset.url}
-            alt={current.imageAsset.filename}
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{
-              opacity: fx.incoming,
-              zIndex: 3,
-              transform: (() => {
-                const a = animationPose(current.scene.animation_type, sinceStart, current.duration)
-                return poseToTransform(a)
-              })(),
-            }}
-          />
-        )}
+          {/* Flash overlay for flash transitions */}
+          {fx.flash > 0 && (
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{ zIndex: 4, opacity: fx.flash, background: transitionType === 'flash_branco' ? '#fff' : '#000' }}
+            />
+          )}
 
-        {/* Flash overlay for flash transitions */}
-        {fx.flash > 0 && (
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{ zIndex: 4, opacity: fx.flash, background: transitionType === 'flash_branco' ? '#fff' : '#000' }}
-          />
-        )}
+          {/* Overlay layers (Sobreposição) — later clips on top */}
+          {overlays.map((o, i) => {
+            const a = assetById.get(o.asset_id)
+            if (!a) return null
+            const f = fitted(o)
+            const selected = o.id === selectedOverlayId
+            return (
+              <div
+                key={o.id}
+                ref={(el) => {
+                  if (el) overlayEls.current.set(o.id, el)
+                  else overlayEls.current.delete(o.id)
+                }}
+                data-overlay={o.id}
+                className={cn('absolute touch-none', onOverlayChange && 'cursor-move')}
+                style={{
+                  zIndex: 10 + i,
+                  width: f.w,
+                  height: f.h,
+                  left: (stage.w - f.w) / 2,
+                  top: (stage.h - f.h) / 2,
+                  opacity: o.opacity,
+                  transform: overlayTransform(o),
+                  visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  onSelectOverlay?.(o.id)
+                  if (!onOverlayChange) return
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                  dragRef.current = { id: o.id, px: e.clientX, py: e.clientY, x: o.x, y: o.y, moved: false }
+                }}
+                onPointerMove={(e) => {
+                  const d = dragRef.current
+                  if (!d || d.id !== o.id || !stage.w) return
+                  const nx = d.x + ((e.clientX - d.px) * 2) / stage.w
+                  const ny = d.y - ((e.clientY - d.py) * 2) / stage.h
+                  d.moved = true
+                  e.currentTarget.style.transform = overlayTransform({ x: nx, y: ny, scale: o.scale })
+                  e.currentTarget.dataset.nx = String(nx)
+                  e.currentTarget.dataset.ny = String(ny)
+                }}
+                onPointerUp={(e) => {
+                  const d = dragRef.current
+                  dragRef.current = null
+                  if (!d?.moved) return
+                  const round = (v: number) => Math.round(v * 1000) / 1000
+                  onOverlayChange?.(o.id, { x: round(Number(e.currentTarget.dataset.nx)), y: round(Number(e.currentTarget.dataset.ny)) })
+                }}
+              >
+                {a.type === 'video' ? (
+                  <video
+                    src={a.url || undefined}
+                    preload="auto"
+                    playsInline
+                    onLoadedMetadata={(e) => {
+                      const v = e.currentTarget
+                      if (v.videoWidth) setNatural((p) => ({ ...p, [o.id]: { w: v.videoWidth, h: v.videoHeight } }))
+                    }}
+                    className="pointer-events-none h-full w-full object-contain"
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={a.url}
+                    alt={a.filename}
+                    draggable={false}
+                    onLoad={(e) => {
+                      const img = e.currentTarget
+                      if (img.naturalWidth) setNatural((p) => ({ ...p, [o.id]: { w: img.naturalWidth, h: img.naturalHeight } }))
+                    }}
+                    className="pointer-events-none h-full w-full select-none object-contain"
+                  />
+                )}
+                {selected && <span className="pointer-events-none absolute inset-0 outline outline-2 outline-offset-0 outline-brand-cyan" aria-hidden />}
+              </div>
+            )
+          })}
         </div>
 
         <audio ref={audioRef} preload="auto" className="hidden" />
+        {audioClips.map((c) => {
+          const a = assetById.get(c.asset_id)
+          return (
+            <audio
+              key={c.id}
+              ref={(el) => {
+                if (el) audioEls.current.set(c.id, el)
+                else audioEls.current.delete(c.id)
+              }}
+              src={a?.url || undefined}
+              preload="auto"
+              className="hidden"
+            />
+          )
+        })}
 
         {/* Slate overlay */}
-        <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[60%] rounded-lg border border-white/10 bg-black/65 px-3 py-2 backdrop-blur-md">
+        <div className="pointer-events-none absolute left-3 top-3 z-30 max-w-[60%] rounded-lg border border-white/10 bg-black/65 px-3 py-2 backdrop-blur-md">
           <p className="eyebrow !text-primary">
             Cena {String(currentIndex + 1).padStart(2, '0')} / {String(timeline.length).padStart(2, '0')}
           </p>
-          <p className="mt-0.5 truncate text-xs text-foreground/90">{current?.videoAsset?.filename}</p>
+          <p className="mt-0.5 truncate text-xs text-foreground/90">{(current?.videoAsset || current?.imageAsset)?.filename}</p>
           <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
             {formatTime(Math.max(0, sinceStart))} / {formatTime(current?.duration ?? 0)}
-            {current && current.rate < 1 && ` · ${current.rate.toFixed(2)}x`}
+            {current && current.rate !== 1 && ` · ${current.rate.toFixed(2)}x`}
           </p>
           {narrationName && (
             <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-track-audio">
@@ -458,7 +592,7 @@ export function VideoPreview({
         </div>
 
         {/* Timecode */}
-        <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-md bg-black/65 px-2 py-1 font-mono text-xs tabular-nums text-brand-cyan backdrop-blur-md">
+        <div className="pointer-events-none absolute right-3 top-3 z-30 rounded-md bg-black/65 px-2 py-1 font-mono text-xs tabular-nums text-brand-cyan backdrop-blur-md">
           {formatTimecode(time)}
         </div>
 
@@ -468,13 +602,13 @@ export function VideoPreview({
             togglePlay()
           }}
           aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-          className="absolute bottom-4 left-1/2 z-10 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_24px_hsl(var(--primary)/0.45)] transition-transform duration-200 hover:scale-105"
+          className="absolute bottom-4 left-1/2 z-30 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_24px_hsl(var(--primary)/0.45)] transition-transform duration-200 hover:scale-105"
         >
           {isPlaying ? <Pause className="h-5 w-5" fill="currentColor" /> : <Play className="ml-0.5 h-5 w-5" fill="currentColor" />}
         </button>
       </div>
 
-      {/* Scrubber with scene markers */}
+      {/* Scrubber with scene markers (click or drag) */}
       <div className="mt-3 px-1">
         <div
           role="slider"
@@ -483,10 +617,24 @@ export function VideoPreview({
           aria-valuemax={Math.round(total)}
           aria-valuenow={Math.round(time)}
           tabIndex={0}
-          className="group relative h-2 cursor-pointer rounded-full bg-surface-3"
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            seek(((e.clientX - rect.left) / rect.width) * total)
+          className="group relative h-2 cursor-pointer touch-none rounded-full bg-surface-3"
+          onPointerDown={(e) => {
+            const el = e.currentTarget
+            el.setPointerCapture(e.pointerId)
+            const at = (x: number) => {
+              const rect = el.getBoundingClientRect()
+              seek(Math.max(0, Math.min(1, (x - rect.left) / rect.width)) * total)
+            }
+            at(e.clientX)
+            const move = (ev: PointerEvent) => at(ev.clientX)
+            const up = () => {
+              el.removeEventListener('pointermove', move)
+              el.removeEventListener('pointerup', up)
+              el.removeEventListener('pointercancel', up)
+            }
+            el.addEventListener('pointermove', move)
+            el.addEventListener('pointerup', up)
+            el.addEventListener('pointercancel', up)
           }}
           onKeyDown={(e) => {
             if (e.key === 'ArrowRight') seek(time + 1)
@@ -495,11 +643,7 @@ export function VideoPreview({
         >
           <div className="absolute h-full rounded-full bg-gradient-to-r from-brand-pink to-brand-orange" style={{ width: `${total ? (time / total) * 100 : 0}%` }} />
           {timeline.slice(1).map((item) => (
-            <div
-              key={item.scene.id}
-              className="absolute top-0 h-full w-px bg-background/80"
-              style={{ left: `${(item.start / total) * 100}%` }}
-            />
+            <div key={item.scene.id} className="absolute top-0 h-full w-px bg-background/80" style={{ left: `${(item.start / total) * 100}%` }} />
           ))}
           <div
             className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background opacity-0 transition-opacity group-hover:opacity-100"

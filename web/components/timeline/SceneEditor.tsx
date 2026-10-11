@@ -9,16 +9,21 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { AnimationTile, TransitionTile } from '@/components/sync/EffectTiles'
+import { toast } from 'sonner'
 import {
   ANIMATIONS,
   TRANSITIONS,
+  DEFAULT_ANIMATION_PARAMS,
   normalizeAnimation,
   normalizeTransition,
+  normalizeParams,
   type AnimationId,
+  type AnimationParams,
   type TransitionId,
 } from '@/lib/sync/presets'
 import { animationPose, poseToTransform } from '@/lib/sync/visual'
-import { clipRate, formatClock } from '@/lib/timeline'
+import { clipRate, formatClock, sceneProps } from '@/lib/timeline'
+import { AnimationParamsControls, PropSlider } from '@/components/editor/PropControls'
 import { cn } from '@/lib/utils'
 
 interface SceneEditorProps {
@@ -32,6 +37,8 @@ interface SceneEditorProps {
   sceneIndex?: number
   /** thumbnail of the previous scene (for the transition preview) */
   previousThumb?: string
+  /** animation properties used for new scenes (from the assembly settings) */
+  defaultParams?: AnimationParams
 }
 
 function NoneTile({ selected, onSelect, label, icon }: { selected: boolean; onSelect: () => void; label: string; icon: React.ReactNode }) {
@@ -61,6 +68,7 @@ export function SceneEditor({
   sceneStart = 0,
   sceneIndex,
   previousThumb,
+  defaultParams = DEFAULT_ANIMATION_PARAMS,
 }: SceneEditorProps) {
   const createScene = useCreateScene()
   const updateScene = useUpdateScene()
@@ -74,6 +82,9 @@ export function SceneEditor({
   const [duration, setDuration] = useState(5)
   const [transition, setTransition] = useState<TransitionId>('cut')
   const [animation, setAnimation] = useState<AnimationId>('none')
+  const [params, setParams] = useState<AnimationParams>(DEFAULT_ANIMATION_PARAMS)
+  /** undefined = automatic (slow down short clips) */
+  const [speed, setSpeed] = useState<number | undefined>(undefined)
   const [previewT, setPreviewT] = useState(0)
 
   useEffect(() => {
@@ -82,7 +93,9 @@ export function SceneEditor({
     setDuration(scene?.audio_duration ?? 5)
     setTransition(normalizeTransition(scene?.transition_in))
     setAnimation(normalizeAnimation(scene?.animation_type))
-  }, [open, scene])
+    setParams(normalizeParams(scene ? sceneProps(scene).anim : defaultParams))
+    setSpeed(scene ? sceneProps(scene).speed : undefined)
+  }, [open, scene, defaultParams])
 
   // Bring the scene's clip into view in the media strip when the inspector opens
   const stripRef = useRef<HTMLDivElement>(null)
@@ -98,7 +111,8 @@ export function SceneEditor({
 
   const selected = media.find((m) => m.id === mediaId)
   const thumb = selected?.metadata?.thumbnail as string | undefined
-  const rate = selected?.type === 'video' ? clipRate(selected.duration, duration) : 1
+  const autoRate = selected?.type === 'video' ? clipRate(selected.duration, duration) : 1
+  const rate = selected?.type === 'video' ? speed ?? autoRate : 1
   const holds = selected?.type === 'video' && !!selected.duration && selected.duration * rate < duration - 0.05
   const index = sceneIndex ?? sceneCount
 
@@ -135,6 +149,8 @@ export function SceneEditor({
         video_filename: selected?.filename,
         playback_rate: rate,
         clip_duration: selected?.duration,
+        speed: isImage ? null : speed ?? null,
+        anim: params,
       },
     }
     try {
@@ -153,12 +169,12 @@ export function SceneEditor({
       onOpenChange(false)
     } catch (error) {
       console.error('Failed to save scene:', error)
-      alert('Não foi possível salvar a cena. Tente novamente.')
+      toast.error('Não foi possível salvar a cena', { description: error instanceof Error ? error.message : 'Tente novamente.' })
     }
   }
 
   const maxDuration = Math.max(30, Math.ceil(duration + 5))
-  const pose = animationPose(animation, previewT, Math.max(1.5, Math.min(duration, 6)))
+  const pose = animationPose(animation, previewT, Math.max(1.5, Math.min(duration, 6)), params)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -203,10 +219,23 @@ export function SceneEditor({
             {selected?.type === 'video' && (
               <p className={cn('text-[12px]', holds ? 'text-primary' : 'text-muted-foreground')}>
                 Clipe tem {selected.duration?.toFixed(1)}s
-                {rate < 1 && ` · desacelerado ${rate.toFixed(2)}×`}
+                {rate !== 1 && ` · ${rate < 1 ? 'desacelerado' : 'acelerado'} ${rate.toFixed(2)}×`}
                 {holds && ' · último frame será segurado (no CapCut: câmera lenta)'}
-                {!holds && rate === 1 && (selected.duration || 0) > duration && ' · o fim é cortado'}
+                {!holds && (selected.duration || 0) > duration * rate + 0.05 && ' · o fim é cortado'}
               </p>
+            )}
+            {selected?.type === 'video' && (
+              <PropSlider
+                label="Velocidade do clipe"
+                value={rate}
+                min={0.25}
+                max={4}
+                step={0.05}
+                format={(v) => `${v.toFixed(2)}×${speed === undefined ? ' (auto)' : ''}`}
+                onChange={(v) => setSpeed(Math.round(v * 100) / 100)}
+                onReset={speed !== undefined ? () => setSpeed(undefined) : undefined}
+                className="pt-2"
+              />
             )}
             {scene?.audio_asset_id && (
               <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
@@ -258,9 +287,23 @@ export function SceneEditor({
             <div role="radiogroup" aria-labelledby="anim-title" className="grid grid-cols-3 gap-2">
               <NoneTile selected={animation === 'none'} onSelect={() => setAnimation('none')} label="Sem animação" icon={<Ban className="h-5 w-5" />} />
               {ANIMATIONS.map((a) => (
-                <AnimationTile key={a.id} preset={a} thumb={thumb} role="radio" selected={animation === a.id} onToggle={() => setAnimation(a.id)} />
+                <AnimationTile
+                  key={a.id}
+                  preset={a}
+                  thumb={thumb}
+                  role="radio"
+                  params={params}
+                  selected={animation === a.id}
+                  onToggle={() => setAnimation(a.id)}
+                />
               ))}
             </div>
+            {animation !== 'none' && (
+              <>
+                <h4 className="pt-1 text-[12px] font-semibold text-foreground/90">Propriedades da animação</h4>
+                <AnimationParamsControls value={params} onChange={setParams} />
+              </>
+            )}
           </section>
 
           {/* Transition */}

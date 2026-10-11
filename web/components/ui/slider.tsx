@@ -13,6 +13,8 @@ function Slider({
   max = 100,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) {
+  // Radix puts role="slider" on the Thumb: the accessible name must live there, not on the Root
+  const thumbLabel = props['aria-label']
   const values = React.useMemo(
     () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
     [value, defaultValue, min, max]
@@ -34,6 +36,7 @@ function Slider({
       {values.map((_, i) => (
         <SliderPrimitive.Thumb
           key={i}
+          aria-label={thumbLabel}
           className="block h-4 w-4 cursor-grab rounded-full border-2 border-primary bg-background shadow transition-shadow hover:ring-4 hover:ring-primary/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 active:cursor-grabbing"
         />
       ))}

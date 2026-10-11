@@ -35,7 +35,7 @@ export const ANIMATIONS: AnimationPreset[] = [
     id: 'zoom_suave',
     label: 'Zoom suave',
     hint: 'Aproxima devagar, o tempo todo',
-    pose: (s, dur) => ({ scale: 1 + 0.12 * clamp01(s / dur), x: 0 }),
+    pose: (s, dur) => ({ scale: 1 + 0.18 * clamp01(s / dur), x: 0 }),
     samples: (dur) => [0, dur],
   },
   {
@@ -87,12 +87,58 @@ export const ANIMATIONS: AnimationPreset[] = [
     id: 'pan',
     label: 'Panorâmica',
     hint: 'Desliza de lado com leve zoom',
-    pose: (s, dur) => ({ scale: 1.14, x: -0.08 + 0.16 * easeInOut(clamp01(s / dur)) }),
+    // scale - 1 >= |x| keeps the frame edges outside the canvas
+    pose: (s, dur) => ({ scale: 1.2, x: -0.12 + 0.24 * easeInOut(clamp01(s / dur)) }),
     samples: (dur) => evenly(dur, 4),
   },
 ]
 
 export const ANIMATION_BY_ID = new Map(ANIMATIONS.map((a) => [a.id, a]))
+
+// ---------------------------------------------------------------------------
+// Per-clip animation properties (scene.metadata.anim; defaults in settings)
+// ---------------------------------------------------------------------------
+
+export interface AnimationParams {
+  /** 1 = motion spans the whole clip; 2 = finishes in half the time and holds */
+  speed: number
+  /** multiplies zoom amount and pan distance (1 = preset) */
+  intensity: number
+  /** plays the motion backwards (zoom in ↔ out, pan left ↔ right) */
+  reverse: boolean
+}
+
+export const DEFAULT_ANIMATION_PARAMS: AnimationParams = { speed: 1, intensity: 1, reverse: false }
+
+export function normalizeParams(p?: Partial<AnimationParams> | null): AnimationParams {
+  const num = (v: unknown, d: number, lo: number, hi: number) => {
+    const n = Number(v)
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d
+  }
+  return {
+    speed: num(p?.speed, 1, 0.25, 4),
+    intensity: num(p?.intensity, 1, 0, 3),
+    reverse: !!p?.reverse,
+  }
+}
+
+/** Pose of a preset at second `s` of a `dur`-long clip, with speed/intensity/reverse applied */
+export function poseWithParams(preset: AnimationPreset, s: number, dur: number, params?: Partial<AnimationParams> | null) {
+  const p = normalizeParams(params)
+  // speed compresses the motion (then it holds); reverse plays the preset curve backwards
+  const timed = Math.min(dur, Math.max(0, Math.min(dur, s)) * p.speed)
+  const base = preset.pose(p.reverse ? dur - timed : timed, dur)
+  return { scale: 1 + (base.scale - 1) * p.intensity, x: base.x * p.intensity }
+}
+
+/** Keyframe times (seconds) that follow the curve well once speed/reverse are applied */
+export function sampleTimes(preset: AnimationPreset, dur: number, params?: Partial<AnimationParams> | null) {
+  const p = normalizeParams(params)
+  const motionEnd = dur / p.speed
+  const curve = preset.samples(dur).map((t) => (p.reverse ? dur - t : t) / p.speed)
+  const times = [0, dur, ...curve, ...evenly(Math.min(dur, motionEnd), 10)]
+  return [...new Set(times.filter((t) => t >= 0 && t <= dur).map((t) => Math.round(t * 1000) / 1000))].sort((a, b) => a - b)
+}
 
 export interface TransitionPreset {
   id: Exclude<TransitionId, 'cut'>
@@ -129,10 +175,21 @@ export function normalizeAnimation(value?: string | null): AnimationId {
 // Assembly settings (stored in projects.config.sync)
 // ---------------------------------------------------------------------------
 
+export type SceneOrderBy = 'modified' | 'upload' | 'name'
+
 export interface SyncSettings {
   /** Each scene lasts as long as its narration phrase (cuts snap to speech pauses) */
   variable_rhythm: boolean
-  animation: { enabled: boolean; mode: PickMode; selected: AnimationPreset['id'][]; fixed: AnimationPreset['id'] }
+  /** How clips are ordered when the timeline is assembled */
+  order: { by: SceneOrderBy; reverse: boolean }
+  animation: {
+    enabled: boolean
+    mode: PickMode
+    selected: AnimationPreset['id'][]
+    fixed: AnimationPreset['id']
+    /** default properties written to every scene on assemble */
+    params: AnimationParams
+  }
   transition: {
     enabled: boolean
     mode: PickMode
@@ -145,14 +202,23 @@ export interface SyncSettings {
 
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   variable_rhythm: true,
-  animation: { enabled: false, mode: 'variado', selected: ['zoom_suave', 'zoom_dinamico', 'quicar'], fixed: 'zoom_suave' },
+  order: { by: 'modified', reverse: false },
+  animation: {
+    enabled: false,
+    mode: 'variado',
+    selected: ['zoom_suave', 'pan'],
+    fixed: 'zoom_suave',
+    params: DEFAULT_ANIMATION_PARAMS,
+  },
   transition: { enabled: false, mode: 'fixo', selected: ['fusao', 'flash_branco'], fixed: 'fusao', duration: 0.5 },
 }
 
 export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
+  const animation = { ...DEFAULT_SYNC_SETTINGS.animation, ...(s?.animation || {}) }
   return {
     variable_rhythm: s?.variable_rhythm ?? DEFAULT_SYNC_SETTINGS.variable_rhythm,
-    animation: { ...DEFAULT_SYNC_SETTINGS.animation, ...(s?.animation || {}) },
+    order: { ...DEFAULT_SYNC_SETTINGS.order, ...(s?.order || {}) },
+    animation: { ...animation, params: normalizeParams(animation.params) },
     transition: { ...DEFAULT_SYNC_SETTINGS.transition, ...(s?.transition || {}) },
   }
 }
