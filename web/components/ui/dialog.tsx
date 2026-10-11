@@ -31,7 +31,7 @@ const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/80"
+        className="fixed inset-0 bg-black/70 backdrop-blur-[2px]"
         onClick={() => onOpenChange?.(false)}
       />
       {/* Content */}
@@ -45,7 +45,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
     <div
       ref={ref}
       className={cn(
-        "w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg border border-gray-800 bg-gray-900 p-6 shadow-lg",
+        "w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface-1 p-6 shadow-2xl",
         className
       )}
       {...props}
@@ -84,7 +84,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-sm text-gray-400", className)}
+    className={cn("text-sm text-muted-foreground", className)}
     {...props}
   />
 ))

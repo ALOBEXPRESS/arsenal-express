@@ -16,16 +16,36 @@ export function useAssets(projectId: string) {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      
-      // Map 'kind' back to 'type' for frontend consistency
-      return (data || []).map(asset => ({
+      const rows = data || []
+
+      // Bucket 'media' is private: generate signed URLs in one batch call
+      const urlByPath = new Map<string, string>()
+      if (rows.length > 0) {
+        const { data: signed, error: signError } = await supabase.storage
+          .from('media')
+          .createSignedUrls(rows.map((a) => a.storage_path), SIGNED_URL_TTL)
+        if (signError) console.error('[useAssets] Failed to sign URLs:', signError)
+        signed?.forEach((s) => {
+          if (s.path && s.signedUrl) urlByPath.set(s.path, s.signedUrl)
+        })
+      }
+
+      // Map DB columns to frontend fields ('kind' -> 'type', 'duration_seconds' -> 'duration')
+      return rows.map((asset) => ({
         ...asset,
         type: asset.kind,
+        duration: asset.duration_seconds,
+        url: urlByPath.get(asset.storage_path) || '',
       })) as Asset[]
     },
     enabled: !!projectId,
+    // Refresh before signed URLs expire
+    staleTime: (SIGNED_URL_TTL - 300) * 1000,
+    refetchInterval: (SIGNED_URL_TTL - 300) * 1000,
   })
 }
+
+const SIGNED_URL_TTL = 60 * 60 // 1 hour
 
 // Upload asset to Supabase Storage and create record
 export function useUploadAsset() {
@@ -34,9 +54,10 @@ export function useUploadAsset() {
   return useMutation({
     mutationFn: async ({ project_id, type, file }: UploadAssetInput) => {
       // Generate unique filename
+      // Storage keys must be ASCII-safe ("…", accents etc. → "Invalid key").
+      // The original name is kept in assets.filename.
       const timestamp = Date.now()
-      const filename = `${timestamp}-${file.name}`
-      const filePath = `${project_id}/${type}/${filename}`
+      const filePath = `${project_id}/${type}/${timestamp}-${storageSafeName(file.name)}`
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -48,10 +69,19 @@ export function useUploadAsset() {
 
       if (uploadError) throw uploadError
 
-      // Get file metadata (duration for video/audio)
+      // Get file metadata (duration for video/audio, thumbnails)
       let duration_seconds: number | undefined
-      if (type === 'video' || type === 'audio') {
+      let thumbnail: string | undefined
+      let dims: { width: number; height: number } | null = null
+
+      if (type === 'video') {
         duration_seconds = await getMediaDuration(file)
+        dims = lastDims
+        thumbnail = await generateVideoThumbnail(file)
+      } else if (type === 'audio') {
+        duration_seconds = await getMediaDuration(file)
+      } else if (type === 'image') {
+        thumbnail = await generateImageThumbnail(file)
       }
 
       // Create asset record in database
@@ -68,6 +98,9 @@ export function useUploadAsset() {
             file_size_bytes: file.size,
             metadata: {
               mime_type: file.type,
+              thumbnail, // Base64 thumbnail for preview
+              last_modified: file.lastModified, // File modification date (used by Auto Assemble ordering)
+              ...(dims || {}), // width/height → output frame (9:16 vs 16:9)
             },
           },
         ])
@@ -110,15 +143,42 @@ export function useDeleteAsset() {
   })
 }
 
+// Helper: ASCII-only object key (strip accents, replace anything else with "_")
+export function storageSafeName(name: string): string {
+  const dot = name.lastIndexOf('.')
+  const base = dot > 0 ? name.slice(0, dot) : name
+  const ext = dot > 0 ? name.slice(dot).toLowerCase().replace(/[^a-z0-9.]/g, '') : ''
+  const safe = base
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 100)
+  return `${safe || 'file'}${ext}`
+}
+
 // Helper: Get media duration
+// Last probed video dimensions (read right after getMediaDuration for the same file)
+let lastDims: { width: number; height: number } | null = null
+
 async function getMediaDuration(file: File): Promise<number | undefined> {
   return new Promise((resolve) => {
     const video = document.createElement(file.type.startsWith('video') ? 'video' : 'audio')
     video.preload = 'metadata'
+    lastDims = null
 
     video.onloadedmetadata = () => {
-      window.URL.revokeObjectURL(video.src)
-      resolve(Math.round(video.duration))
+      const v = video as HTMLVideoElement
+      if (v.videoWidth && v.videoHeight) lastDims = { width: v.videoWidth, height: v.videoHeight }
+      const d = video.duration
+      const src = video.src
+      video.onloadedmetadata = null
+      video.onerror = null
+      video.removeAttribute('src')
+      video.load()
+      URL.revokeObjectURL(src)
+      resolve(Number.isFinite(d) ? Math.round(d * 100) / 100 : undefined)
     }
 
     video.onerror = () => {
@@ -126,5 +186,79 @@ async function getMediaDuration(file: File): Promise<number | undefined> {
     }
 
     video.src = URL.createObjectURL(file)
+  })
+}
+
+// Helper: Generate video thumbnail
+async function generateVideoThumbnail(file: File): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    const url = URL.createObjectURL(file)
+    video.preload = 'metadata'
+    video.muted = true
+
+    // Detach the element BEFORE revoking the blob URL, otherwise the browser keeps
+    // requesting the revoked blob (ERR_FILE_NOT_FOUND noise in the console)
+    const finish = (thumb?: string) => {
+      video.onloadeddata = null
+      video.onseeked = null
+      video.onerror = null
+      video.removeAttribute('src')
+      video.load()
+      URL.revokeObjectURL(url)
+      resolve(thumb)
+    }
+
+    video.onloadeddata = () => {
+      // Seek to 1 second or 10% of duration, whichever is smaller
+      video.currentTime = Math.min(1, video.duration * 0.1)
+    }
+
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 320
+      canvas.height = Math.round((320 * video.videoHeight) / video.videoWidth)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return finish(undefined)
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      finish(canvas.toDataURL('image/jpeg', 0.7))
+    }
+
+    video.onerror = () => finish(undefined)
+
+    video.src = url
+  })
+}
+
+// Helper: Generate image thumbnail
+async function generateImageThumbnail(file: File): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const maxWidth = 320
+      const scale = maxWidth / img.width
+      canvas.width = maxWidth
+      canvas.height = Math.round(img.height * scale)
+      
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const thumbnail = canvas.toDataURL('image/jpeg', 0.7)
+        window.URL.revokeObjectURL(img.src)
+        resolve(thumbnail)
+      } else {
+        window.URL.revokeObjectURL(img.src)
+        resolve(undefined)
+      }
+    }
+
+    img.onerror = () => {
+      window.URL.revokeObjectURL(img.src)
+      resolve(undefined)
+    }
+
+    img.src = URL.createObjectURL(file)
   })
 }

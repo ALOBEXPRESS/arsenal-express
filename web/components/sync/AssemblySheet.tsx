@@ -1,0 +1,244 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck } from 'lucide-react'
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Switch } from '@/components/ui/switch'
+import { Slider } from '@/components/ui/slider'
+import { Button } from '@/components/ui/button'
+import { AnimationTile, TransitionTile, ModeSwitch } from './EffectTiles'
+import {
+  ANIMATIONS,
+  TRANSITIONS,
+  withDefaults,
+  type SyncSettings,
+  type PickMode,
+} from '@/lib/sync/presets'
+import { cn } from '@/lib/utils'
+
+interface AssemblySheetProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  settings?: Partial<SyncSettings>
+  thumbs: [string | undefined, string | undefined]
+  hasScenes: boolean
+  busy: boolean
+  status?: string
+  onSave: (s: SyncSettings) => Promise<void>
+  onApplyEffects: (s: SyncSettings) => Promise<void>
+  onAssemble: (s: SyncSettings) => Promise<void>
+}
+
+function Section({
+  icon,
+  title,
+  badge,
+  description,
+  checked,
+  onCheckedChange,
+  children,
+  id,
+}: {
+  icon: React.ReactNode
+  title: string
+  badge?: string
+  description: string
+  checked: boolean
+  onCheckedChange: (v: boolean) => void
+  children?: React.ReactNode
+  id: string
+}) {
+  return (
+    <section
+      aria-labelledby={`${id}-title`}
+      className={cn(
+        'rounded-xl border p-4 transition-colors duration-200',
+        checked ? 'border-primary/40 bg-primary/[0.04]' : 'border-border bg-surface-2/60'
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border',
+            checked ? 'border-primary/40 bg-primary/15 text-primary' : 'border-border bg-surface-3 text-muted-foreground'
+          )}
+          aria-hidden
+        >
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 id={`${id}-title`} className="font-display text-[15px] font-bold">
+              {title}
+            </h3>
+            {badge && (
+              <span className="rounded border border-express/50 bg-express/10 px-1.5 py-px font-mono text-[9px] uppercase tracking-widest text-express">
+                {badge}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{description}</p>
+        </div>
+        <Switch checked={checked} onCheckedChange={onCheckedChange} aria-labelledby={`${id}-title`} />
+      </div>
+      {checked && children && <div className="mt-4 space-y-3">{children}</div>}
+    </section>
+  )
+}
+
+export function AssemblySheet({
+  open,
+  onOpenChange,
+  settings: initial,
+  thumbs,
+  hasScenes,
+  busy,
+  status,
+  onSave,
+  onApplyEffects,
+  onAssemble,
+}: AssemblySheetProps) {
+  const [s, setS] = useState<SyncSettings>(() => withDefaults(initial))
+  useEffect(() => {
+    if (open) setS(withDefaults(initial))
+  }, [open, initial])
+
+  const anim = s.animation
+  const tr = s.transition
+  const setAnim = (patch: Partial<SyncSettings['animation']>) => setS((p) => ({ ...p, animation: { ...p.animation, ...patch } }))
+  const setTr = (patch: Partial<SyncSettings['transition']>) => setS((p) => ({ ...p, transition: { ...p.transition, ...patch } }))
+
+  const toggleIn = <T extends string>(list: T[], id: T) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
+
+  const modeOptions: { value: PickMode; label: string; icon: React.ReactNode }[] = [
+    { value: 'variado', label: 'Variado (alterna)', icon: <Shuffle className="h-4 w-4" /> },
+    { value: 'fixo', label: 'Uma só (fixo)', icon: <Pin className="h-4 w-4" /> },
+  ]
+
+  const invalid =
+    (anim.enabled && anim.mode === 'variado' && anim.selected.length === 0) ||
+    (tr.enabled && tr.mode === 'variado' && tr.selected.length === 0)
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[520px]">
+        <div className="border-b border-border px-6 pb-4 pt-6">
+          <p className="eyebrow flex items-center gap-2">
+            <span className="tally" aria-hidden /> Montagem automática
+          </p>
+          <SheetTitle className="mt-2">Ritmo, movimento e cortes</SheetTitle>
+          <SheetDescription className="mt-1">
+            Tudo que você liga aqui aparece no preview e sai igual no projeto do CapCut.
+          </SheetDescription>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5">
+          <Section
+            id="rhythm"
+            icon={<AudioWaveform className="h-4 w-4" />}
+            title="Ritmo variável"
+            badge="anti-padrão"
+            description="Cada cena dura o tempo da frase dela — cortes caem nas pausas da narração. Quebra o padrão mecânico “8-8-8s” sem perder a sincronia."
+            checked={s.variable_rhythm}
+            onCheckedChange={(v) => setS((p) => ({ ...p, variable_rhythm: v }))}
+          >
+            <p className="flex items-start gap-2 rounded-lg border border-track-audio/40 bg-track-audio/10 px-3 py-2 text-[12px] text-foreground/85">
+              <CircleCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-track-audio" aria-hidden />
+              Detecção de pausas abaixo de −35 dB por ≥ 0,3 s. Clipe curto demais pra frase é desacelerado até 0,8×.
+            </p>
+          </Section>
+
+          <Section
+            id="anim"
+            icon={<Sparkles className="h-4 w-4" />}
+            title="Animação nos clipes"
+            description="Movimento de câmera em cada cena (zoom, quique, panorâmica) — dá vida ao vídeo dark."
+            checked={anim.enabled}
+            onCheckedChange={(v) => setAnim({ enabled: v })}
+          >
+            <ModeSwitch label="Modo de animação" value={anim.mode} onChange={(v) => setAnim({ mode: v })} options={modeOptions} />
+            <p className="text-[12px] text-muted-foreground">
+              {anim.mode === 'variado'
+                ? 'Marque as que entram no rodízio — o sistema alterna cena a cena.'
+                : 'Escolha a animação usada em todas as cenas.'}
+            </p>
+            <div className="grid grid-cols-3 gap-2" role={anim.mode === 'fixo' ? 'radiogroup' : 'group'} aria-label="Animações">
+              {ANIMATIONS.map((a) => (
+                <AnimationTile
+                  key={a.id}
+                  preset={a}
+                  thumb={thumbs[0]}
+                  role={anim.mode === 'fixo' ? 'radio' : 'checkbox'}
+                  selected={anim.mode === 'fixo' ? anim.fixed === a.id : anim.selected.includes(a.id)}
+                  onToggle={() =>
+                    anim.mode === 'fixo' ? setAnim({ fixed: a.id }) : setAnim({ selected: toggleIn(anim.selected, a.id) })
+                  }
+                />
+              ))}
+            </div>
+          </Section>
+
+          <Section
+            id="trans"
+            icon={<Blend className="h-4 w-4" />}
+            title="Transição entre cenas"
+            description="Efeito na passagem de uma cena pra outra (fusão, flash, esmaecer). Desligado = corte seco."
+            checked={tr.enabled}
+            onCheckedChange={(v) => setTr({ enabled: v })}
+          >
+            <ModeSwitch label="Modo de transição" value={tr.mode} onChange={(v) => setTr({ mode: v })} options={modeOptions} />
+            <div className="grid grid-cols-3 gap-2" role={tr.mode === 'fixo' ? 'radiogroup' : 'group'} aria-label="Transições">
+              {TRANSITIONS.map((t) => (
+                <TransitionTile
+                  key={t.id}
+                  preset={t}
+                  thumbs={thumbs}
+                  role={tr.mode === 'fixo' ? 'radio' : 'checkbox'}
+                  selected={tr.mode === 'fixo' ? tr.fixed === t.id : tr.selected.includes(t.id)}
+                  onToggle={() => (tr.mode === 'fixo' ? setTr({ fixed: t.id }) : setTr({ selected: toggleIn(tr.selected, t.id) }))}
+                />
+              ))}
+            </div>
+            <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
+              <div className="mb-2.5 flex items-center justify-between text-[12px]">
+                <label htmlFor="tr-duration" className="text-muted-foreground">
+                  Duração da transição
+                </label>
+                <span className="font-mono tabular-nums text-primary">{tr.duration.toFixed(2)}s</span>
+              </div>
+              <Slider
+                id="tr-duration"
+                min={0.2}
+                max={1.2}
+                step={0.05}
+                value={[tr.duration]}
+                onValueChange={([v]) => setTr({ duration: v })}
+                aria-label="Duração da transição em segundos"
+              />
+            </div>
+          </Section>
+        </div>
+
+        <div className="space-y-2 border-t border-border bg-surface-0/60 px-6 py-4">
+          {invalid && <p className="text-[12px] text-destructive">Marque pelo menos uma opção no modo variado.</p>}
+          {busy && status && (
+            <p className="flex items-center gap-2 font-mono text-[12px] text-primary" role="status">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {status}
+            </p>
+          )}
+          <Button className="h-11 w-full text-[15px] font-semibold" disabled={busy || invalid} onClick={() => onAssemble(s)}>
+            <Wand2 /> Juntar cenas com áudio
+          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" disabled={busy || invalid || !hasScenes} onClick={() => onApplyEffects(s)}>
+              Só aplicar efeitos
+            </Button>
+            <Button variant="ghost" disabled={busy || invalid} onClick={() => onSave(s)}>
+              Salvar preferências
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}

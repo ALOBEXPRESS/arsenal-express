@@ -87,7 +87,7 @@ export default function SignUpPage() {
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
         <p className="text-muted-foreground">
-          Get started with Arsenal Express
+          Comece a usar o SyncExpress
         </p>
       </div>
 
@@ -151,7 +151,7 @@ export default function SignUpPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50 transition font-medium"
+          className="w-full py-3 bg-primary-fill text-primary-foreground font-semibold rounded-md hover:bg-primary-fill/90 disabled:opacity-50 transition font-medium"
         >
           {loading ? "Creating account..." : "Create account"}
         </button>

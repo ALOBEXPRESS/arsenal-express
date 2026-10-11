@@ -1,15 +1,24 @@
 'use client'
 
 import { useState } from 'react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Upload } from 'lucide-react'
 import { useAssets, useUploadAsset, useDeleteAsset } from '@/lib/hooks/useAssets'
 import { AssetCard } from './AssetCard'
 import { AssetUpload } from './AssetUpload'
 import type { Asset, AssetType } from '@/types/project'
-import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { sortByModificationDate } from '@/lib/timeline'
+import { cn } from '@/lib/utils'
 
 interface AssetLibraryProps {
   projectId: string
   onSelectAsset?: (asset: Asset) => void
+}
+
+const UPLOAD_COPY: Record<AssetType, { title: string; text: string }> = {
+  video: { title: 'Clipes de vídeo', text: 'Selecione vários de uma vez. A ordem na timeline segue a data de modificação.' },
+  audio: { title: 'Narração', text: 'Um ou mais áudios. Partes da narração são unidas na ordem de modificação.' },
+  image: { title: 'Imagens', text: 'Fotos ou artes pra cenas estáticas (com animação de câmera).' },
 }
 
 export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
@@ -19,154 +28,107 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
   const [activeTab, setActiveTab] = useState<AssetType | 'all'>('all')
   const [showUpload, setShowUpload] = useState<AssetType | null>(null)
 
-  const handleUpload = async (type: AssetType, file: File) => {
-    await uploadAsset.mutateAsync({ project_id: projectId, type, file })
-    setShowUpload(null)
-  }
+  const sorted = sortByModificationDate(assets || [])
+  const filtered = activeTab === 'all' ? sorted : sorted.filter((a) => a.type === activeTab)
+  const count = (t: AssetType) => sorted.filter((a) => a.type === t).length
 
-  const handleDelete = async (asset: Asset) => {
-    await deleteAsset.mutateAsync(asset)
-  }
+  const tabs: { id: AssetType | 'all'; label: string; n: number }[] = [
+    { id: 'all', label: 'Tudo', n: sorted.length },
+    { id: 'video', label: 'Clipes', n: count('video') },
+    { id: 'audio', label: 'Áudio', n: count('audio') },
+    { id: 'image', label: 'Imagens', n: count('image') },
+  ]
 
-  const filteredAssets =
-    activeTab === 'all'
-      ? assets
-      : assets?.filter((a) => a.type === activeTab)
+  const uploads: { type: AssetType; label: string; icon: React.ReactNode }[] = [
+    { type: 'video', label: 'Clipes', icon: <Clapperboard className="h-4 w-4" /> },
+    { type: 'audio', label: 'Narração', icon: <AudioLines className="h-4 w-4" /> },
+    { type: 'image', label: 'Imagem', icon: <ImageIcon className="h-4 w-4" /> },
+  ]
 
-  const videoAssets = assets?.filter((a) => a.type === 'video') || []
-  const audioAssets = assets?.filter((a) => a.type === 'audio') || []
-  const imageAssets = assets?.filter((a) => a.type === 'image') || []
+  return (
+    <div className="flex h-full flex-col">
+      <div className="space-y-3 border-b border-border p-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-[15px] font-bold">Mídias</h2>
+          <span className="eyebrow">por data</span>
+        </div>
 
-  if (isLoading) {
-    return (
-      <div className="p-4">
-        <div className="animate-pulse space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-20 bg-gray-800 rounded" />
+        <div className="grid grid-cols-3 gap-1.5">
+          {uploads.map((u) => (
+            <button
+              key={u.type}
+              type="button"
+              onClick={() => setShowUpload(u.type)}
+              className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-border py-2 text-[11px] text-muted-foreground transition-colors duration-200 hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
+            >
+              <span className="flex items-center gap-1">
+                <Upload className="h-3 w-3" aria-hidden />
+                {u.icon}
+              </span>
+              {u.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-1 rounded-lg bg-surface-0 p-1" role="tablist" aria-label="Filtrar mídias">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={activeTab === t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={cn(
+                'flex-1 cursor-pointer rounded-md px-1.5 py-1 text-[11px] transition-colors duration-200',
+                activeTab === t.id ? 'bg-surface-3 text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {t.label} <span className="font-mono text-[10px] opacity-70">{t.n}</span>
+            </button>
           ))}
         </div>
       </div>
-    )
-  }
 
-  return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-gray-800">
-        <h2 className="font-semibold mb-4">Asset Library</h2>
-        
-        {/* Tabs */}
-        <div className="flex gap-2 mb-4 text-sm">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-3 py-1 rounded ${
-              activeTab === 'all'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            All ({assets?.length || 0})
-          </button>
-          <button
-            onClick={() => setActiveTab('video')}
-            className={`px-3 py-1 rounded ${
-              activeTab === 'video'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            Videos ({videoAssets.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('audio')}
-            className={`px-3 py-1 rounded ${
-              activeTab === 'audio'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            Audio ({audioAssets.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('image')}
-            className={`px-3 py-1 rounded ${
-              activeTab === 'image'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-            }`}
-          >
-            Images ({imageAssets.length})
-          </button>
-        </div>
-
-        {/* Upload buttons */}
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowUpload('video')}
-            className="flex-1"
-          >
-            + Video
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowUpload('audio')}
-            className="flex-1"
-          >
-            + Audio
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowUpload('image')}
-            className="flex-1"
-          >
-            + Image
-          </Button>
-        </div>
-      </div>
-
-      {/* Upload Modal */}
-      {showUpload && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Upload {showUpload}</h3>
-              <button
-                onClick={() => setShowUpload(null)}
-                className="text-gray-400 hover:text-white"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      <Dialog open={!!showUpload} onOpenChange={(o) => !o && setShowUpload(null)}>
+        {showUpload && (
+          <DialogContent className="w-[min(92vw,460px)]">
+            <DialogHeader>
+              <p className="eyebrow flex items-center gap-2">
+                <span className="tally" aria-hidden /> Upload
+              </p>
+              <DialogTitle className="font-display text-xl">{UPLOAD_COPY[showUpload].title}</DialogTitle>
+              <DialogDescription>{UPLOAD_COPY[showUpload].text}</DialogDescription>
+            </DialogHeader>
+            <div className="mt-4">
+              <AssetUpload
+                projectId={projectId}
+                type={showUpload}
+                onUpload={async (file) => {
+                  await uploadAsset.mutateAsync({ project_id: projectId, type: showUpload, file })
+                }}
+                onComplete={() => setShowUpload(null)}
+              />
             </div>
-            <AssetUpload
-              projectId={projectId}
-              type={showUpload}
-              onUpload={(file) => handleUpload(showUpload, file)}
-            />
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        )}
+      </Dialog>
 
-      {/* Asset Grid */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {!filteredAssets || filteredAssets.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p className="mb-2">No {activeTab === 'all' ? 'assets' : activeTab} yet</p>
-            <p className="text-xs">Upload files to get started</p>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-2">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="aspect-[4/3] animate-pulse rounded-lg bg-surface-2" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border py-10 text-center text-[13px] text-muted-foreground">
+            Nada aqui ainda.
+            <br />
+            Suba clipes e a narração acima.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {filteredAssets.map((asset) => (
-              <AssetCard
-                key={asset.id}
-                asset={asset}
-                onDelete={handleDelete}
-                onSelect={onSelectAsset}
-              />
+          <div className="grid grid-cols-2 gap-2">
+            {filtered.map((asset) => (
+              <AssetCard key={asset.id} asset={asset} onDelete={(a) => deleteAsset.mutate(a)} onSelect={onSelectAsset} />
             ))}
           </div>
         )}

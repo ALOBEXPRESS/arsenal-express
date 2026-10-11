@@ -1,7 +1,9 @@
 'use client'
 
+import { useRef } from 'react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Trash2 } from 'lucide-react'
 import type { Asset } from '@/types/project'
-import { Button } from '@/components/ui/button'
+import { formatTime } from '@/lib/timeline'
 
 interface AssetCardProps {
   asset: Asset
@@ -9,94 +11,79 @@ interface AssetCardProps {
   onSelect?: (asset: Asset) => void
 }
 
+const ICONS = { video: Clapperboard, audio: AudioLines, image: ImageIcon }
+
 export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
-  const formatDuration = (seconds?: number | null) => {
-    if (!seconds) return null
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const formatSize = (bytes: number) => {
-    const mb = bytes / (1024 * 1024)
-    return `${mb.toFixed(1)} MB`
-  }
-
-  const getIcon = () => {
-    switch (asset.type) {
-      case 'video':
-        return '🎬'
-      case 'audio':
-        return '🎵'
-      case 'image':
-        return '🖼️'
-      default:
-        return '📄'
-    }
-  }
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const thumb = asset.metadata?.thumbnail as string | undefined
+  const Icon = ICONS[asset.type] || Clapperboard
 
   return (
     <div
-      className="group relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-gray-600 transition-all cursor-pointer"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-border bg-surface-2 transition-colors duration-200 hover:border-primary/50"
       onClick={() => onSelect?.(asset)}
+      onMouseEnter={() => videoRef.current?.play().catch(() => {})}
+      onMouseLeave={() => {
+        const v = videoRef.current
+        if (v) {
+          v.pause()
+          v.currentTime = 0
+        }
+      }}
+      title={asset.filename}
     >
-      {/* Thumbnail/Preview */}
-      <div className="aspect-video bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
-        {asset.type === 'image' ? (
-          <img
-            src={asset.url}
-            alt={asset.filename}
-            className="w-full h-full object-cover"
-          />
-        ) : asset.type === 'video' ? (
-          <video
-            src={asset.url}
-            className="w-full h-full object-cover"
-            muted
-            onMouseEnter={(e) => e.currentTarget.play()}
-            onMouseLeave={(e) => {
-              e.currentTarget.pause()
-              e.currentTarget.currentTime = 0
-            }}
-          />
+      <div className="relative aspect-video overflow-hidden bg-surface-0">
+        {thumb || (asset.type === 'image' && asset.url) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumb || asset.url} alt={asset.filename} className="absolute inset-0 h-full w-full object-cover" />
+        ) : asset.type === 'audio' ? (
+          <div className="absolute inset-0 flex items-center justify-center gap-[3px] bg-track-audio/25 px-4" aria-hidden>
+            {Array.from({ length: 22 }, (_, i) => (
+              <span
+                key={i}
+                className="w-[3px] rounded-full bg-track-audio"
+                style={{ height: `${20 + Math.abs(Math.sin(i * 0.8 + asset.id.charCodeAt(i % asset.id.length))) * 55}%` }}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="text-4xl">{getIcon()}</div>
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+            <Icon className="h-6 w-6" aria-hidden />
+          </div>
         )}
+        {asset.type === 'video' && asset.url && (
+          <video
+            ref={videoRef}
+            src={asset.url}
+            muted
+            loop
+            playsInline
+            preload="none"
+            className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity group-hover:opacity-100"
+          />
+        )}
+        <span className="absolute left-1.5 top-1.5 rounded bg-black/65 p-1 text-white/90">
+          <Icon className="h-3 w-3" aria-hidden />
+        </span>
+        {asset.duration ? (
+          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/65 px-1 font-mono text-[10px] tabular-nums text-white/90">
+            {formatTime(asset.duration)}
+          </span>
+        ) : null}
       </div>
 
-      {/* Info */}
-      <div className="p-2">
-        <p className="text-sm font-medium truncate" title={asset.filename}>
-          {asset.filename}
-        </p>
-        <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
-          {asset.duration && <span>{formatDuration(asset.duration)}</span>}
-          {asset.metadata?.size && (
-            <span>{formatSize(asset.metadata.size as number)}</span>
-          )}
-        </div>
-      </div>
+      <p className="truncate px-2 py-1.5 text-[11px] text-foreground/85">{asset.filename}</p>
 
-      {/* Delete button */}
       {onDelete && (
         <button
           onClick={(e) => {
             e.stopPropagation()
-            if (confirm('Delete this asset?')) {
-              onDelete(asset)
-            }
+            if (confirm(`Excluir "${asset.filename}"?`)) onDelete(asset)
           }}
-          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white p-1 rounded"
-          title="Delete asset"
+          className="absolute right-1.5 top-1.5 cursor-pointer rounded bg-black/70 p-1 text-white opacity-0 transition-opacity hover:bg-destructive focus-visible:opacity-100 group-hover:opacity-100"
+          aria-label={`Excluir ${asset.filename}`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
       )}
     </div>

@@ -1,188 +1,116 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useRouter } from 'next/navigation'
+import { Loader2, ScanLine, Smartphone, Monitor, Square } from 'lucide-react'
 import { useCreateProject } from '@/lib/hooks/useProjects'
-import type { ProjectMode, OutputFormat, TransitionType } from '@/types/project'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import type { OutputFormat } from '@/types/project'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-
-const projectSchema = z.object({
-  title: z.string().min(3, 'Title must be at least 3 characters').max(100),
-  description: z.string().max(500).optional(),
-  mode: z.enum(['upload', 'script-to-prompt'] as const),
-  output_format: z.enum(['16:9', '9:16', '1:1'] as const),
-  target_duration: z.preprocess(
-    (val) => {
-      if (val === '' || val === null || val === undefined) return undefined
-      const num = Number(val)
-      return isNaN(num) ? undefined : num
-    },
-    z.number().min(5).max(3600).optional() // Aumentado para 1 hora
-  ),
-  default_transition: z.enum(['cut', 'dissolve', 'fade', 'wipe', 'slide', 'fadeblack', 'fadewhite'] as const),
-})
-
-type ProjectFormData = z.infer<typeof projectSchema>
+import { cn } from '@/lib/utils'
 
 interface NewProjectModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
+const FORMATS: { value: OutputFormat; label: string; hint: string; icon: React.ReactNode; frame: string }[] = [
+  { value: 'auto', label: 'Auto', hint: 'Segue os clipes', icon: <ScanLine className="h-4 w-4" />, frame: 'h-7 w-7 border-dashed' },
+  { value: '9:16', label: '9:16', hint: 'Shorts · Reels · TikTok', icon: <Smartphone className="h-4 w-4" />, frame: 'h-8 w-[18px]' },
+  { value: '16:9', label: '16:9', hint: 'YouTube', icon: <Monitor className="h-4 w-4" />, frame: 'h-[18px] w-8' },
+  { value: '1:1', label: '1:1', hint: 'Feed', icon: <Square className="h-4 w-4" />, frame: 'h-6 w-6' },
+]
+
 export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
   const router = useRouter()
   const createProject = useCreateProject()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [format, setFormat] = useState<OutputFormat>('auto')
+  const [error, setError] = useState<string | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<ProjectFormData>({
-    resolver: zodResolver(projectSchema),
-    defaultValues: {
-      mode: 'upload',
-      output_format: '16:9',
-      default_transition: 'dissolve',
-    },
-  })
-
-  const onSubmit = async (data: ProjectFormData) => {
-    setIsSubmitting(true)
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (title.trim().length < 3) {
+      setError('Dê um nome com pelo menos 3 letras.')
+      return
+    }
+    setError(null)
     try {
       const project = await createProject.mutateAsync({
-        title: data.title,
-        description: data.description,
-        mode: data.mode,
-        settings: {
-          output_format: data.output_format,
-          target_duration: data.target_duration,
-          default_transition: data.default_transition,
-          fps: 30,
-          audio_bitrate: '192k',
-          video_codec: 'libx264',
-        },
+        title: title.trim(),
+        description: description.trim() || undefined,
+        mode: 'upload',
+        settings: { output_format: format, default_transition: 'dissolve', fps: 30 },
       })
-
-      // Reset form and close modal
-      reset()
+      setTitle('')
+      setDescription('')
       onOpenChange(false)
-
-      // Redirect to project editor
       router.push(`/project/${project.id}`)
-    } catch (error) {
-      console.error('Failed to create project:', error)
-      // Error is handled by the hook's onError callback
-    } finally {
-      setIsSubmitting(false)
+    } catch {
+      /* hook shows the error */
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-[min(92vw,500px)]">
         <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
-          <DialogDescription>
-            Choose your project mode and configure initial settings
-          </DialogDescription>
+          <p className="eyebrow flex items-center gap-2">
+            <span className="tally" aria-hidden /> Novo projeto
+          </p>
+          <DialogTitle className="font-display text-2xl">Qual vídeo vamos montar?</DialogTitle>
+          <DialogDescription>Depois você sobe os clipes + narração e o SyncExpress faz o resto.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Title */}
+        <form onSubmit={submit} className="mt-5 space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="title">Project Title *</Label>
-            <Input
-              id="title"
-              placeholder="My awesome video"
-              {...register('title')}
-            />
-            {errors.title && (
-              <p className="text-sm text-red-500">{errors.title.message}</p>
-            )}
+            <Label htmlFor="np-title">Nome</Label>
+            <Input id="np-title" autoFocus placeholder="ex: Vice City — episódio 12" value={title} onChange={(e) => setTitle(e.target.value)} />
+            {error && <p className="text-[12px] text-destructive">{error}</p>}
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Brief description of your project..."
-              rows={3}
-              {...register('description')}
-            />
-            {errors.description && (
-              <p className="text-sm text-red-500">{errors.description.message}</p>
-            )}
+            <Label htmlFor="np-desc">
+              Descrição <span className="text-muted-foreground">(opcional)</span>
+            </Label>
+            <Textarea id="np-desc" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
-          {/* Mode */}
-          <div className="space-y-2">
-            <Label htmlFor="mode">Mode *</Label>
-            <Select id="mode" {...register('mode')}>
-              <option value="upload">Upload Videos & Audio</option>
-              <option value="script-to-prompt">Script to Prompt (Google Veo)</option>
-            </Select>
-            <p className="text-xs text-gray-400">
-              Upload: Provide your own videos and audio files<br />
-              Script-to-Prompt: Generate AI video prompts from your script
-            </p>
-          </div>
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-medium">Formato do vídeo</legend>
+            <div role="radiogroup" className="grid grid-cols-4 gap-2">
+              {FORMATS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={format === f.value}
+                  onClick={() => setFormat(f.value)}
+                  className={cn(
+                    'flex cursor-pointer flex-col items-center gap-2 rounded-lg border px-2 py-3 transition-colors duration-200',
+                    format === f.value ? 'border-primary bg-primary/[0.07] text-primary' : 'border-border text-muted-foreground hover:border-foreground/25'
+                  )}
+                >
+                  <span className="flex h-9 items-center" aria-hidden>
+                    <span className={cn('rounded-[3px] border-2 border-current', f.frame)} />
+                  </span>
+                  <span className="text-[13px] font-semibold">{f.label}</span>
+                  <span className="text-center text-[10px] leading-tight opacity-80">{f.hint}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
 
-          {/* Output Format */}
-          <div className="space-y-2">
-            <Label htmlFor="output_format">Output Format *</Label>
-            <Select id="output_format" {...register('output_format')}>
-              <option value="16:9">16:9 (Landscape - YouTube)</option>
-              <option value="9:16">9:16 (Portrait - TikTok/Instagram)</option>
-              <option value="1:1">1:1 (Square - Instagram)</option>
-            </Select>
-          </div>
-
-          {/* Default Transition */}
-          <div className="space-y-2">
-            <Label htmlFor="default_transition">Default Transition *</Label>
-            <Select id="default_transition" {...register('default_transition')}>
-              <option value="cut">Cut (No transition)</option>
-              <option value="dissolve">Dissolve (Cross-fade)</option>
-              <option value="fade">Fade (to black)</option>
-              <option value="fadeblack">Fade Black</option>
-              <option value="fadewhite">Fade White</option>
-              <option value="wipe">Wipe</option>
-              <option value="slide">Slide</option>
-            </Select>
-            <p className="text-xs text-gray-400">
-              Duration will be calculated automatically from your media files
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={createProject.isPending}>
+              Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Project'}
+            <Button type="submit" disabled={createProject.isPending} className="font-semibold">
+              {createProject.isPending && <Loader2 className="animate-spin" />} Criar projeto
             </Button>
           </div>
         </form>

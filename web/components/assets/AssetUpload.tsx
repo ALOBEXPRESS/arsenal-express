@@ -2,12 +2,13 @@
 
 import { useCallback, useState } from 'react'
 import type { AssetType } from '@/types/project'
-import { Button } from '@/components/ui/button'
 
 interface AssetUploadProps {
   projectId: string
   type: AssetType
   onUpload: (file: File) => Promise<void>
+  /** Called once after the whole batch finishes */
+  onComplete?: () => void
 }
 
 const ACCEPT_TYPES = {
@@ -22,37 +23,65 @@ const MAX_SIZES = {
   image: 10 * 1024 * 1024, // 10MB
 }
 
-export function AssetUpload({ projectId, type, onUpload }: AssetUploadProps) {
+export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUploadProps) {
   const [uploading, setUploading] = useState(false)
+  const [uploadCount, setUploadCount] = useState({ current: 0, total: 0 })
   const [dragActive, setDragActive] = useState(false)
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      // Validate file type
+  const handleFiles = useCallback(
+    async (files: FileList) => {
       const acceptTypes = ACCEPT_TYPES[type].split(',')
-      if (!acceptTypes.some((t) => file.type.match(t))) {
-        alert(`Invalid file type. Expected: ${ACCEPT_TYPES[type]}`)
-        return
+      const maxMB = MAX_SIZES[type] / (1024 * 1024)
+      
+      // Validate all files first
+      const validFiles: File[] = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        
+        // Validate file type
+        if (!acceptTypes.some((t) => file.type.match(t))) {
+          alert(`Invalid file type for "${file.name}". Expected: ${ACCEPT_TYPES[type]}`)
+          continue
+        }
+
+        // Validate file size
+        if (file.size > MAX_SIZES[type]) {
+          alert(`File "${file.name}" too large. Maximum size: ${maxMB}MB`)
+          continue
+        }
+        
+        validFiles.push(file)
       }
 
-      // Validate file size
-      if (file.size > MAX_SIZES[type]) {
-        const maxMB = MAX_SIZES[type] / (1024 * 1024)
-        alert(`File too large. Maximum size: ${maxMB}MB`)
-        return
-      }
+      if (validFiles.length === 0) return
 
       setUploading(true)
-      try {
-        await onUpload(file)
-      } catch (error) {
-        console.error('Upload failed:', error)
-        alert('Upload failed. Please try again.')
-      } finally {
-        setUploading(false)
+      setUploadCount({ current: 0, total: validFiles.length })
+      
+      const failed: string[] = []
+      // Upload files sequentially to avoid overwhelming the server; one failure doesn't stop the batch
+      for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i]
+        setUploadCount({ current: i + 1, total: validFiles.length })
+        try {
+          await onUpload(file)
+        } catch (error) {
+          console.error(`Upload failed for ${file.name}:`, error)
+          failed.push(file.name)
+        }
+      }
+      setUploading(false)
+      setUploadCount({ current: 0, total: 0 })
+
+      const ok = validFiles.length - failed.length
+      if (failed.length > 0) {
+        alert(`✅ ${ok} enviado(s)\n❌ ${failed.length} falharam:\n${failed.join('\n')}`)
+      } else {
+        alert(`✅ ${ok} arquivo(s) enviado(s)!`)
+        onComplete?.()
       }
     },
-    [type, onUpload]
+    [type, onUpload, onComplete]
   )
 
   const handleDrop = useCallback(
@@ -61,11 +90,11 @@ export function AssetUpload({ projectId, type, onUpload }: AssetUploadProps) {
       e.stopPropagation()
       setDragActive(false)
 
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        handleFile(e.dataTransfer.files[0])
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files)
       }
     },
-    [handleFile]
+    [handleFiles]
   )
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -80,19 +109,19 @@ export function AssetUpload({ projectId, type, onUpload }: AssetUploadProps) {
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-        handleFile(e.target.files[0])
+      if (e.target.files && e.target.files.length > 0) {
+        handleFiles(e.target.files)
       }
     },
-    [handleFile]
+    [handleFiles]
   )
 
   return (
     <div
-      className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
         dragActive
-          ? 'border-blue-500 bg-blue-500/10'
-          : 'border-gray-700 hover:border-gray-600'
+          ? 'border-primary bg-primary/10'
+          : 'border-border hover:border-primary/50 bg-surface-0'
       }`}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
@@ -106,6 +135,7 @@ export function AssetUpload({ projectId, type, onUpload }: AssetUploadProps) {
         accept={ACCEPT_TYPES[type]}
         onChange={handleChange}
         disabled={uploading}
+        multiple
       />
 
       <label
@@ -114,13 +144,15 @@ export function AssetUpload({ projectId, type, onUpload }: AssetUploadProps) {
       >
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
-            <p className="text-sm text-gray-400">Uploading...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <p className="text-sm text-muted-foreground">
+              Enviando {uploadCount.current} de {uploadCount.total}...
+            </p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
             <svg
-              className="w-8 h-8 text-gray-400"
+              className="w-8 h-8 text-muted-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -132,11 +164,11 @@ export function AssetUpload({ projectId, type, onUpload }: AssetUploadProps) {
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               />
             </svg>
-            <p className="text-sm text-gray-400">
-              Drop {type} here or click to browse
+            <p className="text-sm text-muted-foreground">
+              Arraste aqui ou clique pra escolher
             </p>
-            <p className="text-xs text-gray-500">
-              Max {MAX_SIZES[type] / (1024 * 1024)}MB
+            <p className="text-xs text-muted-foreground">
+              Vários arquivos de uma vez · até {MAX_SIZES[type] / (1024 * 1024)}MB cada
             </p>
           </div>
         )}

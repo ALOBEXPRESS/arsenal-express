@@ -9,9 +9,11 @@ export function useProjects() {
   return useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
+      // Only what the project cards render (skips script/outline/reference_text blobs).
+      // RLS adds user_id = auth.uid() → served by idx_projects_user_updated (migration 002).
       const { data, error } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, user_id, name, mode_id, status, config, created_at, updated_at')
         .order('updated_at', { ascending: false })
 
       if (error) throw error
@@ -59,12 +61,9 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: async (input: CreateProjectInput) => {
       // Get current user
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
-      console.log('🔍 Creating project:', { input, user, authError })
-      
+      const { data: { user } } = await supabase.auth.getUser()
+
       if (!user) {
-        console.error('❌ User not authenticated')
         throw new Error('User not authenticated')
       }
 
@@ -73,22 +72,10 @@ export function useCreateProject() {
         name: input.title, // 'title' -> 'name' no schema
         user_id: user.id,
         mode_id: input.mode === 'upload' ? 'custom' : 'news', // map mode
-        aspect_ratio: input.settings.output_format === '1:1' ? '16:9' : input.settings.output_format,
+        aspect_ratio: input.settings.output_format === '9:16' ? '9:16' : '16:9', // DB only allows 16:9|9:16; real frame lives in config.output_format
         status: 'draft',
         config: input.settings, // 'settings' -> 'config' no schema
       }
-      
-      console.log('📝 Inserting data:', insertData)
-      console.log('📝 Data types:', {
-        name: typeof insertData.name,
-        user_id: typeof insertData.user_id,
-        mode_id: typeof insertData.mode_id,
-        aspect_ratio: typeof insertData.aspect_ratio,
-        status: typeof insertData.status,
-        config: typeof insertData.config,
-        configIsObject: typeof insertData.config === 'object',
-        configValue: JSON.stringify(insertData.config),
-      })
 
       const { data, error } = await supabase
         .from('projects')
@@ -97,16 +84,8 @@ export function useCreateProject() {
         .single()
 
       if (error) {
-        console.error('❌ Insert error:', error)
-        console.error('❌ Error code:', error.code)
-        console.error('❌ Error message:', error.message)
-        console.error('❌ Error hint:', error.hint)
-        console.error('❌ Error details:', error.details)
-        console.error('❌ Full error object:', JSON.stringify(error, null, 2))
         throw error // throw the full error object, not just message
       }
-      
-      console.log('✅ Project created:', data)
       
       // Map database fields back to frontend type
       return {
@@ -119,26 +98,10 @@ export function useCreateProject() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
-    onError: (error: any) => {
-      console.error('❌ Mutation error:', error)
-      console.error('❌ Error type:', typeof error)
-      console.error('❌ Error constructor:', error?.constructor?.name)
-      console.error('❌ Error message:', error?.message)
-      console.error('❌ Error code:', error?.code)
-      console.error('❌ Error hint:', error?.hint)
-      console.error('❌ Error details:', error?.details)
-      
-      // Try to stringify the error
-      try {
-        console.error('❌ Full error JSON:', JSON.stringify(error, null, 2))
-      } catch (e) {
-        console.error('❌ Could not stringify error')
-      }
-      
-      // Show user-friendly error with all available info
-      const errorMessage = error?.message || error?.hint || error?.details || 'Unknown error occurred'
-      const errorCode = error?.code ? ` (Code: ${error.code})` : ''
-      alert(`Failed to create project: ${errorMessage}${errorCode}`)
+    onError: (error: { message?: string; hint?: string; details?: string; code?: string }) => {
+      const errorMessage = error?.message || error?.hint || error?.details || 'erro desconhecido'
+      const errorCode = error?.code ? ` (código ${error.code})` : ''
+      alert(`Não foi possível criar o projeto: ${errorMessage}${errorCode}`)
     },
   })
 }
@@ -172,6 +135,14 @@ export function useDeleteProject() {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Remove the project's media from Storage first (DB rows cascade, files don't)
+      const { data: files } = await supabase.from('assets').select('storage_path').eq('project_id', id)
+      const paths = (files || []).map((f) => f.storage_path).filter(Boolean)
+      for (let i = 0; i < paths.length; i += 100) {
+        const { error: rmError } = await supabase.storage.from('media').remove(paths.slice(i, i + 100))
+        if (rmError) console.warn('[deleteProject] storage cleanup failed:', rmError)
+      }
+
       const { error } = await supabase
         .from('projects')
         .delete()

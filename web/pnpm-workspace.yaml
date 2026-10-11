@@ -1,2 +1,5 @@
 allowBuilds:
-  unrs-resolver: set this to true or false
+  # native resolver used only by eslint-plugin-import (lint) — safe to build
+  unrs-resolver: true
+minimumReleaseAgeExclude:
+  - lucide-react@1.55.0

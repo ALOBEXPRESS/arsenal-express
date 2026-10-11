@@ -1,21 +1,27 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Geist, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const inter = Inter({ 
+const display = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "700", "800"],
+});
+
+const sans = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const mono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Arsenal Express | AI Video Production",
-  description: "Transform scripts into professional short-form videos",
+  title: "SyncExpress · Arsenal Express",
+  description: "Clipes + narração → timeline sincronizada, pronta pro CapCut.",
 };
 
 export default function RootLayout({
@@ -26,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+        className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

@@ -1,18 +1,20 @@
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+// eslint-config-next 15 ships legacy (.eslintrc) configs → load them via FlatCompat
+// (the previous file used the Next 16 flat-config imports, which broke `next build` lint).
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { FlatCompat } from "@eslint/eslintrc";
 
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
-]);
+const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta.url)) });
+
+const eslintConfig = [
+  { ignores: [".next/**", "out/**", "build/**", "next-env.d.ts", "tests/**"] },
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    rules: {
+      // the codebase maps loosely-typed Supabase JSON in a few places
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
+];
 
 export default eslintConfig;

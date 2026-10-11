@@ -16,7 +16,7 @@ export function ProjectList() {
       await deleteProject.mutateAsync(id)
     } catch (error) {
       console.error('Failed to delete project:', error)
-      alert('Failed to delete project. Please try again.')
+      alert('Falha ao excluir o projeto. Tente novamente.')
     } finally {
       setDeletingId(null)
     }
@@ -28,7 +28,7 @@ export function ProjectList() {
         {[...Array(6)].map((_, i) => (
           <div
             key={i}
-            className="aspect-video rounded-lg bg-gray-800 animate-pulse"
+            className="aspect-[16/11] rounded-xl bg-surface-1 animate-pulse"
           />
         ))}
       </div>
@@ -38,13 +38,13 @@ export function ProjectList() {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-500">Failed to load projects</p>
+        <p className="text-destructive">Não foi possível carregar os projetos</p>
         <Button
           variant="outline"
           onClick={() => window.location.reload()}
           className="mt-4"
         >
-          Retry
+          Tentar de novo
         </Button>
       </div>
     )
@@ -52,12 +52,10 @@ export function ProjectList() {
 
   if (!projects || projects.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-6xl mb-4">🎬</div>
-        <h3 className="text-xl font-semibold mb-2">No projects yet</h3>
-        <p className="text-gray-400 mb-6">
-          Create your first project to get started
-        </p>
+      <div className="grain rounded-xl border border-dashed border-border bg-surface-1 py-16 text-center">
+        <span className="tally" aria-hidden />
+        <h3 className="mt-4 font-display text-xl font-bold">Nenhum projeto ainda</h3>
+        <p className="mt-1 text-muted-foreground">Crie o primeiro e suba seus clipes + narração.</p>
       </div>
     )
   }

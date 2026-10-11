@@ -41,7 +41,7 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   
   addScene: (scene) => 
     set((state) => ({ 
-      scenes: [...state.scenes, scene].sort((a, b) => a.order - b.order)
+      scenes: [...state.scenes, scene].sort((a, b) => a.order_index - b.order_index)
     })),
   
   updateScene: (sceneId, updates) =>

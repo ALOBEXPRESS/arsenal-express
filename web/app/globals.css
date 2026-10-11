@@ -2,28 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * SyncExpress — "Control Room" × marca GTA Express
+ *   Rosa Vibrante  #fe2c55  → cor principal (destaques, foco, seleção)
+ *   Azul TikTok    #25f4ee  → sincronia (playhead, narração, sucesso)
+ *   Preto TikTok   #232235  → superfícies/painéis
+ *   Laranja Express #ff4b26 → "Express": tally, marcadores, badges
+ * Contraste (WCAG AA): botões cheios usam rosa profundo #e0164b + branco (4.8:1);
+ * rosa #fe2c55 e laranja #ff4b26 como texto sobre o fundo: 5.1:1 / 5.5:1.
+ */
 @layer base {
   :root {
-    --background: 0 0% 6%;
-    --foreground: 0 0% 96%;
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 96%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 0 84% 60%;
+    --brand-pink: 348 86% 62%; /* #fe2c55 suavizado (−sat) pra UI; contraste 5.2:1 */
+    --brand-cyan: 178 90% 55%;
+    --brand-ink: 243 22% 17%;
+    --brand-orange: 10 100% 57%;
+
+    --background: 243 26% 8%;
+    --foreground: 240 30% 96%;
+    --card: 243 22% 12%;
+    --card-foreground: 240 30% 96%;
+    --popover: 243 22% 13%;
+    --popover-foreground: 240 30% 96%;
+    --primary: var(--brand-pink);
+    --primary-fill: 344 68% 47%; /* botões: branco 5.4:1 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 0 84% 60%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --secondary: 243 20% 19%;
+    --secondary-foreground: 240 30% 96%;
+    --muted: 243 20% 19%;
+    --muted-foreground: 243 14% 70%;
+    --accent: var(--brand-cyan);
+    --accent-foreground: 243 30% 8%;
+    --express: var(--brand-orange);
+    --destructive: 0 74% 56%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 0 84% 60%;
-    --radius: 0.5rem;
+    --border: 243 18% 22%;
+    --input: 243 18% 22%;
+    --ring: var(--brand-pink);
+    --radius: 0.625rem;
+
+    /* Surface ladder (darkest → raised); surface-2 is the brand black #232235 */
+    --surface-0: 243 26% 8%;
+    --surface-1: 243 22% 12%;
+    --surface-2: var(--brand-ink);
+    --surface-3: 243 18% 24%;
+
+    /* Track colors (CapCut-like lanes) */
+    --track-video: 243 30% 34%;
+    --track-audio: var(--brand-cyan);
+
+    --scrollbar-size: 10px;
   }
 }
 
@@ -31,8 +59,123 @@
   * {
     @apply border-border;
   }
+  html {
+    color-scheme: dark;
+    scrollbar-color: hsl(var(--surface-3)) transparent;
+    scrollbar-width: thin;
+  }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.35);
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  /* number inputs: no native spinners (we use sliders) */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+/* ---------- Scrollbars: thin graphite rails, amber when grabbed ---------- */
+@layer base {
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--surface-3));
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(220 8% 30%);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--primary));
+  }
+  ::-webkit-scrollbar-corner,
+  ::-webkit-scrollbar-button {
+    display: none;
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* Film-grain overlay used on hero + empty states */
+  .grain {
+    position: relative;
+    isolation: isolate;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.07;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Timecode ruler ticks */
+  .ruler {
+    background-image:
+      linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: var(--major, 80px) 100%, calc(var(--major, 80px) / 4) 40%;
+    background-repeat: repeat-x;
+    background-position: left bottom;
+  }
+
+  /* Tally light — Laranja Express "live" indicator */
+  .tally {
+    @apply inline-block h-2 w-2 rounded-full;
+    background: hsl(var(--express));
+    box-shadow: 0 0 0 3px hsl(var(--express) / 0.2), 0 0 12px hsl(var(--express) / 0.75);
+  }
+
+  /* Signature: TikTok chromatic split (cyan left, pink right). Brand moments only. */
+  .tiktok-split {
+    text-shadow: -0.045em 0 0 hsl(var(--brand-cyan) / 0.9), 0.045em 0 0 hsl(var(--brand-pink) / 0.9);
+  }
+  .tiktok-split-sm {
+    text-shadow: -1px 0 0 hsl(var(--brand-cyan) / 0.85), 1px 0 0 hsl(var(--brand-pink) / 0.85);
+  }
+
+  /* Primary glow used on hero CTA / play button */
+  .glow-pink {
+    box-shadow: 0 0 0 1px hsl(var(--brand-pink) / 0.3), 0 8px 28px -8px hsl(var(--brand-pink) / 0.35);
+  }
+
+  .panel {
+    @apply rounded-xl border border-border;
+    background: hsl(var(--surface-1));
+  }
+
+  .eyebrow {
+    @apply font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

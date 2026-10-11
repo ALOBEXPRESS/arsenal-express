@@ -1,102 +1,83 @@
 'use client'
 
 import Link from 'next/link'
+import { Trash2, Mic } from 'lucide-react'
 import type { Project } from '@/types/project'
-import { cn } from '@/lib/utils'
+import { formatTime } from '@/lib/timeline'
 
 interface ProjectCardProps {
   project: Project
   onDelete?: (id: string) => void
 }
 
-const statusColors = {
-  draft: 'bg-gray-500',
-  in_progress: 'bg-blue-500',
-  ready: 'bg-yellow-500',
-  completed: 'bg-green-500',
+const statusLabels: Record<string, string> = {
+  draft: 'Rascunho',
+  in_progress: 'Editando',
+  ready: 'Pronto',
+  completed: 'Exportado',
 }
 
-const statusLabels = {
-  draft: 'Draft',
-  in_progress: 'In Progress',
-  ready: 'Ready',
-  completed: 'Completed',
-}
-
-const modeLabels = {
-  upload: 'Upload Mode',
-  'script-to-prompt': 'Script to Prompt',
+/** Deterministic uneven "cut" widths from the project id — every card gets its own rhythm */
+function rhythm(id: string, n = 9) {
+  const vals = Array.from({ length: n }, (_, i) => 2 + (id.charCodeAt(i % id.length) % 7))
+  const sum = vals.reduce((a, b) => a + b, 0)
+  return vals.map((v) => (v / sum) * 100)
 }
 
 export function ProjectCard({ project, onDelete }: ProjectCardProps) {
-  const formattedDate = new Date(project.updated_at).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  const date = new Date(project.updated_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const narration = project.settings?.narration_track || []
+  const narrationTotal = narration.reduce((a, s) => a + s.duration, 0)
 
   return (
-    <div className="group relative overflow-hidden rounded-lg border border-gray-800 bg-gray-900 transition-all hover:border-gray-700 hover:shadow-lg">
-      <Link href={`/project/${project.id}`} className="block">
-        {/* Thumbnail placeholder */}
-        <div className="aspect-video w-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-          <div className="text-6xl">🎬</div>
+    <div className="group relative overflow-hidden rounded-xl border border-border bg-surface-1 transition-colors duration-200 hover:border-primary/50">
+      <Link href={`/project/${project.id}`} className="block cursor-pointer">
+        <div className="grain relative aspect-[16/8] overflow-hidden bg-surface-0 p-4">
+          <div className="ruler absolute inset-x-4 top-3 h-3 [--major:48px]" aria-hidden />
+          <div className="absolute inset-x-4 top-9 flex h-10 gap-[3px]" aria-hidden>
+            {rhythm(project.id).map((w, i) => (
+              <span
+                key={i}
+                className="rounded bg-track-video/70 transition-colors group-hover:bg-track-video"
+                style={{ width: `${w}%` }}
+              />
+            ))}
+          </div>
+          <div className="absolute inset-x-4 top-[88px] h-5 rounded bg-track-audio/50" aria-hidden />
+          <span className="absolute bottom-3 right-4 font-mono text-[11px] tabular-nums text-muted-foreground">
+            {narrationTotal > 0 ? formatTime(narrationTotal) : '--:--'}
+          </span>
         </div>
 
-        {/* Content */}
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-blue-400 transition-colors">
+        <div className="border-t border-border p-4">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="line-clamp-2 font-display text-lg font-bold leading-tight transition-colors group-hover:text-primary">
               {project.title}
             </h3>
-            <span
-              className={cn(
-                'px-2 py-1 rounded text-xs font-medium text-white whitespace-nowrap',
-                statusColors[project.status]
-              )}
-            >
-              {statusLabels[project.status]}
+            <span className="whitespace-nowrap rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {statusLabels[project.status] || project.status}
             </span>
           </div>
-
-          {project.description && (
-            <p className="text-sm text-gray-400 line-clamp-2 mb-3">
-              {project.description}
-            </p>
-          )}
-
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>{modeLabels[project.mode]}</span>
-            <span>{formattedDate}</span>
+          {project.description && <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{project.description}</p>}
+          <div className="mt-3 flex items-center justify-between font-mono text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Mic className="h-3 w-3" aria-hidden /> {narration.length} narração{narration.length === 1 ? '' : 'ões'}
+            </span>
+            <span>{date}</span>
           </div>
         </div>
       </Link>
 
-      {/* Delete button */}
       {onDelete && (
         <button
           onClick={(e) => {
             e.preventDefault()
-            if (confirm('Are you sure you want to delete this project?')) {
-              onDelete(project.id)
-            }
+            if (confirm(`Excluir o projeto "${project.title}"? Isso não pode ser desfeito.`)) onDelete(project.id)
           }}
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white p-2 rounded-md"
-          title="Delete project"
+          className="absolute right-2 top-2 cursor-pointer rounded-md bg-surface-0/80 p-2 text-muted-foreground opacity-0 backdrop-blur transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+          aria-label={`Excluir ${project.title}`}
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
+          <Trash2 className="h-4 w-4" />
         </button>
       )}
     </div>
