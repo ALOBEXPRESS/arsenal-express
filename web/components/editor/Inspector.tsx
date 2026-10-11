@@ -149,7 +149,6 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
               </li>
             </ul>
           </div>
-        </div>
       </div>
     )
   }
@@ -171,8 +170,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     const defaultVolume = narrationTrack.length ? CLIP_VOLUME_UNDER_NARRATION : 1
 
     return (
-      <>
-        <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col">
           <Header
             icon={isVideo ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
             eyebrow={`Cena ${String(item.index + 1).padStart(2, '0')} · ${formatClock(item.start)} → ${formatClock(item.start + item.duration)}`}
@@ -267,8 +265,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     const set = (patch: Partial<typeof o>) => tracks.updateOverlay(o.id, patch)
     const maxDur = o.kind === 'video' && a?.duration ? a.duration / (o.speed || 1) : undefined
     return (
-      <>
-        <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col">
         <Header
           icon={o.kind === 'video' ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
           eyebrow={`Sobrepor · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}`}
@@ -326,21 +323,6 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           </Group>
         </div>
       </div>
-      <TrimModalWrapper
-        open={trimModalOpen}
-        asset={trimAsset}
-        scene={trimScene}
-        onOpenChange={setTrimModalOpen}
-        onSave={(inPoint, outPoint) => {
-          if (trimScene) {
-            patchScene(trimScene.id, {
-              in_point: inPoint,
-              trim: outPoint !== null ? outPoint - inPoint : undefined,
-            })
-          }
-        }}
-      />
-    </>
     )
   }
 
@@ -356,8 +338,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
         | string
         | undefined
     return (
-      <>
-        <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col">
         <Header
           icon={<SlidersVertical className="h-4 w-4" />}
           eyebrow={`Ajuste · ${formatClock(a.start)} → ${formatClock(a.start + a.duration)}`}
@@ -463,21 +444,6 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           </Group>
         </div>
       </div>
-      <TrimModalWrapper
-        open={trimModalOpen}
-        asset={trimAsset}
-        scene={trimScene}
-        onOpenChange={setTrimModalOpen}
-        onSave={(inPoint, outPoint) => {
-          if (trimScene) {
-            patchScene(trimScene.id, {
-              in_point: inPoint,
-              trim: outPoint !== null ? outPoint - inPoint : undefined,
-            })
-          }
-        }}
-      />
-    </>
     )
   }
 
@@ -489,8 +455,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     const a = assetById.get(seg.asset_id)
     const covered = timeline.filter((t) => t.start < seg.start + seg.duration && t.start + t.duration > seg.start).length
     return (
-      <>
-        <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col">
           <Header
             icon={<Mic className="h-4 w-4" />}
             eyebrow={`Narração ${i + 1} · ${formatClock(seg.start)} → ${formatClock(seg.start + seg.duration)}`}
@@ -514,22 +479,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
               <Trash2 /> Tirar da narração
             </Button>
           </div>
-        </div>
-        <TrimModalWrapper
-          open={trimModalOpen}
-          asset={trimAsset}
-          scene={trimScene}
-          onOpenChange={setTrimModalOpen}
-          onSave={(inPoint, outPoint) => {
-            if (trimScene) {
-              patchScene(trimScene.id, {
-                in_point: inPoint,
-                trim: outPoint !== null ? outPoint - inPoint : undefined,
-              })
-            }
-          }}
-        />
-      </>
+      </div>
     )
   }
 
@@ -540,8 +490,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
   const set = (patch: Partial<typeof c>) => tracks.updateAudio(c.id, patch)
   const maxDur = a?.duration ? a.duration / (c.speed || 1) : undefined
   return (
-    <>
-      <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col">
         <Header
           icon={<Music className="h-4 w-4" />}
           eyebrow={`Áudio · ${formatClock(c.start)} → ${formatClock(c.start + c.duration)}`}
@@ -587,46 +536,5 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           </Group>
         </div>
       </div>
-      <TrimModalWrapper
-        open={trimModalOpen}
-        asset={trimAsset}
-        scene={trimScene}
-        onOpenChange={setTrimModalOpen}
-        onSave={(inPoint, outPoint) => {
-          if (trimScene) {
-            patchScene(trimScene.id, {
-              in_point: inPoint,
-              trim: outPoint !== null ? outPoint - inPoint : undefined,
-            })
-          }
-        }}
-      />
-    </>
-  )
-}
-
-function TrimModalWrapper({
-  open,
-  asset,
-  scene,
-  onOpenChange,
-  onSave,
-}: {
-  open: boolean
-  asset: Asset | null
-  scene: Scene | null
-  onOpenChange: (open: boolean) => void
-  onSave: (inPoint: number, outPoint: number | null) => void
-}) {
-  if (!asset || !scene) return null
-  return (
-    <TrimModal
-      open={open}
-      onOpenChange={onOpenChange}
-      asset={asset}
-      currentInPoint={scene.in_point}
-      currentOutPoint={scene.trim !== undefined ? (scene.in_point || 0) + scene.trim : undefined}
-      onSave={onSave}
-    />
-  )
-}
+    )
+  }
