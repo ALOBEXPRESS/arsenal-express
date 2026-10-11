@@ -82,6 +82,8 @@ export interface OverlayClip {
   speed: number
   /** video only, 0..2 (1 = original) */
   volume: number
+  /** seconds of the source skipped at the start (set by the cut tool) */
+  in_point?: number
 }
 
 export interface AudioClip {
@@ -92,6 +94,8 @@ export interface AudioClip {
   /** 0..2 (1 = original) */
   volume: number
   speed: number
+  /** seconds of the source skipped at the start (set by the cut tool) */
+  in_point?: number
 }
 
 /** Per-scene editable properties kept in scenes.metadata */
@@ -100,6 +104,8 @@ export interface SceneProps {
   speed?: number
   /** clip audio level 0..2 (default: low under narration) */
   volume?: number
+  /** seconds of the source skipped at the start (set by the cut tool) */
+  trim?: number
   anim?: Partial<AnimationParams>
 }
 

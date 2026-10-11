@@ -1,0 +1,154 @@
+'use client'
+
+import { useState } from 'react'
+import { Video, Download, Loader2, AlertCircle } from 'lucide-react'
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Progress } from '@/components/ui/progress'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { renderMp4, type RenderOptions } from '@/lib/render/mp4'
+import type { TimelineInput } from '@/lib/capcut/draft'
+
+interface RenderSheetProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  projectTitle: string
+  timelines: (TimelineInput & { id: string })[]
+  activeSubId: string
+}
+
+type PresetKey = '720p' | '1080p' | 'shorts'
+
+const PRESETS: Record<PresetKey, { label: string; width: number; height: number; fps: number }> = {
+  '720p': { label: '720p (HD)', width: 1280, height: 720, fps: 30 },
+  '1080p': { label: '1080p (Full HD)', width: 1920, height: 1080, fps: 30 },
+  shorts: { label: 'Shorts/Reels (9:16)', width: 1080, height: 1920, fps: 30 },
+}
+
+export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activeSubId }: RenderSheetProps) {
+  const [preset, setPreset] = useState<PresetKey>('1080p')
+  const [rendering, setRendering] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [resultUrl, setResultUrl] = useState<string | null>(null)
+
+  const chosen = timelines.find((t) => t.id === activeSubId) || timelines[0]
+  if (!chosen) return null
+
+  const handleRender = async () => {
+    setRendering(true)
+    setProgress(0)
+    setError(null)
+    setResultUrl(null)
+
+    try {
+      const config = PRESETS[preset]
+      const options: RenderOptions = {
+        width: config.width,
+        height: config.height,
+        frameRate: config.fps,
+        videoCodec: 'avc',
+        videoQuality: 2_000_000, // 2 Mbps
+        audioCodec: 'aac',
+        audioQuality: 128_000, // 128 kbps
+        onProgress: (p) => setProgress(Math.round(p * 100)),
+      }
+
+      const totalDuration = Math.max(...chosen.timeline.map((s) => s.start + s.duration), 0)
+
+      const mp4 = await renderMp4(
+        {
+          timeline: chosen.timeline,
+          narration: chosen.narration as any,
+          audioClips: chosen.audioClips as any || [],
+          overlays: chosen.overlays as any || [],
+          duration: totalDuration,
+        },
+        options
+      )
+
+      // Create download
+      const blob = new Blob([new Uint8Array(mp4.buffer || mp4)], { type: 'video/mp4' })
+      const url = URL.createObjectURL(blob)
+      setResultUrl(url)
+
+      // Auto-download
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${projectTitle.replace(/[^a-z0-9]/gi, '_')}_${preset}.mp4`
+      a.click()
+    } catch (err) {
+      console.error('Render failed:', err)
+      setError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setRendering(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetTitle className="flex items-center gap-2">
+          <Video className="h-5 w-5" />
+          Renderizar e Exportar
+        </SheetTitle>
+        <SheetDescription>Gera um arquivo MP4 pronto pra usar, com áudio e efeitos aplicados.</SheetDescription>
+
+        <div className="mt-6 space-y-4">
+          <div>
+            <Label>Qualidade / Formato</Label>
+            <Select value={preset} onValueChange={(v: string) => setPreset(v as PresetKey)} disabled={rendering}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PRESETS).map(([key, val]) => (
+                  <SelectItem key={key} value={key}>
+                    {val.label} — {val.width}×{val.height} @ {val.fps}fps
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {rendering && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Renderizando...</span>
+                <span>{progress}%</span>
+              </div>
+              <Progress value={progress} />
+            </div>
+          )}
+
+          {resultUrl && (
+            <Alert>
+              <Download className="h-4 w-4" />
+              <AlertDescription>
+                Vídeo pronto! O download começou automaticamente.{' '}
+                <a href={resultUrl} download className="underline">
+                  Clique aqui se não iniciou
+                </a>
+                .
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Button onClick={handleRender} disabled={rendering} className="w-full">
+            {rendering ? <Loader2 className="animate-spin" /> : <Video />}
+            {rendering ? 'Renderizando...' : 'Renderizar e Baixar'}
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}

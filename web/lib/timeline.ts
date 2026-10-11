@@ -62,6 +62,8 @@ export interface TimedScene {
   rate: number
   /** true when the user set the speed by hand */
   manualSpeed: boolean
+  /** seconds of the source clip skipped at the start (cut tool) */
+  trim: number
 }
 
 /** Editable per-scene properties stored in scenes.metadata */
@@ -69,7 +71,9 @@ export function sceneProps(scene: Scene): SceneProps {
   const m = (scene.metadata || {}) as Record<string, unknown>
   const speed = m.speed == null ? NaN : Number(m.speed)
   const volume = m.volume == null ? NaN : Number(m.volume)
+  const trim = m.trim == null ? NaN : Number(m.trim)
   return {
+    trim: Number.isFinite(trim) && trim > 0 ? trim : undefined,
     speed: Number.isFinite(speed) && speed > 0 ? speed : undefined,
     volume: Number.isFinite(volume) && volume >= 0 ? volume : undefined,
     anim: (m.anim as SceneProps['anim']) || undefined,
@@ -96,7 +100,10 @@ export function buildTimeline(scenes: Scene[], assets: Asset[]): TimedScene[] {
     const videoAsset = scene.video_asset_id ? byId.get(scene.video_asset_id) : undefined
     const imageAsset = scene.image_asset_id ? byId.get(scene.image_asset_id) : undefined
     const duration = sceneDuration(scene, videoAsset)
-    const manual = sceneProps(scene).speed
+    const props = sceneProps(scene)
+    const manual = props.speed
+    const trim = props.trim ?? 0
+    const available = videoAsset?.duration ? Math.max(0.05, videoAsset.duration - trim) : videoAsset?.duration
     const timed: TimedScene = {
       scene,
       index,
@@ -104,8 +111,9 @@ export function buildTimeline(scenes: Scene[], assets: Asset[]): TimedScene[] {
       duration,
       videoAsset,
       imageAsset,
-      rate: manual ?? clipRate(videoAsset?.duration, duration),
+      rate: manual ?? clipRate(available, duration),
       manualSpeed: manual !== undefined,
+      trim,
     }
     cursor += duration
     return timed

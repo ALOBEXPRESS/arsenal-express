@@ -213,7 +213,8 @@ export function VideoPreview({
         el.volume = Math.min(1, props.volume ?? (narrationActive ? CLIP_VOLUME_UNDER_NARRATION : 1))
         const clipDur = item.videoAsset?.duration || (Number.isFinite(el.duration) ? el.duration : 0)
         const visible = t < sceneEnd && (k === idx || (transitioning && k === idx - 1))
-        syncMedia(el, since * item.rate, item.rate, playing, visible, clipDur > 0 ? clipDur - 0.05 : Infinity)
+        // item.trim = part of the clip removed by the cut tool (source starts later)
+        syncMedia(el, item.trim + since * item.rate, item.rate, playing, visible, clipDur > 0 ? clipDur - 0.05 : Infinity)
       })
 
       // Overlays: visibility per frame + video sync
@@ -227,7 +228,7 @@ export function VideoPreview({
           const a = assetById.get(o.asset_id)
           v.volume = Math.min(1, Math.max(0, o.volume ?? 1))
           const end = a?.duration ? a.duration - 0.05 : Infinity
-          syncMedia(v, (t - o.start) * (o.speed || 1), o.speed || 1, playing, active, end)
+          syncMedia(v, (o.in_point || 0) + (t - o.start) * (o.speed || 1), o.speed || 1, playing, active, end)
         }
       }
 
@@ -243,7 +244,7 @@ export function VideoPreview({
           if (!el.paused) el.pause()
           continue
         }
-        syncMedia(el, (t - c.start) * (c.speed || 1), c.speed || 1, playing, true, end)
+        syncMedia(el, (c.in_point || 0) + (t - c.start) * (c.speed || 1), c.speed || 1, playing, true, end)
       }
 
       // Narration: N files played back-to-back on one continuous track

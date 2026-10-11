@@ -265,7 +265,8 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
 
     // Speed: user speed (inspector) or 1x. If the clip runs out before the scene ends, slow it
     // down further so CapCut has no gap (the preview holds the last frame instead).
-    const clipS = input.mediaInfo.get(media.id)?.duration || media.duration || durS
+    const trimS = isPhoto ? 0 : item.trim
+    const clipS = Math.max(0.05, (input.mediaInfo.get(media.id)?.duration || media.duration || durS) - trimS)
     let speed = item.manualSpeed ? item.rate : 1
     if (!isPhoto && clipS < durS * speed) speed = Math.max(0.1, Math.floor((clipS / durS) * 1000) / 1000)
     const sourceUs = isPhoto ? durUs : Math.min(Math.round(durUs * speed), toUs(clipS))
@@ -305,7 +306,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       target_timerange: { start: startUs, duration: durUs },
       common_keyframes: animationKeyframes(item.scene.animation_type || 'none', durS, props.anim),
       keyframe_refs: [],
-      source_timerange: { start: 0, duration: sourceUs },
+      source_timerange: { start: toUs(trimS), duration: sourceUs },
       speed,
       volume: isPhoto ? 1.0 : props.volume ?? input.clipVolume,
       extra_material_refs: refs,
@@ -354,7 +355,8 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
     const segments = row.map(({ clip, asset }) => {
       const isPhoto = asset.type === 'image'
       const durUs = toUs(clip.duration)
-      const clipS = input.mediaInfo.get(asset.id)?.duration || asset.duration || clip.duration
+      const inPoint = isPhoto ? 0 : clip.in_point || 0
+      const clipS = Math.max(0.05, (input.mediaInfo.get(asset.id)?.duration || asset.duration || clip.duration) - inPoint)
       const speed = isPhoto ? 1 : clip.speed || 1
       const speedMat = speedMaterial(speed)
       mat.speeds.push(speedMat)
@@ -366,7 +368,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
         target_timerange: { start: toUs(clip.start), duration: durUs },
         common_keyframes: [],
         keyframe_refs: [],
-        source_timerange: { start: 0, duration: isPhoto ? durUs : Math.min(Math.round(durUs * speed), toUs(clipS)) },
+        source_timerange: { start: toUs(inPoint), duration: isPhoto ? durUs : Math.min(Math.round(durUs * speed), toUs(clipS)) },
         speed,
         volume: isPhoto ? 1.0 : clip.volume ?? 0,
         extra_material_refs: [speedMat.id],
@@ -394,6 +396,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       const speedMat = speedMaterial(speed)
       mat.speeds.push(speedMat)
       const durUs = toUs(clip.duration)
+      const inPoint = clip.in_point || 0
       return {
         ...SEGMENT_COMMON,
         id: hex(),
@@ -401,7 +404,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
         target_timerange: { start: toUs(clip.start), duration: durUs },
         common_keyframes: [],
         keyframe_refs: [],
-        source_timerange: { start: 0, duration: Math.min(Math.round(durUs * speed), toUs(asset.duration || clip.duration * speed)) },
+        source_timerange: { start: toUs(inPoint), duration: Math.min(Math.round(durUs * speed), toUs(Math.max(0.05, (asset.duration || clip.duration * speed) - inPoint))) },
         speed,
         volume: clip.volume ?? 1,
         extra_material_refs: [speedMat.id],

@@ -1,0 +1,1 @@
+export function Progress({value}:{value:number}){return <div className="h-2 bg-surface-2 rounded"><div className="h-full bg-primary rounded" style={{width:`${value}%`}}/></div>}

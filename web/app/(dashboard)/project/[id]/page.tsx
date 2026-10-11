@@ -26,7 +26,7 @@ import { SceneEditor } from '@/components/timeline/SceneEditor'
 import { VideoPreview } from '@/components/preview/VideoPreview'
 import { Inspector } from '@/components/editor/Inspector'
 import { AssemblySheet } from '@/components/sync/AssemblySheet'
-import { CapCutExportSheet } from '@/components/sync/CapCutExportSheet'
+import { ExportMenu } from '@/components/project/ExportMenu'
 import { LogoMark } from '@/components/brand/Logo'
 import { buildTimeline, formatTime } from '@/lib/timeline'
 import { withDefaults, type SyncSettings } from '@/lib/sync/presets'
@@ -70,8 +70,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const applyEffects = useApplyEffects()
 
   const [showSceneEditor, setShowSceneEditor] = useState(false)
-  const [showAssembly, setShowAssembly] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [showAssembly, setShowAssembly] = useState(false)
+
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
   const [activeSceneIndex, setActiveSceneIndex] = useState(0)
   const [status, setStatus] = useState<string>()
@@ -250,9 +251,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           <Button variant="outline" size="sm" onClick={() => setShowAssembly(true)}>
             <SlidersHorizontal /> Montagem
           </Button>
-          <Button size="sm" disabled={!hasTimeline} onClick={() => setShowExport(true)} className="font-semibold">
-            <FolderDown /> Exportar CapCut
-          </Button>
+          <ExportMenu
+            projectTitle={project.title}
+            timelines={exportTimelines}
+            activeSubId={subId}
+            settings={syncSettings}
+            disabled={!hasTimeline}
+          />
         </div>
       </header>
 
@@ -382,16 +387,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           }
         }}
         onAssemble={(s) => runAssemble('scenes_with_audio', s)}
-      />
-
-      <CapCutExportSheet
-        open={showExport}
-        onOpenChange={setShowExport}
-        projectTitle={project.title}
-        timelines={exportTimelines}
-        activeSubId={subId}
-        settings={syncSettings}
-        defaultFormat={project.settings?.output_format}
       />
     </div>
   )
