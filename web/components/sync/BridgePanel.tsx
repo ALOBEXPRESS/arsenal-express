@@ -23,7 +23,8 @@ export function useBridge(active: boolean) {
     const tick = async () => {
       const r = await pingBridge(token || undefined)
       if (stop) return
-      setInfo(r)
+      // same answer → keep the same object so the export sheet doesn't re-render every 3s
+      setInfo((prev) => (JSON.stringify(prev) === JSON.stringify(r) ? prev : r))
       setChecked(true)
     }
     void tick()

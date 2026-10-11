@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { BadgeCheck, Blend, Sparkles, Clapperboard, FolderOpen, MousePointerClick, Power } from 'lucide-react'
 import { formatTime } from '@/lib/timeline'
 import type { CapCutSystem } from '@/lib/capcut/draft'
@@ -98,6 +99,12 @@ export function OpenInCapCut({
   /** the connector already opened CapCut */
   launched?: boolean
 }) {
+  // bring the panel into view ONCE when it appears (an inline ref callback re-ran on every
+  // re-render and dragged the scroll down while the user typed or the connector was polled)
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    panelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [])
   const steps = [
     { icon: Power, text: launched ? 'O CapCut abre sozinho' : 'Abra (ou reinicie) o CapCut' },
     { icon: FolderOpen, text: <>Na tela inicial, em <b className="text-foreground">Projetos</b></> },
@@ -113,7 +120,7 @@ export function OpenInCapCut({
   return (
     <div
       role="status"
-      ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}
+      ref={panelRef}
       className="animate-rise-in overflow-hidden rounded-xl border border-track-audio/40 bg-track-audio/10"
     >
       <div className="flex items-start gap-3 px-4 pt-4">
