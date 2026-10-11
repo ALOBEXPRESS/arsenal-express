@@ -105,6 +105,8 @@ export interface SceneProps {
   /** clip audio level 0..2 (default: low under narration) */
   volume?: number
   /** seconds of the source skipped at the start (set by the cut tool) */
+  in_point?: number
+  /** duration after trim (from in_point to out_point in seconds) */
   trim?: number
   anim?: Partial<AnimationParams>
 }
@@ -152,6 +154,9 @@ export interface Scene {
   metadata: Record<string, any>
   created_at: string
   updated_at: string
+  // Trim fields (from metadata)
+  in_point?: number
+  trim?: number
 }
 
 export interface CreateProjectInput {

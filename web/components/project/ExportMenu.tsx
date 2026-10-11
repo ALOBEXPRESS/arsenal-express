@@ -42,7 +42,7 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, dis
       }
 
       // Create offline audio context to mix all audio
-      const duration = Math.max(...chosen.timeline.map((s) => s.start + s.duration), 0)
+      const duration = Math.max(...chosen.timeline.map((s: any) => s.start + s.duration), 0)
       const sampleRate = 48000
       const audioCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate)
 
