@@ -5,6 +5,7 @@ import { Trash2, Mic } from 'lucide-react'
 import type { Project } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
 import { confirmDialog } from '@/components/ui/confirm'
+import { totalNarration } from '@/lib/subprojects'
 
 interface ProjectCardProps {
   project: Project
@@ -27,8 +28,7 @@ function rhythm(id: string, n = 9) {
 
 export function ProjectCard({ project, onDelete }: ProjectCardProps) {
   const date = new Date(project.updated_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-  const narration = project.settings?.narration_track || []
-  const narrationTotal = narration.reduce((a, s) => a + s.duration, 0)
+  const { files: narrationFiles, seconds: narrationTotal } = totalNarration(project.settings)
 
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border bg-surface-1 transition-colors duration-200 hover:border-primary/50">
@@ -62,7 +62,7 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
           {project.description && <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{project.description}</p>}
           <div className="mt-3 flex items-center justify-between font-mono text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Mic className="h-3 w-3" aria-hidden /> {narration.length} narração{narration.length === 1 ? '' : 'ões'}
+              <Mic className="h-3 w-3" aria-hidden /> {narrationFiles} narração{narrationFiles === 1 ? '' : 'ões'}
             </span>
             <span>{date}</span>
           </div>

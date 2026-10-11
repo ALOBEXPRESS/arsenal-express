@@ -31,10 +31,38 @@ export interface ProjectSettings {
   narration_track?: NarrationSegment[]
   /** SyncExpress assembly options (rhythm, animations, transitions) */
   sync?: Partial<SyncSettings>
-  /** Image/video layers above the main track (CapCut "Sobreposição") */
+  /** Image/video layers above the main track (CapCut "Sobreposição") — legacy, single timeline */
   overlays?: OverlayClip[]
-  /** Extra audio (music, SFX) dropped on the audio lane */
+  /** Extra audio (music, SFX) dropped on the audio lane — legacy, single timeline */
   audio_clips?: AudioClip[]
+  /** Independent timelines (CapCut "Linha do tempo 01, 02…"). Scenes link via metadata.sub */
+  subprojects?: Subproject[]
+}
+
+export interface Subproject {
+  id: string
+  name: string
+  narration_track: NarrationSegment[]
+  overlays: OverlayClip[]
+  audio_clips: AudioClip[]
+  adjustments: AdjustClip[]
+}
+
+/** Adjustment layer clip (CapCut "Ajuste"): look preset + editable values (CapCut units) */
+export interface AdjustClip {
+  id: string
+  start: number
+  duration: number
+  /** look preset id (lib/sync/adjust LOOKS) or null = custom */
+  look: string | null
+  brightness: number
+  contrast: number
+  saturation: number
+  temperature: number
+  fade: number
+  vignette: number
+  /** strength of the CapCut catalog filter, when the look has one (0..1) */
+  filter_intensity?: number
 }
 
 /** Overlay layer. x/y/scale use CapCut units: x,y = fraction of HALF canvas (y up), scale 1 = fit canvas */

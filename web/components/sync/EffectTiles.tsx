@@ -146,6 +146,82 @@ export function TransitionTile({
   )
 }
 
+/**
+ * Flow picker: in every group of 3 scenes, how many get the effect.
+ * Each option draws its own pattern (●○○ ●●○ ●●●) so the rule is visible, not just named.
+ */
+export function FlowPicker({
+  value,
+  onChange,
+  label,
+  noun,
+  variado,
+  selectedCount,
+}: {
+  value: 1 | 2 | 3
+  onChange: (v: 1 | 2 | 3) => void
+  label: string
+  /** "animação" / "transição" */
+  noun: string
+  variado: boolean
+  selectedCount: number
+}) {
+  const options: { v: 1 | 2 | 3; title: string; desc: string }[] = [
+    { v: 1, title: '1:3', desc: `1 ${noun} a cada 3 cenas` },
+    { v: 2, title: '2:3', desc: `2 ${variado ? 'diferentes' : ''} a cada 3`.replace('  ', ' ') },
+    { v: 3, title: '3:3', desc: variado ? '3 diferentes a cada 3' : 'em todas as cenas' },
+  ]
+  return (
+    <div className="space-y-2">
+      <p className="text-[12px] font-semibold text-foreground/90">{label}</p>
+      <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-1.5">
+        {options.map((o) => {
+          const on = value === o.v
+          return (
+            <button
+              key={o.v}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={`${o.title}: ${o.desc}`}
+              onClick={() => onChange(o.v)}
+              className={cn(
+                'flex cursor-pointer flex-col items-start gap-1.5 rounded-lg border px-2.5 py-2 text-left transition-colors duration-200',
+                on ? 'border-primary bg-primary/[0.08]' : 'border-border bg-surface-0 hover:border-foreground/25'
+              )}
+            >
+              <span className="flex w-full items-center justify-between">
+                <span className={cn('font-mono text-[13px] font-semibold tabular-nums', on ? 'text-primary' : 'text-foreground')}>{o.title}</span>
+                <span className="flex gap-[3px]" aria-hidden>
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className={cn(
+                        'h-3.5 w-2.5 rounded-[3px] border',
+                        i < o.v
+                          ? on
+                            ? 'border-primary bg-primary'
+                            : 'border-foreground/50 bg-foreground/50'
+                          : 'border-foreground/25 bg-transparent'
+                      )}
+                    />
+                  ))}
+                </span>
+              </span>
+              <span className="text-[11px] leading-tight text-muted-foreground">{o.desc}</span>
+            </button>
+          )
+        })}
+      </div>
+      {variado && value > 1 && selectedCount > 0 && selectedCount < value && (
+        <p className="text-[11px] text-muted-foreground">
+          Com {selectedCount} marcada{selectedCount > 1 ? 's' : ''}, alguma se repete dentro do grupo de 3 — marque {value} pra ficarem todas diferentes.
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** Two-option segmented control (Variado / Uma só) */
 export function ModeSwitch<T extends string>({
   value,

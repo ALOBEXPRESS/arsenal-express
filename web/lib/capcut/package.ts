@@ -3,9 +3,8 @@
 import JSZip from 'jszip'
 import { createClient } from '@/lib/supabase/client'
 import { confirmDialog } from '@/components/ui/confirm'
-import type { Asset, AudioClip, OverlayClip } from '@/types/project'
-import type { TimedScene } from '@/lib/timeline'
-import { buildDraft, buildTimingCsv, rootMetaEntry, type DraftInput, type MediaInfo, type CapCutSystem } from './draft'
+import type { Asset } from '@/types/project'
+import { buildDraft, buildTimingCsv, rootMetaEntry, type DraftInput, type MediaInfo, type CapCutSystem, type TimelineInput } from './draft'
 import type { SyncSettings } from '@/lib/sync/presets'
 
 const supabase = createClient()
@@ -14,12 +13,10 @@ export interface PackageOptions {
   projectName: string
   system: CapCutSystem
   username?: string
-  timeline: TimedScene[]
-  narration: { asset: Asset; start: number; duration: number }[]
+  /** one entry per subproject → CapCut "Linha do tempo 01, 02…" of the same project */
+  timelines: TimelineInput[]
   settings: SyncSettings
   outputFormat?: CanvasFormat | string
-  overlays?: { clip: OverlayClip; asset: Asset }[]
-  audioClips?: { clip: AudioClip; asset: Asset }[]
   onProgress?: (done: number, total: number, label: string) => void
 }
 
@@ -33,30 +30,30 @@ const slug = (name: string) =>
     .replace(/_+/g, '_')
     .slice(0, 48)
 
-/** Stable media file names: 001_clip.mp4 ... in timeline order, narration_1.wav, overlay_/audio_ ... */
-export function mediaFileNames(
-  timeline: TimedScene[],
-  narration: { asset: Asset }[],
-  overlays: { asset: Asset }[] = [],
-  audioClips: { asset: Asset }[] = []
-) {
+/** Stable media file names: 001_clip.mp4 ... in timeline order, narracao_1.wav, sobrepor_/audio_ ... */
+export function mediaFileNames(timelines: Pick<TimelineInput, 'timeline' | 'narration' | 'overlays' | 'audioClips'>[]) {
   const names = new Map<string, string>()
   let i = 1
-  for (const t of timeline) {
-    const a = t.videoAsset || t.imageAsset
-    if (a && !names.has(a.id)) names.set(a.id, `${pad(i++)}_${slug(a.filename)}${ext(a.filename)}`)
-  }
-  narration.forEach((n, k) => {
-    if (!names.has(n.asset.id)) names.set(n.asset.id, `narracao_${k + 1}${ext(n.asset.filename) || '.wav'}`)
-  })
+  let k = 1
   let o = 1
-  overlays.forEach(({ asset }) => {
-    if (!names.has(asset.id)) names.set(asset.id, `sobrepor_${pad(o++)}_${slug(asset.filename)}${ext(asset.filename)}`)
-  })
   let s = 1
-  audioClips.forEach(({ asset }) => {
-    if (!names.has(asset.id)) names.set(asset.id, `audio_${pad(s++)}_${slug(asset.filename)}${ext(asset.filename)}`)
-  })
+  for (const tl of timelines) {
+    for (const t of tl.timeline) {
+      const a = t.videoAsset || t.imageAsset
+      if (a && !names.has(a.id)) names.set(a.id, `${pad(i++)}_${slug(a.filename)}${ext(a.filename)}`)
+    }
+  }
+  for (const tl of timelines) {
+    tl.narration.forEach((n) => {
+      if (!names.has(n.asset.id)) names.set(n.asset.id, `narracao_${k++}${ext(n.asset.filename) || '.wav'}`)
+    })
+    tl.overlays?.forEach(({ asset }) => {
+      if (!names.has(asset.id)) names.set(asset.id, `sobrepor_${pad(o++)}_${slug(asset.filename)}${ext(asset.filename)}`)
+    })
+    tl.audioClips?.forEach(({ asset }) => {
+      if (!names.has(asset.id)) names.set(asset.id, `audio_${pad(s++)}_${slug(asset.filename)}${ext(asset.filename)}`)
+    })
+  }
   return names
 }
 
@@ -101,35 +98,33 @@ export function canvasFor(format: CanvasFormat | string | undefined, infos: Medi
 
 export async function prepareDraft(opts: PackageOptions) {
   const allAssets = new Map<string, Asset>()
-  opts.timeline.forEach((t) => {
-    const a = t.videoAsset || t.imageAsset
-    if (a) allAssets.set(a.id, a)
-  })
-  opts.narration.forEach((n) => allAssets.set(n.asset.id, n.asset))
-  opts.overlays?.forEach((o) => allAssets.set(o.asset.id, o.asset))
-  opts.audioClips?.forEach((c) => allAssets.set(c.asset.id, c.asset))
+  for (const tl of opts.timelines) {
+    tl.timeline.forEach((t) => {
+      const a = t.videoAsset || t.imageAsset
+      if (a) allAssets.set(a.id, a)
+    })
+    tl.narration.forEach((n) => allAssets.set(n.asset.id, n.asset))
+    tl.overlays?.forEach((o) => allAssets.set(o.asset.id, o.asset))
+    tl.audioClips?.forEach((c) => allAssets.set(c.asset.id, c.asset))
+  }
 
   const mediaInfo = new Map<string, MediaInfo>()
   await Promise.all([...allAssets.values()].map(async (a) => mediaInfo.set(a.id, await probe(a))))
 
-  const fileNames = mediaFileNames(opts.timeline, opts.narration, opts.overlays, opts.audioClips)
-  const videoInfos = opts.timeline
-    .map((t) => (t.videoAsset ? mediaInfo.get(t.videoAsset.id) : undefined))
+  const fileNames = mediaFileNames(opts.timelines)
+  const videoInfos = opts.timelines
+    .flatMap((tl) => tl.timeline.map((t) => (t.videoAsset ? mediaInfo.get(t.videoAsset.id) : undefined)))
     .filter(Boolean) as MediaInfo[]
 
   const input: DraftInput = {
     projectName: opts.projectName,
     system: opts.system,
     username: opts.username,
-    timeline: opts.timeline,
-    narration: opts.narration,
+    timelines: opts.timelines,
     settings: opts.settings,
     canvas: canvasFor(opts.outputFormat, videoInfos),
     mediaInfo,
     fileNames,
-    clipVolume: opts.narration.length ? 0.125 : 1.0, // -18 dB under narration (CLI config)
-    overlays: opts.overlays,
-    audioClips: opts.audioClips,
   }
   const draft = buildDraft(input)
   return { draft, fileNames, assets: [...allAssets.values()] }
@@ -172,7 +167,7 @@ export async function downloadDraftZip(opts: PackageOptions) {
   const zip = new JSZip()
 
   Object.entries(draft.files).forEach(([p, text]) => zip.file(p, text))
-  zip.file('guia_de_tempos.csv', buildTimingCsv(opts.timeline, fileNames))
+  zip.file('guia_de_tempos.csv', buildTimingCsv(opts.timelines, fileNames))
   const media = zip.folder('media')!
   await downloadAll(assets, fileNames, async (name, blob) => void media.file(name, blob), opts.onProgress)
   opts.onProgress?.(assets.length, assets.length, 'Compactando...')
@@ -220,7 +215,7 @@ export async function saveDraftToFolder(opts: PackageOptions) {
     await write(d, parts[parts.length - 1], data)
   }
   for (const [p, text] of Object.entries(draft.files)) await writePath(dir, p, text)
-  await write(dir, 'guia_de_tempos.csv', buildTimingCsv(opts.timeline, fileNames))
+  await write(dir, 'guia_de_tempos.csv', buildTimingCsv(opts.timelines, fileNames))
   const mediaDir = await dir.getDirectoryHandle('media', { create: true })
   await downloadAll(assets, fileNames, (name, blob) => write(mediaDir, name, blob), opts.onProgress)
 
@@ -245,8 +240,8 @@ export async function saveDraftToFolder(opts: PackageOptions) {
   return draft
 }
 
-export function downloadTimingCsv(timeline: TimedScene[], narration: { asset: Asset }[], name: string) {
-  const csv = buildTimingCsv(timeline, mediaFileNames(timeline, narration))
+export function downloadTimingCsv(timelines: TimelineInput[], name: string) {
+  const csv = buildTimingCsv(timelines, mediaFileNames(timelines))
   triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${name}_tempos.csv`)
 }
 

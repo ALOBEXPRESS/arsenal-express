@@ -18,10 +18,12 @@ import {
   Layers,
   Music,
   Gauge,
+  SlidersVertical,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode } from '@/lib/hooks/useScenes'
-import { newClipId, type useTracks } from '@/lib/hooks/useTracks'
+import { newClipId, type Tracks } from '@/lib/hooks/useTracks'
 import { Button } from '@/components/ui/button'
 import { confirmDialog } from '@/components/ui/confirm'
 import { buildTimeline, totalDuration, formatTime, formatClock, type TimedScene } from '@/lib/timeline'
@@ -29,10 +31,9 @@ import { normalizeAnimation, normalizeTransition, ANIMATION_BY_ID, TRANSITION_BY
 import { usePlayhead } from '@/lib/stores/playhead'
 import { useDragAsset, ASSET_MIME } from '@/lib/stores/drag'
 import { useSelection } from '@/lib/stores/selection'
-import type { Asset, AudioClip, NarrationSegment, OverlayClip, Scene } from '@/types/project'
+import type { AdjustClip, Asset, AudioClip, NarrationSegment, OverlayClip, Scene, Subproject } from '@/types/project'
+import { LOOK_BY_ID, LOOKS, matchesLook } from '@/lib/sync/adjust'
 import { cn } from '@/lib/utils'
-
-type Tracks = ReturnType<typeof useTracks>
 
 interface TimelineProps {
   projectId: string
@@ -49,7 +50,17 @@ interface TimelineProps {
   onAssemble: (mode: AutoAssembleMode) => void
   busy: boolean
   status?: string
+  subprojects: Subproject[]
+  activeSub: string
+  onSelectSub: (id: string) => void
+  onAddSub: () => void
+  onRenameSub: (id: string, name: string) => void
+  onRemoveSub: (id: string) => void
+  /** metadata.sub for scenes created on this timeline */
+  subId: string
 }
+
+type Lane = 'main' | 'overlay' | 'audio' | 'adjust' | 'narration'
 
 const GUTTER = 92
 const MIN_PPS = 4
@@ -109,7 +120,7 @@ function Waveform({ seed, width, className }: { seed: string; width: number; cla
   return (
     <div className="pointer-events-none absolute inset-x-1 inset-y-1.5 flex items-center gap-[2px] overflow-hidden" aria-hidden>
       {Array.from({ length: bars }, (_, i) => (
-        <span key={i} className={cn('w-[2px] shrink-0 rounded-full', className)} style={{ height: `${h(i)}%` }} />
+        <span key={i} className={cn('w-[2px] shrink-0 rounded-full', className)} style={{ height: `${h(i).toFixed(2)}%` }} />
       ))}
     </div>
   )
@@ -252,7 +263,7 @@ interface LaneClipProps {
   snapTo: number[]
   label: string
   meta: string
-  tone: 'overlay' | 'audio'
+  tone: 'overlay' | 'audio' | 'adjust'
   thumb?: string
   onSelect: () => void
   onCommit: (patch: { start: number; duration: number }) => void
@@ -342,7 +353,11 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, lab
       title={`${label} · ${d.toFixed(2)}s · arraste pra mover, puxe a borda direita pra cortar (setas: ajuste fino)`}
       className={cn(
         'group absolute inset-y-0 cursor-grab touch-none overflow-hidden rounded-md border active:cursor-grabbing',
-        tone === 'overlay' ? 'border-violet-300/40 bg-violet-500/25' : 'border-express/50 bg-express/15',
+        tone === 'overlay'
+          ? 'border-violet-300/40 bg-violet-500/25'
+          : tone === 'adjust'
+            ? 'border-brand-cyan/40 bg-gradient-to-r from-brand-cyan/20 via-violet-500/20 to-brand-pink/25'
+            : 'border-express/50 bg-express/15',
         selected && 'z-10 border-brand-cyan ring-1 ring-brand-cyan',
         draft && 'z-20 shadow-lg'
       )}
@@ -386,6 +401,13 @@ export function Timeline({
   onAssemble,
   busy,
   status,
+  subprojects,
+  activeSub,
+  onSelectSub,
+  onAddSub,
+  onRenameSub,
+  onRemoveSub,
+  subId,
 }: TimelineProps) {
   const deleteScene = useDeleteScene()
   const reorderScenes = useReorderScenes()
@@ -393,7 +415,8 @@ export function Timeline({
   const dragAsset = useDragAsset((s) => s.asset)
   const { selection, select } = useSelection()
   const [draggedScene, setDraggedScene] = useState<number | null>(null)
-  const [dropHint, setDropHint] = useState<{ lane: 'main' | 'overlay' | 'audio'; time: number } | null>(null)
+  const [dropHint, setDropHint] = useState<{ lane: Lane; time: number } | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
   const [pps, setPps] = useState<number | null>(null) // null = fit
   const scroller = useRef<HTMLDivElement>(null)
   const content = useRef<HTMLDivElement>(null)
@@ -401,12 +424,15 @@ export function Timeline({
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
-  const { overlays, audioClips } = tracks
+  const { overlays, audioClips, adjustments } = tracks
+  const sceneEnd = totalDuration(timeline)
+  const narrationEndT = narrationTrack.reduce((a, s) => Math.max(a, s.start + s.duration), 0)
   const total = Math.max(
-    totalDuration(timeline),
-    narrationTrack.reduce((a, s) => Math.max(a, s.start + s.duration), 0),
+    sceneEnd,
+    narrationEndT,
     ...overlays.map((o) => o.start + o.duration),
     ...audioClips.map((c) => c.start + c.duration),
+    ...adjustments.map((c) => c.start + c.duration),
     0
   )
 
@@ -460,8 +486,10 @@ export function Timeline({
     const pts = [0, ...timeline.map((t) => t.start), totalDuration(timeline)]
     overlays.forEach((o) => pts.push(o.start, o.start + o.duration))
     audioClips.forEach((c) => pts.push(c.start, c.start + c.duration))
+    adjustments.forEach((c) => pts.push(c.start, c.start + c.duration))
+    narrationTrack.forEach((n) => pts.push(n.start, n.start + n.duration))
     return pts
-  }, [timeline, overlays, audioClips])
+  }, [timeline, overlays, audioClips, adjustments, narrationTrack])
   const snapWithPlayhead = () => [...snapPoints, usePlayhead.getState().time]
 
   // ---- Delete -------------------------------------------------------------------------
@@ -484,13 +512,28 @@ export function Timeline({
     if (!selection) return
     if (selection.kind === 'overlay') tracks.removeOverlay(selection.id)
     else if (selection.kind === 'audio') tracks.removeAudio(selection.id)
-    else {
+    else if (selection.kind === 'adjust') tracks.removeAdjust(selection.id)
+    else if (selection.kind === 'narration') {
+      const seg = narrationTrack[Number(selection.id)]
+      const name = seg ? assetById.get(seg.asset_id)?.filename : undefined
+      void confirmDialog({
+        title: `Tirar ${name ? `“${name}”` : 'esse áudio'} da narração?`,
+        description: 'Os próximos áudios andam pra trás. As cenas não mudam — use “Juntar com áudio” pra ressincronizar.',
+        confirmLabel: 'Tirar da narração',
+        tone: 'danger',
+      }).then((ok) => {
+        if (!ok) return
+        tracks.removeNarration(Number(selection.id))
+        select(null)
+      })
+      return
+    } else {
       const item = timeline.find((t) => t.scene.id === selection.id)
       if (item) void removeScene(item.scene, item.index)
       return
     }
     select(null)
-  }, [selection, tracks, timeline, removeScene, select])
+  }, [selection, tracks, timeline, removeScene, select, narrationTrack, assetById])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -548,6 +591,32 @@ export function Timeline({
     toast.success('Sobreposição adicionada', { description: 'Ajuste escala, posição e opacidade no painel à direita.' })
   }
 
+  const addAdjust = () => {
+    const at = Math.min(usePlayhead.getState().time, Math.max(0, total - 0.5))
+    const end = sceneEnd > at + 1 ? sceneEnd : at + 5
+    const look = LOOKS[0]
+    const clip: AdjustClip = {
+      id: newClipId(),
+      start: Math.round(at * 1000) / 1000,
+      duration: Math.round(Math.max(1, end - at) * 1000) / 1000,
+      look: look.id,
+      ...look.values,
+      filter_intensity: 1,
+    }
+    tracks.addAdjust(clip)
+    select({ kind: 'adjust', id: clip.id })
+    toast.success('Camada de ajuste adicionada', { description: `${look.label} · escolha outro filtro no painel à direita.` })
+  }
+
+  const appendNarration = (asset: Asset) => {
+    if (!asset.duration) {
+      toast.error('Áudio sem duração', { description: 'Remova e faça upload novamente.' })
+      return
+    }
+    tracks.appendNarration(asset)
+    toast.success('Narração adicionada', { description: `${asset.filename} no fim da narração deste subprojeto.` })
+  }
+
   const addSceneAt = (asset: Asset, index: number) => {
     const isImage = asset.type === 'image'
     const duration = isImage ? IMAGE_DEFAULT_S : asset.duration || IMAGE_DEFAULT_S
@@ -565,7 +634,7 @@ export function Timeline({
           animation_type: 'none',
           transition_in: 'cut',
           generated_in_flow: false,
-          metadata: { video_filename: asset.filename, clip_duration: asset.duration },
+          metadata: { sub: subId, video_filename: asset.filename, clip_duration: asset.duration },
         },
       },
       {
@@ -578,21 +647,24 @@ export function Timeline({
     )
   }
 
-  const laneDragOver = (lane: 'main' | 'overlay' | 'audio') => (e: React.DragEvent) => {
+  const laneDragOver = (lane: Lane) => (e: React.DragEvent) => {
     const types = e.dataTransfer.types
     const isScene = types.includes(SCENE_MIME)
     const isAsset = types.includes(ASSET_MIME)
     if (!isScene && !isAsset) return
     if (isScene && lane !== 'main') return
+    if (lane === 'adjust') return
     e.preventDefault()
     e.dataTransfer.dropEffect = isScene ? 'move' : 'copy'
     const t = timeAt(e.clientX)
-    const target = isScene || (lane === 'main' && dragAsset?.type !== 'audio') ? boundaryTime(insertIndexAt(t)) : t
-    const effectiveLane = isAsset && dragAsset?.type === 'audio' ? 'audio' : lane
+    const isAudio = dragAsset?.type === 'audio'
+    const effectiveLane: Lane = isAsset && isAudio ? (lane === 'narration' ? 'narration' : 'audio') : lane === 'narration' ? 'main' : lane
+    const target =
+      effectiveLane === 'narration' ? narrationEndT : isScene || effectiveLane === 'main' ? boundaryTime(insertIndexAt(t)) : t
     if (dropHint?.lane !== effectiveLane || Math.abs((dropHint?.time ?? -1) - target) > 1e-3) setDropHint({ lane: effectiveLane, time: target })
   }
 
-  const laneDrop = (lane: 'main' | 'overlay' | 'audio') => (e: React.DragEvent) => {
+  const laneDrop = (lane: Lane) => (e: React.DragEvent) => {
     e.preventDefault()
     setDropHint(null)
     const t = timeAt(e.clientX)
@@ -618,7 +690,7 @@ export function Timeline({
     // Media from the library
     const asset = assetById.get(e.dataTransfer.getData(ASSET_MIME)) || dragAsset
     if (!asset) return
-    if (asset.type === 'audio') return addAudioClip(asset, t)
+    if (asset.type === 'audio') return lane === 'narration' ? appendNarration(asset) : addAudioClip(asset, t)
     if (lane === 'audio') {
       toast.info('Essa faixa é só de áudio', { description: 'Solte vídeos e imagens na faixa Mídia ou Sobreposição.' })
       return
@@ -631,13 +703,14 @@ export function Timeline({
     if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropHint(null)
   }
 
-  const isSelected = (kind: 'scene' | 'overlay' | 'audio', id: string) => selection?.kind === kind && selection.id === id
-  const accepting = (lane: 'main' | 'overlay' | 'audio') => {
+  const isSelected = (kind: 'scene' | 'overlay' | 'audio' | 'adjust' | 'narration', id: string) =>
+    selection?.kind === kind && selection.id === id
+  const accepting = (lane: Lane) => {
     if (!dragAsset) return false
-    if (dragAsset.type === 'audio') return lane === 'audio'
-    return lane !== 'audio'
+    if (dragAsset.type === 'audio') return lane === 'audio' || lane === 'narration'
+    return lane === 'main' || lane === 'overlay'
   }
-  const laneClass = (lane: 'main' | 'overlay' | 'audio') =>
+  const laneClass = (lane: Lane) =>
     cn('relative rounded-md transition-colors', accepting(lane) && 'bg-primary/[0.06] outline outline-1 outline-dashed outline-primary/40')
 
   const sourceMax = (assetId: string, speed: number) => {
@@ -649,9 +722,74 @@ export function Timeline({
     <div className="flex h-full flex-col bg-surface-1">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-3">
-          <h2 className="font-display text-[15px] font-bold">Timeline</h2>
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-3">
+          <h2 className="sr-only">Timeline</h2>
+          <div role="tablist" aria-label="Subprojetos" className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-lg border border-border bg-surface-0 p-0.5">
+            {subprojects.map((sp) => {
+              const active = sp.id === activeSub
+              const dur = Math.max(
+                sp.narration_track.reduce((a, n) => Math.max(a, n.start + n.duration), 0),
+                active ? total : 0
+              )
+              return (
+                <div key={sp.id} className="group/tab relative flex shrink-0 items-center">
+                  {renaming === sp.id ? (
+                    <input
+                      autoFocus
+                      defaultValue={sp.name}
+                      aria-label="Nome do subprojeto"
+                      className="h-7 w-36 rounded-md border border-primary bg-surface-1 px-2 font-display text-[13px] font-bold outline-none"
+                      onBlur={(e) => {
+                        onRenameSub(sp.id, e.currentTarget.value)
+                        setRenaming(null)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur()
+                        if (e.key === 'Escape') setRenaming(null)
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => onSelectSub(sp.id)}
+                      onDoubleClick={() => setRenaming(sp.id)}
+                      title="Duplo clique pra renomear"
+                      className={cn(
+                        'flex h-7 cursor-pointer items-center gap-2 rounded-md px-2.5 transition-colors duration-150',
+                        subprojects.length > 1 && 'pr-6',
+                        active ? 'bg-surface-3 text-foreground shadow-[inset_0_-2px_0_hsl(var(--primary))]' : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+                      )}
+                    >
+                      <span className="font-display text-[13px] font-bold">{sp.name}</span>
+                      <span className="font-mono text-[10px] tabular-nums opacity-80">{formatTime(dur)}</span>
+                    </button>
+                  )}
+                  {subprojects.length > 1 && renaming !== sp.id && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveSub(sp.id)}
+                      aria-label={`Excluir ${sp.name}`}
+                      className="absolute right-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive hover:text-white focus-visible:opacity-100 group-hover/tab:opacity-100"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+            <button
+              type="button"
+              onClick={onAddSub}
+              aria-label="Novo subprojeto"
+              title="Novo subprojeto (vira outra linha do tempo no CapCut)"
+              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
             {timeline.length} cenas · {formatTime(total)}
           </span>
           {busy && status && (
@@ -700,6 +838,18 @@ export function Timeline({
             {/* Sticky lane labels */}
             <div className="sticky left-0 z-40 flex h-full shrink-0 flex-col border-r border-border bg-surface-1 text-[11px] text-muted-foreground" style={{ width: GUTTER }}>
               <div className="h-6 shrink-0 border-b border-border" />
+              <div className="mt-1 flex h-7 shrink-0 items-center gap-1.5 pl-2.5 pr-1">
+                <SlidersVertical className="h-3.5 w-3.5 text-brand-cyan" aria-hidden /> Ajuste
+                <button
+                  type="button"
+                  onClick={addAdjust}
+                  aria-label="Adicionar camada de ajuste"
+                  title="Adicionar camada de ajuste (filtro) no ponto da agulha"
+                  className="ml-auto flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:border-brand-cyan/60 hover:text-brand-cyan"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
               <div className="mt-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
                 <Layers className="h-3.5 w-3.5 text-violet-300" aria-hidden /> Sobrepor
               </div>
@@ -738,6 +888,36 @@ export function Timeline({
                       {formatTime(i * step)}
                     </span>
                   ))}
+                </div>
+
+                {/* Adjustment lane (filters over everything below) */}
+                <div className="relative mt-1 h-7 shrink-0 rounded-md" onDoubleClick={(e) => {
+                  if (!(e.target as HTMLElement).closest('[data-clip]')) addAdjust()
+                }}>
+                  {adjustments.length === 0 && (
+                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                      Camada de ajuste: clique em + (ou duplo clique aqui) pra pôr um filtro sobre os vídeos
+                    </span>
+                  )}
+                  {adjustments.map((a) => {
+                    const look = a.look ? LOOK_BY_ID.get(a.look) : undefined
+                    return (
+                      <LaneClip
+                        key={a.id}
+                        id={a.id}
+                        start={a.start}
+                        duration={a.duration}
+                        pps={scale}
+                        tone="adjust"
+                        label={matchesLook(a) && look ? look.label : 'Ajuste personalizado'}
+                        meta={look?.capcutFilter ? 'filtro CapCut' : ''}
+                        selected={isSelected('adjust', a.id)}
+                        snapTo={snapWithPlayhead()}
+                        onSelect={() => select({ kind: 'adjust', id: a.id })}
+                        onCommit={(p) => tracks.updateAdjust(a.id, p)}
+                      />
+                    )
+                  })}
                 </div>
 
                 {/* Overlay lane */}
@@ -784,8 +964,16 @@ export function Timeline({
                   onDrop={laneDrop('main')}
                 >
                   {timeline.length === 0 && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md border border-dashed border-border text-[13px] text-muted-foreground">
-                      Clique em <span className="mx-1 text-primary">Juntar com áudio</span> ou arraste clipes da biblioteca pra cá
+                    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center text-[13px] text-muted-foreground" style={{ width: Math.min(viewport, contentWidth - 24) }}>
+                      {narrationTrack.length > 0 ? (
+                        <span className="mx-auto px-4 text-center">
+                          Narração pronta — arraste os clipes dela pra cá ou clique em <span className="text-primary">Juntar com áudio</span>
+                        </span>
+                      ) : (
+                        <span className="mx-auto rounded-md border border-dashed border-border px-4 py-3">
+                          Clique em <span className="text-primary">Juntar com áudio</span> ou arraste clipes da biblioteca pra cá
+                        </span>
+                      )}
                     </div>
                   )}
                   {timeline.map((item) => (
@@ -827,28 +1015,76 @@ export function Timeline({
                       />
                     )
                   })}
+                  {timeline.length > 0 && narrationEndT > sceneEnd + 0.5 && (
+                    <div
+                      className="pointer-events-none absolute inset-y-0 flex items-center justify-center overflow-hidden rounded-md border border-dashed border-primary/40 bg-primary/[0.04] px-2 text-center text-[11px] text-muted-foreground"
+                      style={{ left: sceneEnd * scale + 2, width: (narrationEndT - sceneEnd) * scale - 4 }}
+                    >
+                      <span className="truncate">
+                        {formatTime(narrationEndT - sceneEnd)} de narração sem cenas — arraste clipes aqui
+                      </span>
+                    </div>
+                  )}
+                  {timeline.length === 0 && narrationTrack.length > 0 && (
+                    <div
+                      className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center rounded-md border border-dashed border-primary/40 bg-primary/[0.04] text-[12px] text-muted-foreground"
+                      style={{ width: narrationEndT * scale }}
+                    />
+                  )}
                   {dropHint?.lane === 'main' && <DropMarker x={dropHint.time * scale} strong />}
                 </div>
 
-                {/* Narration lane */}
-                <div className="relative h-8 shrink-0">
-                  {narrationTrack.map((seg) => {
+                {/* Narration lane (drop an audio to append it) */}
+                <div
+                  className={cn(laneClass('narration'), 'h-8 shrink-0')}
+                  onDragOver={laneDragOver('narration')}
+                  onDragLeave={laneDragLeave}
+                  onDrop={laneDrop('narration')}
+                >
+                  {narrationTrack.length === 0 && !dragAsset && (
+                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                      Arraste a narração deste subprojeto aqui
+                    </span>
+                  )}
+                  {narrationTrack.map((seg, i) => {
                     const a = assetById.get(seg.asset_id)
                     const w = seg.duration * scale
+                    const sel = isSelected('narration', String(i))
                     return (
                       <div
                         key={seg.asset_id + seg.start}
-                        className="pointer-events-none absolute inset-y-0 overflow-hidden rounded-md border border-brand-cyan/50 bg-brand-cyan/20"
+                        data-clip
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={sel}
+                        aria-label={`Narração ${a?.filename ?? ''}, ${formatClock(seg.start)} a ${formatClock(seg.start + seg.duration)}`}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          select({ kind: 'narration', id: String(i) })
+                          onSeek(timeAt(e.clientX))
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            select({ kind: 'narration', id: String(i) })
+                          }
+                        }}
+                        className={cn(
+                          'absolute inset-y-0 cursor-pointer overflow-hidden rounded-md border bg-brand-cyan/20',
+                          sel ? 'z-10 border-brand-cyan ring-1 ring-brand-cyan' : 'border-brand-cyan/50 hover:border-brand-cyan'
+                        )}
                         style={{ left: seg.start * scale, width: w - 2 }}
                         title={a?.filename}
                       >
                         <Waveform seed={seg.asset_id} width={w} className="bg-brand-cyan/80" />
-                        <span className="absolute left-1.5 top-0.5 truncate font-mono text-[9px] font-semibold text-brand-cyan">
+                        <span className="pointer-events-none absolute left-1.5 top-0.5 truncate font-mono text-[9px] font-semibold text-brand-cyan">
                           {a?.filename} · {formatTime(seg.duration)}
                         </span>
                       </div>
                     )
                   })}
+                  {dropHint?.lane === 'narration' && <DropMarker x={dropHint.time * scale} />}
                 </div>
 
                 {/* Extra audio lane */}

@@ -1,7 +1,11 @@
 import { create } from 'zustand'
 
-/** What the inspector is editing (CapCut-style single selection) */
-export type Selection = { kind: 'scene' | 'overlay' | 'audio'; id: string } | null
+/**
+ * What the inspector is editing (CapCut-style single selection).
+ * narration: id = index of the file in the subproject's narration track (as string)
+ */
+export type SelectionKind = 'scene' | 'overlay' | 'audio' | 'adjust' | 'narration'
+export type Selection = { kind: SelectionKind; id: string } | null
 
 interface SelectionState {
   selection: Selection

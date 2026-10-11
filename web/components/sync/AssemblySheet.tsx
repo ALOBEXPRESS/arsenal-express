@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp } from 'lucide-react'
+import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
-import { AnimationTile, TransitionTile, ModeSwitch } from './EffectTiles'
+import { AnimationTile, TransitionTile, ModeSwitch, FlowPicker } from './EffectTiles'
 import { AnimationParamsControls } from '@/components/editor/PropControls'
 import {
   ANIMATIONS,
@@ -30,6 +30,8 @@ interface AssemblySheetProps {
   settings?: Partial<SyncSettings>
   thumbs: [string | undefined, string | undefined]
   hasScenes: boolean
+  /** narration files uploaded to the project */
+  audioCount?: number
   busy: boolean
   status?: string
   onSave: (s: SyncSettings) => Promise<void>
@@ -100,6 +102,7 @@ export function AssemblySheet({
   settings: initial,
   thumbs,
   hasScenes,
+  audioCount = 0,
   busy,
   status,
   onSave,
@@ -178,6 +181,55 @@ export function AssemblySheet({
             </div>
           </section>
 
+          <section aria-labelledby="split-title" className="rounded-xl border border-border bg-surface-2/60 p-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-3 text-muted-foreground" aria-hidden>
+                <Split className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 id="split-title" className="font-display text-[15px] font-bold">
+                  Várias narrações{audioCount > 1 ? ` (${audioCount} áudios)` : ''}
+                </h3>
+                <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
+                  Cada áudio pode virar um subprojeto (no CapCut: Linha do tempo 01, 02…). Áudio sem clipes suficientes fica na timeline esperando você arrastar os vídeos.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              <ModeSwitch
+                label="Como juntar várias narrações"
+                value={s.narration.split}
+                onChange={(split) => setS((p) => ({ ...p, narration: { ...p.narration, split } }))}
+                options={[
+                  { value: 'per_audio', label: 'Um subprojeto por áudio' },
+                  { value: 'continuous', label: 'Tudo numa timeline' },
+                ]}
+              />
+              {s.narration.split === 'per_audio' && (
+                <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
+                  <div className="mb-2.5 flex items-center justify-between text-[12px]">
+                    <label htmlFor="pace" className="text-muted-foreground">
+                      Duração média de cena (divide os clipes entre os áudios)
+                    </label>
+                    <span className="font-mono tabular-nums text-primary">{s.narration.pace.toFixed(1)}s</span>
+                  </div>
+                  <Slider
+                    id="pace"
+                    min={3}
+                    max={15}
+                    step={0.1}
+                    value={[s.narration.pace]}
+                    onValueChange={([v]) => setS((p) => ({ ...p, narration: { ...p.narration, pace: v } }))}
+                    aria-label="Duração média de cena em segundos"
+                  />
+                  <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                    Ex.: áudio de 2:31 a {s.narration.pace.toFixed(1)}s ≈ {Math.round(151 / s.narration.pace)} clipes. O primeiro subprojeto é preenchido primeiro.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+
           <Section
             id="rhythm"
             icon={<AudioWaveform className="h-4 w-4" />}
@@ -222,6 +274,14 @@ export function AssemblySheet({
                 />
               ))}
             </div>
+            <FlowPicker
+              label="Fluxo da animação"
+              noun="animação"
+              variado={anim.mode === 'variado'}
+              selectedCount={anim.selected.length}
+              value={anim.flow}
+              onChange={(flow) => setAnim({ flow })}
+            />
             <p className="pt-1 text-[12px] font-semibold text-foreground/90">Propriedades (todas as cenas)</p>
             <AnimationParamsControls value={anim.params} onChange={(params) => setAnim({ params })} />
             <p className="text-[11px] text-muted-foreground">Dá pra ajustar cena a cena depois, no painel de propriedades.</p>
@@ -248,6 +308,14 @@ export function AssemblySheet({
                 />
               ))}
             </div>
+            <FlowPicker
+              label="Fluxo da transição"
+              noun="transição"
+              variado={tr.mode === 'variado'}
+              selectedCount={tr.selected.length}
+              value={tr.flow}
+              onChange={(flow) => setTr({ flow })}
+            />
             <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
               <div className="mb-2.5 flex items-center justify-between text-[12px]">
                 <label htmlFor="tr-duration" className="text-muted-foreground">

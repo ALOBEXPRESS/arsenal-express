@@ -55,7 +55,7 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
               <span
                 key={i}
                 className="w-[3px] rounded-full bg-track-audio"
-                style={{ height: `${20 + Math.abs(Math.sin(i * 0.8 + asset.id.charCodeAt(i % asset.id.length))) * 55}%` }}
+                style={{ height: `${(20 + Math.abs(Math.sin(i * 0.8 + asset.id.charCodeAt(i % asset.id.length))) * 55).toFixed(2)}%` }}
               />
             ))}
           </div>

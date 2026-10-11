@@ -15,11 +15,14 @@ import {
   Sparkles,
   Ban,
   Scissors,
+  SlidersVertical,
+  Mic,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PropSlider, NumberField, AnimationParamsControls } from './PropControls'
 import { usePatchScene } from '@/lib/hooks/useScenes'
-import type { useTracks } from '@/lib/hooks/useTracks'
+import type { Tracks } from '@/lib/hooks/useTracks'
 import { useSelection } from '@/lib/stores/selection'
 import { buildTimeline, sceneProps, clipRate, formatClock } from '@/lib/timeline'
 import {
@@ -33,13 +36,14 @@ import {
 import { CLIP_VOLUME_UNDER_NARRATION } from '@/components/preview/VideoPreview'
 import type { Asset, NarrationSegment, Scene } from '@/types/project'
 import { cn } from '@/lib/utils'
+import { ADJUST_FIELDS, LOOKS, LOOK_BY_ID, ZERO_ADJUST, adjustStyle, matchesLook } from '@/lib/sync/adjust'
 
 interface InspectorProps {
   projectId: string
   scenes: Scene[]
   assets: Asset[]
   narrationTrack: NarrationSegment[]
-  tracks: ReturnType<typeof useTracks>
+  tracks: Tracks
   onEditScene: (scene: Scene) => void
 }
 
@@ -97,10 +101,27 @@ function Chip({ selected, onClick, children, title }: { selected: boolean; onCli
 }
 
 export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, onEditScene }: InspectorProps) {
-  const { selection, select } = useSelection()
+  const { selection: rawSelection, select } = useSelection()
   const patchScene = usePatchScene(projectId)
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
+
+  // selection from another subproject (or deleted) → show the empty state
+  const selection = (() => {
+    const sel = rawSelection
+    if (!sel) return null
+    const ok =
+      sel.kind === 'scene'
+        ? timeline.some((t) => t.scene.id === sel.id)
+        : sel.kind === 'overlay'
+          ? tracks.overlays.some((o) => o.id === sel.id)
+          : sel.kind === 'audio'
+            ? tracks.audioClips.some((c) => c.id === sel.id)
+            : sel.kind === 'adjust'
+              ? tracks.adjustments.some((c) => c.id === sel.id)
+              : !!narrationTrack[Number(sel.id)]
+    return ok ? sel : null
+  })()
 
   // ---- Nothing selected --------------------------------------------------------
   if (!selection) {
@@ -112,6 +133,9 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           <ul className="space-y-2">
             <li>
               <b className="text-foreground">Arraste da biblioteca</b> → faixa Mídia insere cena, Sobrepor cria camada, Áudio adiciona música/SFX.
+            </li>
+            <li>
+              <b className="text-foreground">Ajuste</b> (+ no topo da timeline) põe um filtro sobre os vídeos.
             </li>
             <li>
               <b className="text-foreground">Arraste a agulha</b> ou a régua pra navegar.
@@ -297,6 +321,163 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
               <NumberField label="Duração" value={o.duration} min={0.2} onChange={(v) => set({ duration: maxDur ? Math.min(v, maxDur) : v })} />
             </div>
           </Group>
+        </div>
+      </div>
+    )
+  }
+
+  // ---- Adjustment layer (filter) -----------------------------------------------------
+  if (selection.kind === 'adjust') {
+    const a = tracks.adjustments.find((x) => x.id === selection.id)
+    if (!a) return null
+    const set = (patch: Partial<typeof a>) => tracks.updateAdjust(a.id, patch)
+    const look = a.look ? LOOK_BY_ID.get(a.look) : undefined
+    const isLook = matchesLook(a)
+    const frame =
+      (timeline.find((t) => a.start >= t.start && a.start < t.start + t.duration) || timeline[0])?.videoAsset?.metadata?.thumbnail as
+        | string
+        | undefined
+    return (
+      <div className="flex h-full flex-col">
+        <Header
+          icon={<SlidersVertical className="h-4 w-4" />}
+          eyebrow={`Ajuste · ${formatClock(a.start)} → ${formatClock(a.start + a.duration)}`}
+          title={isLook && look ? look.label : 'Ajuste personalizado'}
+          onDelete={() => {
+            tracks.removeAdjust(a.id)
+            select(null)
+          }}
+        />
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
+          <Group title="Filtro">
+            <div role="radiogroup" aria-label="Filtro da camada de ajuste" className="grid grid-cols-3 gap-1.5">
+              {LOOKS.map((l) => {
+                const selected = a.look === l.id && isLook
+                const css = adjustStyle([{ ...a, ...l.values, look: l.id }])
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    title={l.hint}
+                    onClick={() => set({ look: l.id, ...l.values })}
+                    className={cn(
+                      'group cursor-pointer overflow-hidden rounded-md border text-left transition-colors duration-150',
+                      selected ? 'border-primary' : 'border-border hover:border-foreground/30'
+                    )}
+                  >
+                    <span className="relative block aspect-[4/3] overflow-hidden bg-surface-3">
+                      {frame ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={frame} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ filter: css.filter }} />
+                      ) : (
+                        <span className="absolute inset-0 bg-gradient-to-br from-brand-pink/60 via-violet-600/50 to-brand-cyan/60" style={{ filter: css.filter }} />
+                      )}
+                      {css.tint && (
+                        <span className="absolute inset-0 mix-blend-overlay" style={{ background: `rgb(${css.tint.color})`, opacity: css.tint.opacity }} />
+                      )}
+                      {css.vignette > 0 && (
+                        <span
+                          className="absolute inset-0"
+                          style={{ background: `radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,${0.85 * css.vignette}) 100%)` }}
+                        />
+                      )}
+                      {l.capcutFilter && (
+                        <span className="absolute right-1 top-1 rounded bg-black/70 px-1 font-mono text-[8px] uppercase tracking-wider text-brand-cyan">
+                          CapCut
+                        </span>
+                      )}
+                    </span>
+                    <span className={cn('block truncate px-1.5 py-1 text-[10.5px] font-medium', selected ? 'text-primary' : 'text-muted-foreground')}>
+                      {l.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            {look?.capcutFilter && isLook && (
+              <>
+                <PropSlider
+                  label="Força do filtro (CapCut)"
+                  value={a.filter_intensity ?? 1}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  format={pct}
+                  onChange={(v) => set({ filter_intensity: v })}
+                />
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Filtro original do CapCut — no preview aparece uma aproximação; no CapCut sai o filtro de verdade.
+                </p>
+              </>
+            )}
+          </Group>
+
+          <Group title="Ajustes">
+            {ADJUST_FIELDS.map((f) => (
+              <PropSlider
+                key={f.key}
+                label={f.label}
+                value={a[f.key]}
+                min={f.min}
+                max={f.max}
+                step={0.01}
+                format={(v) => `${v > 0 && f.min < 0 ? '+' : ''}${Math.round(v * 100)}`}
+                onChange={(v) => set({ [f.key]: Math.round(v * 100) / 100 } as Partial<typeof a>)}
+                onReset={a[f.key] !== 0 ? () => set({ [f.key]: 0 } as Partial<typeof a>) : undefined}
+              />
+            ))}
+            <Button variant="outline" size="sm" className="w-full" onClick={() => set({ ...ZERO_ADJUST, look: null })}>
+              <RotateCcw /> Zerar ajustes
+            </Button>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Vale pra tudo que está abaixo (vídeo e sobreposições). No CapCut vira uma camada “Ajuste” com os mesmos valores.
+            </p>
+          </Group>
+
+          <Group title="Tempo">
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Início" value={a.start} onChange={(v) => set({ start: v })} />
+              <NumberField label="Duração" value={a.duration} min={0.2} onChange={(v) => set({ duration: v })} />
+            </div>
+          </Group>
+        </div>
+      </div>
+    )
+  }
+
+  // ---- Narration file -----------------------------------------------------------------
+  if (selection.kind === 'narration') {
+    const i = Number(selection.id)
+    const seg = narrationTrack[i]
+    if (!seg) return null
+    const a = assetById.get(seg.asset_id)
+    const covered = timeline.filter((t) => t.start < seg.start + seg.duration && t.start + t.duration > seg.start).length
+    return (
+      <div className="flex h-full flex-col">
+        <Header
+          icon={<Mic className="h-4 w-4" />}
+          eyebrow={`Narração ${i + 1} · ${formatClock(seg.start)} → ${formatClock(seg.start + seg.duration)}`}
+          title={a?.filename || 'Áudio removido'}
+        />
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 text-[12.5px] leading-relaxed text-muted-foreground">
+          <p>
+            {covered > 0
+              ? `${covered} cena(s) por cima deste trecho.`
+              : 'Nenhuma cena neste trecho ainda — arraste clipes da biblioteca pra faixa Mídia.'}
+          </p>
+          <p>A narração toca contínua: os arquivos ficam colados um depois do outro.</p>
+          <Button
+            variant="outline"
+            className="w-full hover:border-destructive/60 hover:text-destructive"
+            onClick={() => {
+              tracks.removeNarration(i)
+              select(null)
+            }}
+          >
+            <Trash2 /> Tirar da narração
+          </Button>
         </div>
       </div>
     )

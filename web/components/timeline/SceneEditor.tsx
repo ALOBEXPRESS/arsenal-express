@@ -32,6 +32,10 @@ interface SceneEditorProps {
   projectId: string
   scene?: Scene | null
   sceneCount: number
+  /** order_index for a new scene (unique across subprojects) */
+  nextOrder: number
+  /** subproject new scenes belong to */
+  subId: string
   /** global start of the scene on the timeline (seconds) */
   sceneStart?: number
   sceneIndex?: number
@@ -65,6 +69,8 @@ export function SceneEditor({
   projectId,
   scene,
   sceneCount,
+  nextOrder,
+  subId,
   sceneStart = 0,
   sceneIndex,
   previousThumb,
@@ -146,6 +152,7 @@ export function SceneEditor({
       animation_type: animation,
       metadata: {
         ...(scene?.metadata || {}),
+        sub: (scene?.metadata?.sub as string | undefined) || subId,
         video_filename: selected?.filename,
         playback_rate: rate,
         clip_duration: selected?.duration,
@@ -159,7 +166,7 @@ export function SceneEditor({
       } else {
         await createScene.mutateAsync({
           project_id: projectId,
-          order_index: sceneCount,
+          order_index: nextOrder,
           narration_text: `Cena ${sceneCount + 1}`,
           ...fields,
           video_asset_id: fields.video_asset_id ?? undefined,

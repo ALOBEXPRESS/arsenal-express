@@ -8,7 +8,8 @@
 import contentTemplate from './draft_content_template.json'
 import metaTemplate from './draft_meta_template.json'
 import { sceneProps, packRows, type TimedScene } from '@/lib/timeline'
-import type { Asset, AudioClip, OverlayClip } from '@/types/project'
+import type { AdjustClip, Asset, AudioClip, OverlayClip } from '@/types/project'
+import { CAPCUT_ADJUST_RESOURCE, CAPCUT_ADJUST_TYPES, LOOK_BY_ID, adjustValues, matchesLook, type AdjustKey } from '@/lib/sync/adjust'
 import {
   ANIMATION_BY_ID,
   TRANSITION_BY_ID,
@@ -28,23 +29,42 @@ export interface MediaInfo {
   duration: number // seconds
 }
 
+/** One subproject = one CapCut timeline ("Linha do tempo 01, 02…") */
+export interface TimelineInput {
+  name: string
+  timeline: TimedScene[]
+  narration: { asset: Asset; start: number; duration: number }[]
+  /** image/video layers above the main track */
+  overlays?: { clip: OverlayClip; asset: Asset }[]
+  /** music / SFX */
+  audioClips?: { clip: AudioClip; asset: Asset }[]
+  /** adjustment layers (CapCut "Ajuste") */
+  adjustments?: AdjustClip[]
+}
+
 export interface DraftInput {
   projectName: string
   system: CapCutSystem
   username?: string
-  timeline: TimedScene[]
-  narration: { asset: Asset; start: number; duration: number }[]
+  timelines: TimelineInput[]
   settings: SyncSettings
   canvas: { width: number; height: number }
   mediaInfo: Map<string, MediaInfo>
   /** asset id -> file name inside <Project>/media */
   fileNames: Map<string, string>
-  /** clip audio level under narration (0..1) */
-  clipVolume: number
-  /** image/video layers above the main track */
-  overlays?: { clip: OverlayClip; asset: Asset }[]
-  /** music / SFX */
-  audioClips?: { clip: AudioClip; asset: Asset }[]
+}
+
+interface Shared {
+  system: CapCutSystem
+  settings: SyncSettings
+  canvas: { width: number; height: number }
+  mediaInfo: Map<string, MediaInfo>
+  fileNames: Map<string, string>
+  mediaRoot: string
+  folderName: string
+  /** meta manifest entries (one per media file, shared by every timeline) */
+  metaEntries: any[]
+  metaPaths: Set<string>
 }
 
 export interface DraftOutput {
@@ -56,6 +76,8 @@ export interface DraftOutput {
   draftFolder: string
   draftRoot: string
   createdUs: number
+  /** number of CapCut timelines (subprojects) */
+  timelines: number
 }
 
 const US = 1_000_000
@@ -132,18 +154,25 @@ function animationKeyframes(animationId: string, durationS: number, params?: Par
   return out
 }
 
-export function buildDraft(input: DraftInput): DraftOutput {
-  const folderName = safeProjectName(input.projectName)
-  const draftRoot = capcutDraftRoot(input.system, input.username)
-  const draftFolder = `${draftRoot}/${folderName}`
-  const mediaRoot = `${draftFolder}/media`
-
+/** draft_content.json of one timeline */
+function buildTimelineContent(tl: TimelineInput, shared: Shared) {
+  const input = {
+    ...shared,
+    ...tl,
+    // clip audio level under narration (-18 dB, CLI config)
+    clipVolume: tl.narration.length ? 0.125 : 1.0,
+  }
+  const { mediaRoot, folderName } = shared
   const content = structuredClone(contentTemplate) as Record<string, any>
   const mat = content.materials as Record<string, any[]>
 
   // ---- Materials (one per distinct asset) ---------------------------------
   const materialIdByAsset = new Map<string, string>()
-  const metaEntries: any[] = []
+  const pushMeta = (entry: any) => {
+    if (shared.metaPaths.has(entry.file_Path)) return
+    shared.metaPaths.add(entry.file_Path)
+    shared.metaEntries.push(entry)
+  }
 
   const registerVideo = (asset: Asset) => {
     if (materialIdByAsset.has(asset.id)) return materialIdByAsset.get(asset.id)!
@@ -174,7 +203,7 @@ export function buildDraft(input: DraftInput): DraftOutput {
       type: isPhoto ? 'photo' : 'video',
       width: info?.width || 0,
     })
-    metaEntries.push(metaEntry(asset, `${mediaRoot}/${fileName}`, isPhoto ? 'photo' : 'video', info))
+    pushMeta(metaEntry(asset, `${mediaRoot}/${fileName}`, isPhoto ? 'photo' : 'video', info))
     return id
   }
 
@@ -201,7 +230,7 @@ export function buildDraft(input: DraftInput): DraftOutput {
       type: 'extract_music',
       wave_points: [],
     })
-    metaEntries.push(metaEntry(asset, `${mediaRoot}/${fileName}`, 'music'))
+    pushMeta(metaEntry(asset, `${mediaRoot}/${fileName}`, 'music'))
     return id
   }
 
@@ -216,6 +245,9 @@ export function buildDraft(input: DraftInput): DraftOutput {
     mainS,
     ...(input.overlays || []).map((o) => o.clip.start + o.clip.duration),
     ...(input.audioClips || []).map((a) => a.clip.start + a.clip.duration),
+    ...(input.adjustments || []).map((a) => a.start + a.duration),
+    // narration keeps playing even where there are no scenes yet
+    ...input.narration.map((n) => n.start + n.duration),
     0
   )
   const totalUs = toUs(totalS)
@@ -314,6 +346,7 @@ export function buildDraft(input: DraftInput): DraftOutput {
   })
 
   // ---- Overlay tracks (Sobreposição): one CapCut video track per non-overlapping row --------
+  const overlayTrackCount = packRows(input.overlays || [], (o) => o.clip).length
   const overlayTracks = packRows(input.overlays || [], (o) => o.clip).map((row, r) => {
     const layer = r + 1
     const segments = row.map(({ clip, asset }) => {
@@ -379,9 +412,60 @@ export function buildDraft(input: DraftInput): DraftOutput {
     return { attribute: 0, flag: 0, id: hex(), is_default_name: false, name: `audio_${r + 1}`, type: 'audio', segments }
   })
 
+  // ---- Adjustment layers (CapCut "Ajuste") + catalog filters ---------------------------
+  // Same structure CapCut 9.x writes: an 'adjust' track whose segment points to a placeholder
+  // material {type:'adjust'} and lists one effect material per adjusted value (built-in
+  // resource), and a 'filter' track for catalog filters. Both apply to the tracks below.
+  const allAdjust = input.adjustments || []
+  // a catalog-filter look exports ONLY the real CapCut filter (its adjust values are just the
+  // browser approximation); once the user tweaks values it becomes a normal adjustment
+  const isCatalogFilter = (a: AdjustClip) => matchesLook(a) && !!a.look && !!LOOK_BY_ID.get(a.look)?.capcutFilter
+  const adjustList = allAdjust.filter((a) => !isCatalogFilter(a))
+  let adjustIndex = 0
+  const adjustTracks = packRows(adjustList, (a) => a).map((row, r) => ({
+    attribute: 0,
+    flag: 0,
+    id: upperId(),
+    is_default_name: true,
+    name: '',
+    type: 'adjust',
+    segments: row.map((a) => {
+      adjustIndex++
+      const placeholder = { id: upperId(), name: `Ajuste${adjustIndex}`, type: 'adjust', material_resource_id: '' }
+      mat.placeholders.push(placeholder)
+      const v = adjustValues(a)
+      const refs = (Object.keys(CAPCUT_ADJUST_TYPES) as AdjustKey[])
+        .filter((k) => Math.abs(v[k]) > 1e-4)
+        .map((k) => {
+          const effect = adjustEffect(CAPCUT_ADJUST_TYPES[k].type, CAPCUT_ADJUST_TYPES[k].version, v[k])
+          mat.effects.push(effect)
+          return effect.id
+        })
+      return effectSegment(placeholder.id, refs, a.start, a.duration, { render_index: 0, track_render_index: overlayTrackCount + 2 + r, adjust: true })
+    }),
+  }))
+  const filterRows = packRows(allAdjust.filter(isCatalogFilter), (a) => a)
+  const filterTracks = filterRows.map((row, r) => ({
+    attribute: 0,
+    flag: 0,
+    id: upperId(),
+    is_default_name: true,
+    name: '',
+    type: 'filter',
+    segments: row.map((a) => {
+      const f = LOOK_BY_ID.get(a.look!)!.capcutFilter!
+      const material = filterEffect(f.resourceId, f.name, a.filter_intensity ?? 1)
+      mat.effects.push(material)
+      return effectSegment(material.id, [], a.start, a.duration, { render_index: 11000 + r, track_render_index: overlayTrackCount + 1 + r })
+    }),
+  }))
+  if (adjustIndex) content.config.adjust_max_index = adjustIndex + 1
+
   content.tracks = [
     { attribute: 0, flag: 0, id: hex(), is_default_name: false, name: 'video', type: 'video', segments: videoSegments },
     ...overlayTracks,
+    ...filterTracks,
+    ...adjustTracks,
     ...(audioSegments.length
       ? [{ attribute: 0, flag: 0, id: hex(), is_default_name: false, name: 'narracao', type: 'audio', segments: audioSegments }]
       : []),
@@ -398,6 +482,168 @@ export function buildDraft(input: DraftInput): DraftOutput {
   const now = Date.now()
   content.create_time = Math.floor(now / 1000)
   content.update_time = Math.floor(now / 1000)
+  return { content, totalUs }
+}
+
+/** CapCut built-in adjustment effect (same fields CapCut 9.x writes) */
+function adjustEffect(type: string, version: string, value: number) {
+  return {
+    ...EFFECT_COMMON,
+    id: upperId(),
+    effect_id: CAPCUT_ADJUST_RESOURCE,
+    resource_id: CAPCUT_ADJUST_RESOURCE,
+    third_resource_id: '',
+    name: '',
+    type,
+    version,
+    value: Math.round(value * 10000) / 10000,
+    category_id: '',
+    category_name: '',
+  }
+}
+
+/** CapCut catalog filter (downloaded by CapCut from its resource id when missing) */
+function filterEffect(resourceId: string, name: string, intensity: number) {
+  return {
+    ...EFFECT_COMMON,
+    id: upperId(),
+    effect_id: resourceId,
+    resource_id: resourceId,
+    third_resource_id: '0',
+    name,
+    type: 'filter',
+    version: '',
+    value: Math.round(Math.max(0, Math.min(1, intensity)) * 1000) / 1000,
+    category_id: '123456',
+    category_name: 'Filtros',
+  }
+}
+
+const EFFECT_COMMON = {
+  report_name: '',
+  sub_type: 'none',
+  path: '',
+  visible: true,
+  item_effect_type: 0,
+  category_key: '',
+  sub_category_id: '',
+  sub_category_name: '',
+  platform: 'all',
+  apply_target_type: 0,
+  source_platform: 1,
+  adjust_params: [],
+  time_range: null,
+  formula_id: '',
+  enable_skin_tone_correction: false,
+  algorithm_artifact_path: '',
+  intensity_key: '',
+  face_adjust_params: [],
+  exclusion_group: [],
+  panel_id: '',
+  bloom_params: null,
+  request_id: '',
+  color_match_info: { target_feature_path: '', source_feature_path: '', target_image_path: '' },
+  multi_language_current: '',
+  lumi_hub_path: '',
+  covering_relation_change: 0,
+  beauty_face_auto_preset_id: '',
+  beauty_body_auto_preset_id: '',
+  beauty_face_auto_retouch_info: { face_id: [], beauty_face_auto_retouch_id: '' },
+  smart_color_mode: 0,
+  is_from_intelligent_quality: false,
+}
+
+/** Segment of an effect-like track (adjust / filter), copied from a CapCut 9.x draft */
+function effectSegment(
+  materialId: string,
+  refs: string[],
+  startS: number,
+  durationS: number,
+  o: { render_index: number; track_render_index: number; adjust?: boolean }
+) {
+  return {
+    id: upperId(),
+    source_timerange: null,
+    target_timerange: { start: toUs(startS), duration: toUs(durationS) },
+    render_timerange: { start: 0, duration: 0 },
+    desc: '',
+    state: 0,
+    speed: 1.0,
+    is_loop: false,
+    is_tone_modify: false,
+    reverse: false,
+    intensifies_audio: false,
+    cartoon: false,
+    volume: 1.0,
+    last_nonzero_volume: 1.0,
+    clip: null,
+    uniform_scale: null,
+    material_id: materialId,
+    extra_material_refs: refs,
+    render_index: o.render_index,
+    keyframe_refs: [],
+    enable_lut: !!o.adjust,
+    enable_adjust: !!o.adjust,
+    enable_hsl: !!o.adjust,
+    visible: true,
+    group_id: '',
+    enable_color_curves: true,
+    enable_hsl_curves: true,
+    track_render_index: o.track_render_index,
+    hdr_settings: null,
+    hdr_vivid_settings: null,
+    enable_color_wheels: true,
+    track_attribute: 0,
+    is_placeholder: false,
+    template_id: '',
+    enable_smart_color_adjust: false,
+    template_scene: 'default',
+    common_keyframes: [],
+    caption_info: null,
+    responsive_layout: { enable: false, target_follow: '', size_layout: 0, horizontal_pos_layout: 0, vertical_pos_layout: 0 },
+    enable_color_match_adjust: false,
+    enable_color_correct_adjust: false,
+    enable_adjust_mask: !!o.adjust,
+    raw_segment_id: '',
+    lyric_keyframes: null,
+    enable_video_mask: true,
+    digital_human_template_group_id: '',
+    color_correct_alg_result: '',
+    source: 'segmentsourcenormal',
+    enable_mask_stroke: false,
+    enable_mask_shadow: false,
+    enable_color_adjust_pro: false,
+    segment_color_tag: '',
+  }
+}
+
+/**
+ * Builds the CapCut project. Each subproject becomes a timeline of the SAME CapCut project
+ * (CapCut 9.x layout, mirrored from a real two-timeline draft):
+ *   draft_content.json (+ draft_info.json, template-2.tmp) = main timeline
+ *   Timelines/<id>/draft_content.json                       = every timeline
+ *   Timelines/project.json + timeline_layout.json           = timeline list / tabs
+ */
+export function buildDraft(input: DraftInput): DraftOutput {
+  const folderName = safeProjectName(input.projectName)
+  const draftRoot = capcutDraftRoot(input.system, input.username)
+  const draftFolder = `${draftRoot}/${folderName}`
+  const mediaRoot = `${draftFolder}/media`
+  const shared: Shared = {
+    system: input.system,
+    settings: input.settings,
+    canvas: input.canvas,
+    mediaInfo: input.mediaInfo,
+    fileNames: input.fileNames,
+    mediaRoot,
+    folderName,
+    metaEntries: [],
+    metaPaths: new Set(),
+  }
+  const built = input.timelines.map((tl) => ({ tl, ...buildTimelineContent(tl, shared) }))
+  const main = built[0]
+  const now = Date.now()
+  const nowUs = now * 1000
 
   // ---- Meta manifest --------------------------------------------------------
   const meta = structuredClone(metaTemplate) as Record<string, any>
@@ -405,57 +651,63 @@ export function buildDraft(input: DraftInput): DraftOutput {
   meta.draft_name = folderName
   meta.draft_fold_path = draftFolder
   meta.draft_root_path = draftRoot
-  meta.tm_duration = totalUs
-  meta.tm_draft_create = now * 1000
-  meta.tm_draft_modified = now * 1000
+  meta.tm_duration = main.totalUs
+  meta.tm_draft_create = nowUs
+  meta.tm_draft_modified = nowUs
   const group0 = (meta.draft_materials as { type: number; value: any[] }[]).find((g) => g.type === 0)
-  if (group0) group0.value = metaEntries
+  if (group0) group0.value = shared.metaEntries
 
-  // ---- CapCut 9.x multi-timeline layout --------------------------------------
-  // Mirrors a draft created by CapCut 9.x itself: the root draft_content.json, template-2.tmp
-  // and Timelines/<mainId>/draft_content.json are identical copies; project.json points at it.
-  const timelineId = content.id as string
-  const nowUs = now * 1000
+  const names = built.map((b, i) => b.tl.name?.trim() || `Linha do tempo ${String(i + 1).padStart(2, '0')}`)
   const project = {
     config: { color_space: -1, hdr_vivid: false, mixed_track_mode_on: false, render_index_track_mode_on: false, use_float_render: false },
     create_time: nowUs,
     id: upperId(),
-    main_timeline_id: timelineId,
-    timelines: [
-      { create_time: nowUs, id: timelineId, is_marked_delete: false, name: 'Linha do tempo 01', update_time: nowUs },
-    ],
+    main_timeline_id: main.content.id,
+    timelines: built.map((b, i) => ({
+      create_time: nowUs + i,
+      id: b.content.id,
+      is_marked_delete: false,
+      name: names[i],
+      update_time: nowUs + i,
+    })),
     update_time: nowUs,
     version: 0,
   }
   const layout = {
-    dockItems: [{ dockIndex: 0, ratio: 1, timelineIds: [timelineId], timelineNames: ['Linha do tempo 01'] }],
+    dockItems: [{ dockIndex: 0, ratio: 1, timelineIds: built.map((b) => b.content.id), timelineNames: names }],
     layoutOrientation: 1,
   }
   const sec = Math.floor(now / 1000)
   const settings = `[General]\r\ndraft_create_time=${sec}\r\ndraft_last_edit_time=${sec}\r\nreal_edit_seconds=0\r\nreal_edit_keys=0\r\n`
 
-  const json = JSON.stringify(content)
-  const tl = `Timelines/${timelineId}`
+  const mainJson = JSON.stringify(main.content)
+  const files: Record<string, string> = {
+    'draft_content.json': mainJson,
+    'draft_info.json': mainJson, // macOS name
+    'template-2.tmp': mainJson,
+    'draft_meta_info.json': JSON.stringify(meta),
+    'draft_settings': settings,
+    'timeline_layout.json': JSON.stringify(layout),
+    'Timelines/project.json': JSON.stringify(project),
+  }
+  for (const b of built) {
+    const json = b === main ? mainJson : JSON.stringify(b.content)
+    const dir = `Timelines/${b.content.id}`
+    files[`${dir}/draft_content.json`] = json
+    files[`${dir}/draft_info.json`] = json
+    files[`${dir}/template-2.tmp`] = json
+  }
+
   return {
     folderName,
     mediaRoot,
-    totalUs,
+    totalUs: main.totalUs,
     draftId: meta.draft_id,
     draftFolder,
     draftRoot,
     createdUs: nowUs,
-    files: {
-      'draft_content.json': json,
-      'draft_info.json': json, // macOS name
-      'template-2.tmp': json,
-      'draft_meta_info.json': JSON.stringify(meta),
-      'draft_settings': settings,
-      'timeline_layout.json': JSON.stringify(layout),
-      'Timelines/project.json': JSON.stringify(project),
-      [`${tl}/draft_content.json`]: json,
-      [`${tl}/draft_info.json`]: json,
-      [`${tl}/template-2.tmp`]: json,
-    },
+    timelines: built.length,
+    files,
   }
 }
 
@@ -530,21 +782,24 @@ function metaEntry(asset: Asset, path: string, metetype: 'video' | 'photo' | 'mu
   }
 }
 
-/** Timing guide CSV (works with any editor) */
-export function buildTimingCsv(timeline: TimedScene[], fileNames: Map<string, string>) {
+/** Timing guide CSV (works with any editor) — one block per subproject */
+export function buildTimingCsv(timelines: { name: string; timeline: TimedScene[] }[], fileNames: Map<string, string>) {
   const fmt = (s: number) => s.toFixed(3)
-  const rows = [['cena', 'arquivo', 'inicio_s', 'fim_s', 'duracao_s', 'animacao', 'transicao_entrada']]
-  timeline.forEach((t) => {
-    const media = t.videoAsset || t.imageAsset
-    rows.push([
-      String(t.index + 1),
-      media ? fileNames.get(media.id) || media.filename : '',
-      fmt(t.start),
-      fmt(t.start + t.duration),
-      fmt(t.duration),
-      normalizeAnimation(t.scene.animation_type),
-      normalizeTransition(t.scene.transition_in),
-    ])
-  })
+  const rows = [['subprojeto', 'cena', 'arquivo', 'inicio_s', 'fim_s', 'duracao_s', 'animacao', 'transicao_entrada']]
+  for (const { name, timeline } of timelines) {
+    timeline.forEach((t) => {
+      const media = t.videoAsset || t.imageAsset
+      rows.push([
+        name,
+        String(t.index + 1),
+        media ? fileNames.get(media.id) || media.filename : '',
+        fmt(t.start),
+        fmt(t.start + t.duration),
+        fmt(t.duration),
+        normalizeAnimation(t.scene.animation_type),
+        normalizeTransition(t.scene.transition_in),
+      ])
+    })
+  }
   return rows.map((r) => r.map((c) => (/[",;\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n')
 }

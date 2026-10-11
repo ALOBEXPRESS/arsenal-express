@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip } from '@/types/project'
+import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip } from '@/types/project'
 import { Play, Pause, Mic } from 'lucide-react'
 import {
   buildTimeline,
@@ -17,6 +17,7 @@ import {
 import { normalizeTransition } from '@/lib/sync/presets'
 import { animationPose, poseToTransform, transitionStyle } from '@/lib/sync/visual'
 import { usePlayhead } from '@/lib/stores/playhead'
+import { adjustmentsAt, adjustStyle } from '@/lib/sync/adjust'
 import { cn } from '@/lib/utils'
 
 interface VideoPreviewProps {
@@ -25,6 +26,8 @@ interface VideoPreviewProps {
   narrationTrack?: NarrationSegment[]
   overlays?: OverlayClip[]
   audioClips?: AudioClip[]
+  /** adjustment layers (filters) applied over the main track + overlays */
+  adjustments?: AdjustClip[]
   /** Change `nonce` to request a seek to `time` (e.g. clicking a scene card) */
   seekRequest?: { time: number; nonce: number }
   onSceneChange?: (index: number) => void
@@ -94,6 +97,7 @@ export function VideoPreview({
   narrationTrack = [],
   overlays = [],
   audioClips = [],
+  adjustments = [],
   seekRequest,
   onSceneChange,
   transitionDuration = TRANSITION_DURATION,
@@ -112,15 +116,17 @@ export function VideoPreview({
         totalDuration(timeline),
         ...overlays.map((o) => o.start + o.duration),
         ...audioClips.map((a) => a.start + a.duration),
+        ...narrationTrack.map((n) => n.start + n.duration),
         0
       ),
-    [timeline, overlays, audioClips]
+    [timeline, overlays, audioClips, narrationTrack]
   )
 
+  const sceneEnd = totalDuration(timeline)
   const [isPlaying, setIsPlaying] = useState(false)
   const [time, setTime] = useState(0)
 
-  const hasContent = timeline.length > 0 || overlays.length > 0
+  const hasContent = timeline.length > 0 || overlays.length > 0 || narrationTrack.length > 0
   // Fallback for assets uploaded before width/height were stored: read the loaded <video>
   const [probedVertical, setProbedVertical] = useState(false)
 
@@ -206,7 +212,7 @@ export function VideoPreview({
         const props = sceneProps(item.scene)
         el.volume = Math.min(1, props.volume ?? (narrationActive ? CLIP_VOLUME_UNDER_NARRATION : 1))
         const clipDur = item.videoAsset?.duration || (Number.isFinite(el.duration) ? el.duration : 0)
-        const visible = k === idx || (transitioning && k === idx - 1)
+        const visible = t < sceneEnd && (k === idx || (transitioning && k === idx - 1))
         syncMedia(el, since * item.rate, item.rate, playing, visible, clipDur > 0 ? clipDur - 0.05 : Infinity)
       })
 
@@ -261,7 +267,7 @@ export function VideoPreview({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [timeline, narrationTrack, overlays, audioClips, assetById, TRANSITION]
+    [timeline, narrationTrack, overlays, audioClips, assetById, TRANSITION, sceneEnd]
   )
 
   // Master clock
@@ -411,6 +417,9 @@ export function VideoPreview({
     )
   }
 
+  const look = adjustStyle(adjustmentsAt(adjustments, time))
+  // narration (or other lanes) continue after the last scene → empty frame, not a frozen clip
+  const beyond = timeline.length > 0 && time >= sceneEnd - 1e-3 && total > sceneEnd + 0.05
   const narrationSeg = narrationAt(narrationTrack, time)
   const narrationName = narrationSeg ? assetById.get(narrationSeg.asset_id)?.filename : undefined
   const transitionType = inTransition ? normalizeTransition(current?.scene.transition_in) : 'cut'
@@ -431,11 +440,13 @@ export function VideoPreview({
           style={{ width: stage.w, height: stage.h }}
           data-stage={`${aspect.w}:${aspect.h}`}
         >
+          {/* everything below the adjustment layer (main track + overlays) is filtered */}
+          <div className="absolute inset-0" style={{ filter: look.filter }} data-adjusted={look.filter ? '' : undefined}>
           {[0, 1].map((slot) => {
             const k = slotScene[slot]
             const item = k !== null ? timeline[k] : undefined
             const isCurrent = k === currentIndex
-            const opacity = !item ? 0 : isCurrent ? fx.incoming : inTransition ? 1 : 0
+            const opacity = !item || beyond ? 0 : isCurrent ? fx.incoming : inTransition ? 1 : 0
             const extra = !inTransition ? 1 : isCurrent ? fx.inScale : fx.outScale
             const still = item && !item.videoAsset ? item.imageAsset : undefined
             return (
@@ -555,6 +566,28 @@ export function VideoPreview({
               </div>
             )
           })}
+          </div>
+
+          {/* adjustment layer: temperature tint + vignette */}
+          {look.tint && (
+            <div
+              className="pointer-events-none absolute inset-0 mix-blend-overlay"
+              style={{ zIndex: 60, background: `rgb(${look.tint.color})`, opacity: look.tint.opacity }}
+              aria-hidden
+            />
+          )}
+          {look.vignette > 0 && (
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{ zIndex: 61, background: `radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,${(0.85 * look.vignette).toFixed(3)}) 100%)` }}
+              aria-hidden
+            />
+          )}
+          {(!timeline.length || beyond) && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center text-[13px] text-muted-foreground">
+              Narração sem cenas aqui — arraste clipes da biblioteca pra faixa Mídia
+            </div>
+          )}
         </div>
 
         <audio ref={audioRef} preload="auto" className="hidden" />
@@ -577,7 +610,9 @@ export function VideoPreview({
         {/* Slate overlay */}
         <div className="pointer-events-none absolute left-3 top-3 z-30 max-w-[60%] rounded-lg border border-white/10 bg-black/65 px-3 py-2 backdrop-blur-md">
           <p className="eyebrow !text-primary">
-            Cena {String(currentIndex + 1).padStart(2, '0')} / {String(timeline.length).padStart(2, '0')}
+            {timeline.length === 0 || beyond
+              ? 'Sem cena'
+              : `Cena ${String(currentIndex + 1).padStart(2, '0')} / ${String(timeline.length).padStart(2, '0')}`}
           </p>
           <p className="mt-0.5 truncate text-xs text-foreground/90">{(current?.videoAsset || current?.imageAsset)?.filename}</p>
           <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">

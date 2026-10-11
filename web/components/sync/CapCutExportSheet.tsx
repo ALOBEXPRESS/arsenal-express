@@ -16,8 +16,8 @@ import {
   type PackageOptions,
   type CanvasFormat,
 } from '@/lib/capcut/package'
-import { formatTime, totalDuration, type TimedScene } from '@/lib/timeline'
-import type { Asset, AudioClip, OverlayClip } from '@/types/project'
+import { formatTime, totalDuration } from '@/lib/timeline'
+import type { TimelineInput } from '@/lib/capcut/draft'
 import { normalizeAnimation, normalizeTransition, type SyncSettings } from '@/lib/sync/presets'
 import { CapCutPreviewCard, OpenInCapCut } from './CapCutPreview'
 
@@ -25,13 +25,11 @@ interface CapCutExportSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   projectTitle: string
-  timeline: TimedScene[]
-  narration: { asset: Asset; start: number; duration: number }[]
+  /** every subproject, already resolved (scenes timed, assets attached) */
+  timelines: (TimelineInput & { id: string })[]
+  activeSubId: string
   settings: SyncSettings
   defaultFormat?: string
-  overlays?: OverlayClip[]
-  audioClips?: AudioClip[]
-  assets?: Asset[]
 }
 
 const PREFS_KEY = 'syncexpress.capcut'
@@ -40,23 +38,18 @@ export function CapCutExportSheet({
   open,
   onOpenChange,
   projectTitle,
-  timeline,
-  narration,
+  timelines: allTimelines,
+  activeSubId,
   settings,
   defaultFormat,
-  overlays = [],
-  audioClips = [],
-  assets = [],
 }: CapCutExportSheetProps) {
-  const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
-  const overlayItems = useMemo(
-    () => overlays.flatMap((clip) => (assetById.get(clip.asset_id) ? [{ clip, asset: assetById.get(clip.asset_id)! }] : [])),
-    [overlays, assetById]
+  const [scope, setScope] = useState<'all' | 'current'>('all')
+  const multi = allTimelines.length > 1
+  const chosen = useMemo(
+    () => (!multi || scope === 'all' ? allTimelines : allTimelines.filter((t) => t.id === activeSubId)),
+    [multi, scope, allTimelines, activeSubId]
   )
-  const audioItems = useMemo(
-    () => audioClips.flatMap((clip) => (assetById.get(clip.asset_id) ? [{ clip, asset: assetById.get(clip.asset_id)! }] : [])),
-    [audioClips, assetById]
-  )
+  const timeline = useMemo(() => chosen.flatMap((t) => t.timeline), [chosen])
   const [system, setSystem] = useState<CapCutSystem>('windows')
   const [format, setFormat] = useState<CanvasFormat>('auto')
   const [username, setUsername] = useState('')
@@ -96,24 +89,25 @@ export function CapCutExportSheet({
   const coverW = Number(coverAsset?.metadata?.width) || 0
   const coverH = Number(coverAsset?.metadata?.height) || 0
   const isVertical = format === '9:16' || (format === 'auto' && (coverW ? coverH > coverW : true))
-  const transitionCount = timeline.filter((t, i) => i > 0 && normalizeTransition(t.scene.transition_in) !== 'cut').length
+  const transitionCount = timeline.filter((t) => t.index > 0 && normalizeTransition(t.scene.transition_in) !== 'cut').length
   const animationCount = timeline.filter((t) => normalizeAnimation(t.scene.animation_type) !== 'none').length
 
   const root = useMemo(() => capcutDraftRoot(system, username), [system, username])
   const pretty = system === 'windows' ? root.replace(/\//g, '\\') : root
-  const total = totalDuration(timeline)
+  const total = Math.max(
+    ...chosen.map((t) => Math.max(totalDuration(t.timeline), ...t.narration.map((n) => n.start + n.duration), 0)),
+    0
+  )
+  const adjustCount = chosen.reduce((n, t) => n + (t.adjustments?.length || 0), 0)
   const clipCount = new Set(timeline.map((t) => (t.videoAsset || t.imageAsset)?.id).filter(Boolean)).size
 
   const options = (): PackageOptions => ({
     projectName: name,
     system,
     username,
-    timeline,
-    narration,
+    timelines: chosen,
     settings,
     outputFormat: format,
-    overlays: overlayItems,
-    audioClips: audioItems,
     onProgress: (done, totalFiles, label) => setProgress({ done, total: totalFiles, label }),
   })
 
@@ -134,7 +128,7 @@ export function CapCutExportSheet({
     }
   }
 
-  const disabled = busy || timeline.length === 0 || !name.trim()
+  const disabled = busy || chosen.every((t) => t.timeline.length === 0 && t.narration.length === 0) || !name.trim()
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -159,6 +153,31 @@ export function CapCutExportSheet({
             transitions={transitionCount}
             animations={animationCount}
           />
+          {adjustCount > 0 && (
+            <p className="-mt-2 text-[11px] text-muted-foreground">
+              + {adjustCount} camada(s) de ajuste (vira “Ajuste” no CapCut, aplicada aos vídeos abaixo).
+            </p>
+          )}
+
+          {multi && (
+            <div className="space-y-2">
+              <Label>O que exportar</Label>
+              <ModeSwitch
+                label="Subprojetos a exportar"
+                value={scope}
+                onChange={setScope}
+                options={[
+                  { value: 'all', label: `Todos (${allTimelines.length} linhas do tempo)` },
+                  { value: 'current', label: 'Só o subprojeto atual' },
+                ]}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {scope === 'all'
+                  ? `Um projeto no CapCut com ${allTimelines.map((t) => t.name).join(', ')} como abas de linha do tempo.`
+                  : `Exporta só ${allTimelines.find((t) => t.id === activeSubId)?.name}.`}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Sistema</Label>
@@ -298,7 +317,7 @@ export function CapCutExportSheet({
             size="sm"
             className="w-full"
             disabled={timeline.length === 0}
-            onClick={() => downloadTimingCsv(timeline, narration, safeProjectName(name))}
+            onClick={() => downloadTimingCsv(chosen, safeProjectName(name))}
           >
             <FileSpreadsheet /> Só o guia de tempos (.csv)
           </Button>

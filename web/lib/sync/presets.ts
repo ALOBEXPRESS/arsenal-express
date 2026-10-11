@@ -27,6 +27,7 @@ export interface AnimationPreset {
 
 const easeInOut = (p: number) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2)
 const easeOut = (p: number) => 1 - Math.pow(1 - p, 3)
+const easeOutQuad = (p: number) => 1 - (1 - p) * (1 - p)
 const clamp01 = (p: number) => Math.max(0, Math.min(1, p))
 const evenly = (dur: number, n: number) => Array.from({ length: n + 1 }, (_, i) => (dur * i) / n)
 
@@ -67,29 +68,44 @@ export const ANIMATIONS: AnimationPreset[] = [
   {
     id: 'quicar',
     label: 'Quicar',
-    hint: 'Bounce na entrada da cena',
-    pose: (s) => {
-      // damped bounce over the first 0.9s, then rest slightly zoomed
-      if (s >= 0.9) return { scale: 1.04, x: 0 }
-      const p = s / 0.9
-      return { scale: 1.04 + 0.07 * Math.exp(-5 * p) * Math.cos(p * Math.PI * 2), x: 0 }
+    hint: 'Pulo de câmera na entrada',
+    pose: (s, dur) => {
+      // punch-in from 1.0 that overshoots and settles (damped spring) in 1.4s, then a slow
+      // drift so the shot never freezes. The old version started zoomed and only shrank,
+      // hidden under the entrance transition.
+      const B = Math.min(1.4, dur)
+      if (s < B) {
+        const p = s / B
+        return { scale: 1.08 - 0.08 * Math.exp(-3.2 * p) * Math.cos(3 * Math.PI * p) + 0.04 * Math.sin(Math.PI * p) * Math.exp(-2 * p), x: 0 }
+      }
+      const rest = 1.08 - 0.08 * Math.exp(-3.2) * Math.cos(3 * Math.PI)
+      return { scale: rest + 0.04 * clamp01((s - B) / Math.max(0.001, dur - B)), x: 0 }
     },
-    samples: (dur) => [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, dur].filter((v) => v <= dur),
+    samples: (dur) => {
+      const B = Math.min(1.4, dur)
+      return [...evenly(B, 14), ...(dur > B ? [dur] : [])]
+    },
   },
   {
     id: 'zoom_out',
     label: 'Afastar',
     hint: 'Começa perto e abre o quadro',
-    pose: (s, dur) => ({ scale: 1.16 - 0.16 * easeInOut(clamp01(s / dur)), x: 0 }),
-    samples: (dur) => evenly(dur, 4),
+    // ease-out: the pull-back is visible from the first frames (ease-in-out spent the first
+    // 1.5s almost still, so it looked like nothing happened)
+    pose: (s, dur) => ({ scale: 1.25 - 0.25 * easeOutQuad(clamp01(s / dur)), x: 0 }),
+    samples: (dur) => evenly(dur, 8),
   },
   {
     id: 'pan',
     label: 'Panorâmica',
     hint: 'Desliza de lado com leve zoom',
-    // scale - 1 >= |x| keeps the frame edges outside the canvas
-    pose: (s, dur) => ({ scale: 1.2, x: -0.12 + 0.24 * easeInOut(clamp01(s / dur)) }),
-    samples: (dur) => evenly(dur, 4),
+    // scale - 1 >= |x| keeps the frame edges outside the canvas; mostly linear so it moves
+    // the whole time (pure ease-in-out barely moved at the start and end)
+    pose: (s, dur) => {
+      const p = clamp01(s / dur)
+      return { scale: 1.2, x: -0.12 + 0.24 * (0.7 * p + 0.3 * easeInOut(p)) }
+    },
+    samples: (dur) => evenly(dur, 8),
   },
 ]
 
@@ -177,16 +193,30 @@ export function normalizeAnimation(value?: string | null): AnimationId {
 
 export type SceneOrderBy = 'modified' | 'upload' | 'name'
 
+/** Effect flow: in every group of 3 scenes, how many get an effect (1:3, 2:3, 3:3) */
+export type FlowCount = 1 | 2 | 3
+export const FLOW_GROUP = 3
+
+export type NarrationSplit = 'per_audio' | 'continuous'
+
 export interface SyncSettings {
   /** Each scene lasts as long as its narration phrase (cuts snap to speech pauses) */
   variable_rhythm: boolean
   /** How clips are ordered when the timeline is assembled */
   order: { by: SceneOrderBy; reverse: boolean }
+  /** Several narration files: one subproject per file, or one continuous timeline */
+  narration: {
+    split: NarrationSplit
+    /** average scene length used to decide how many clips each subproject gets (seconds) */
+    pace: number
+  }
   animation: {
     enabled: boolean
     mode: PickMode
     selected: AnimationPreset['id'][]
     fixed: AnimationPreset['id']
+    /** 1:3 / 2:3 / 3:3 */
+    flow: FlowCount
     /** default properties written to every scene on assemble */
     params: AnimationParams
   }
@@ -195,45 +225,74 @@ export interface SyncSettings {
     mode: PickMode
     selected: TransitionPreset['id'][]
     fixed: TransitionPreset['id']
+    flow: FlowCount
     /** seconds */
     duration: number
   }
 }
 
+export const DEFAULT_SCENE_PACE = 6.6 // config.yaml -> cenas.duracao_padrao
+
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   variable_rhythm: true,
   order: { by: 'modified', reverse: false },
+  narration: { split: 'per_audio', pace: DEFAULT_SCENE_PACE },
   animation: {
     enabled: false,
     mode: 'variado',
     selected: ['zoom_suave', 'pan'],
     fixed: 'zoom_suave',
+    flow: 3,
     params: DEFAULT_ANIMATION_PARAMS,
   },
-  transition: { enabled: false, mode: 'fixo', selected: ['fusao', 'flash_branco'], fixed: 'fusao', duration: 0.5 },
+  transition: { enabled: false, mode: 'fixo', selected: ['fusao', 'flash_branco'], fixed: 'fusao', flow: 3, duration: 0.5 },
 }
+
+const normFlow = (v: unknown): FlowCount => (v === 1 || v === 2 || v === 3 ? v : 3)
 
 export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
   const animation = { ...DEFAULT_SYNC_SETTINGS.animation, ...(s?.animation || {}) }
+  const transition = { ...DEFAULT_SYNC_SETTINGS.transition, ...(s?.transition || {}) }
+  const narration = { ...DEFAULT_SYNC_SETTINGS.narration, ...(s?.narration || {}) }
   return {
     variable_rhythm: s?.variable_rhythm ?? DEFAULT_SYNC_SETTINGS.variable_rhythm,
     order: { ...DEFAULT_SYNC_SETTINGS.order, ...(s?.order || {}) },
-    animation: { ...animation, params: normalizeParams(animation.params) },
-    transition: { ...DEFAULT_SYNC_SETTINGS.transition, ...(s?.transition || {}) },
+    narration: {
+      split: narration.split === 'continuous' ? 'continuous' : 'per_audio',
+      pace: Math.min(20, Math.max(2, Number(narration.pace) || DEFAULT_SCENE_PACE)),
+    },
+    animation: { ...animation, flow: normFlow(animation.flow), params: normalizeParams(animation.params) },
+    transition: { ...transition, flow: normFlow(transition.flow) },
   }
 }
 
-/** Animation for scene i according to settings ("variado" rotates without repeating neighbours) */
+/**
+ * Flow slot: position `i` (0-based) in a sequence where, out of every 3, the first `flow`
+ * positions get an effect. Returns the effect's running number (to rotate the list) or -1.
+ *   1:3 → ●○○ ●○○   2:3 → ●●○ ●●○   3:3 → ●●● ●●●
+ */
+export function flowSlot(i: number, flow: FlowCount): number {
+  const pos = i % FLOW_GROUP
+  if (pos >= flow) return -1
+  return Math.floor(i / FLOW_GROUP) * flow + pos
+}
+
+/** Animation for scene i ("variado" rotates the list; flow skips scenes) */
 export function pickAnimation(settings: SyncSettings, index: number): AnimationId {
   const a = settings.animation
   if (!a.enabled) return 'none'
+  const slot = flowSlot(index, a.flow)
+  if (slot < 0) return 'none'
   if (a.mode === 'fixo' || a.selected.length === 0) return a.fixed
-  return a.selected[index % a.selected.length]
+  return a.selected[slot % a.selected.length]
 }
 
+/** Transition into scene i (the cut before it). Cut k = i - 1 follows the same flow. */
 export function pickTransition(settings: SyncSettings, index: number): TransitionId {
   const t = settings.transition
   if (index === 0 || !t.enabled) return 'cut'
+  const slot = flowSlot(index - 1, t.flow)
+  if (slot < 0) return 'cut'
   if (t.mode === 'fixo' || t.selected.length === 0) return t.fixed
-  return t.selected[(index - 1) % t.selected.length]
+  return t.selected[slot % t.selected.length]
 }
