@@ -28,14 +28,23 @@ const PRESETS: Record<PresetKey, { label: string; width: number; height: number;
 }
 
 export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activeSubId }: RenderSheetProps) {
-  const [preset, setPreset] = useState<PresetKey>('1080p')
+  const chosen = timelines.find((t) => t.id === activeSubId) || timelines[0]
+  if (!chosen) return null
+
+  // Auto-detect format from first scene
+  const firstScene = chosen.timeline[0]
+  const firstAsset = firstScene?.videoAsset || firstScene?.imageAsset
+  const srcWidth = Number(firstAsset?.metadata?.width) || 1920
+  const srcHeight = Number(firstAsset?.metadata?.height) || 1080
+  const isVertical = srcHeight > srcWidth
+
+  const defaultPreset: PresetKey = isVertical ? 'shorts' : '1080p'
+
+  const [preset, setPreset] = useState<PresetKey>(defaultPreset)
   const [rendering, setRendering] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [resultUrl, setResultUrl] = useState<string | null>(null)
-
-  const chosen = timelines.find((t) => t.id === activeSubId) || timelines[0]
-  if (!chosen) return null
 
   const handleRender = async () => {
     setRendering(true)
@@ -45,9 +54,22 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
 
     try {
       const config = PRESETS[preset]
+      
+      // Detect source aspect ratio and auto-fit
+      const srcIsVertical = srcHeight > srcWidth
+      const targetIsVertical = config.height > config.width
+      
+      let renderWidth = config.width
+      let renderHeight = config.height
+      
+      // Match orientation: if source is vertical but target is horizontal (or vice-versa), swap
+      if (srcIsVertical !== targetIsVertical) {
+        ;[renderWidth, renderHeight] = [renderHeight, renderWidth]
+      }
+
       const options: RenderOptions = {
-        width: config.width,
-        height: config.height,
+        width: renderWidth,
+        height: renderHeight,
         frameRate: config.fps,
         videoCodec: 'avc',
         videoQuality: 2_000_000, // 2 Mbps
@@ -97,8 +119,16 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
         <SheetDescription>Gera um arquivo MP4 pronto pra usar, com áudio e efeitos aplicados.</SheetDescription>
 
         <div className="mt-6 space-y-4">
+          {/* Source format indicator */}
+          <div className="rounded-lg border border-border bg-surface-2/50 p-3">
+            <p className="text-xs text-muted-foreground">Formato detectado dos clipes</p>
+            <p className="font-mono text-sm font-semibold">
+              {srcWidth}×{srcHeight} {isVertical ? '(Vertical)' : '(Horizontal)'}
+            </p>
+          </div>
+
           <div>
-            <Label>Qualidade / Formato</Label>
+            <Label>Qualidade / Formato de Saída</Label>
             <Select value={preset} onValueChange={(v: string) => setPreset(v as PresetKey)} disabled={rendering}>
               <SelectTrigger>
                 <SelectValue />
@@ -111,6 +141,11 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
                 ))}
               </SelectContent>
             </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isVertical
+                ? 'Recomendado: Shorts/Reels para vídeos verticais'
+                : 'Recomendado: 1080p ou 720p para vídeos horizontais'}
+            </p>
           </div>
 
           {error && (
