@@ -74,7 +74,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [showAssembly, setShowAssembly] = useState(false)
 
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
-  const [activeSceneIndex, setActiveSceneIndex] = useState(0)
   const [status, setStatus] = useState<string>()
 
   const knownSubs = useMemo(() => new Set(tracks.subprojects.map((s) => s.id)), [tracks.subprojects])
@@ -84,6 +83,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const syncSettings = useMemo(() => withDefaults(project?.settings?.sync), [project])
   const assetById = useMemo(() => new Map((assets || []).map((a) => [a.id, a])), [assets])
   const audioCount = useMemo(() => (assets || []).filter((a) => a.type === 'audio').length, [assets])
+
+  // Get current playhead position
+  const activeSceneIndex = usePlayhead((s) => s.time)
 
   // every subproject resolved for the CapCut export (one CapCut timeline each)
   const exportTimelines = useMemo<(TimelineInput & { id: string })[]>(() => {
