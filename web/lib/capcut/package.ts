@@ -3,6 +3,7 @@
 import JSZip from 'jszip'
 import { createClient } from '@/lib/supabase/client'
 import { confirmDialog } from '@/components/ui/confirm'
+import { installViaBridge } from './bridge'
 import type { Asset } from '@/types/project'
 import { buildDraft, buildTimingCsv, rootMetaEntry, type DraftInput, type MediaInfo, type CapCutSystem, type TimelineInput } from './draft'
 import type { SyncSettings } from '@/lib/sync/presets'
@@ -13,6 +14,8 @@ export interface PackageOptions {
   projectName: string
   system: CapCutSystem
   username?: string
+  /** real CapCut projects folder (from the local connector) */
+  draftRoot?: string
   /** one entry per subproject → CapCut "Linha do tempo 01, 02…" of the same project */
   timelines: TimelineInput[]
   settings: SyncSettings
@@ -120,6 +123,7 @@ export async function prepareDraft(opts: PackageOptions) {
     projectName: opts.projectName,
     system: opts.system,
     username: opts.username,
+    draftRoot: opts.draftRoot,
     timelines: opts.timelines,
     settings: opts.settings,
     canvas: canvasFor(opts.outputFormat, videoInfos),
@@ -254,4 +258,32 @@ function triggerDownload(blob: Blob, fileName: string) {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
+/**
+ * Writes the project straight into CapCut's projects folder through the local connector,
+ * registers it in CapCut's list and (optionally) opens CapCut.
+ */
+export async function installToCapCut(
+  opts: PackageOptions & { token: string; launch: boolean; closeCapCut: boolean }
+) {
+  const { draft, fileNames, assets } = await prepareDraft(opts)
+  const media = assets.map((a) => {
+    if (!a.url) throw new Error(`"${a.filename}" sem link de download. Recarregue a página e tente de novo.`)
+    return { name: fileNames.get(a.id)!, url: a.url }
+  })
+  const files = { ...draft.files, 'guia_de_tempos.csv': buildTimingCsv(opts.timelines, fileNames) }
+  const out = await installViaBridge(
+    opts.token,
+    {
+      folderName: draft.folderName,
+      files,
+      media,
+      registryEntry: rootMetaEntry(draft, opts.system) as unknown as Record<string, unknown>,
+      launch: opts.launch,
+      closeCapCut: opts.closeCapCut,
+    },
+    opts.onProgress
+  )
+  return { draft, ...out }
 }

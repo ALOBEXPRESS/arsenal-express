@@ -274,14 +274,16 @@ export function AssemblySheet({
                 />
               ))}
             </div>
-            <FlowPicker
-              label="Fluxo da animação"
-              noun="animação"
-              variado={anim.mode === 'variado'}
-              selectedCount={anim.selected.length}
-              value={anim.flow}
-              onChange={(flow) => setAnim({ flow })}
-            />
+            {anim.mode === 'variado' && (
+              <FlowPicker
+                label="Fluxo da animação"
+                noun="animação"
+                nounPlural="animações"
+                selectedCount={anim.selected.length}
+                value={anim.flow}
+                onChange={(flow) => setAnim({ flow })}
+              />
+            )}
             <p className="pt-1 text-[12px] font-semibold text-foreground/90">Propriedades (todas as cenas)</p>
             <AnimationParamsControls value={anim.params} onChange={(params) => setAnim({ params })} />
             <p className="text-[11px] text-muted-foreground">Dá pra ajustar cena a cena depois, no painel de propriedades.</p>
@@ -308,14 +310,16 @@ export function AssemblySheet({
                 />
               ))}
             </div>
-            <FlowPicker
-              label="Fluxo da transição"
-              noun="transição"
-              variado={tr.mode === 'variado'}
-              selectedCount={tr.selected.length}
-              value={tr.flow}
-              onChange={(flow) => setTr({ flow })}
-            />
+            {tr.mode === 'variado' && (
+              <FlowPicker
+                label="Fluxo da transição"
+                noun="transição"
+                nounPlural="transições"
+                selectedCount={tr.selected.length}
+                value={tr.flow}
+                onChange={(flow) => setTr({ flow })}
+              />
+            )}
             <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
               <div className="mb-2.5 flex items-center justify-between text-[12px]">
                 <label htmlFor="tr-duration" className="text-muted-foreground">

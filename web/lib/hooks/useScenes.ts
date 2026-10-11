@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { callRpc } from '@/lib/supabase/rpc'
 import type { Scene, CreateSceneInput, Asset, Subproject } from '@/types/project'
-import { sortByModificationDate, sortAssets, clipRate, DEFAULT_SCENE_DURATION } from '@/lib/timeline'
+import { sortByModificationDate, sortAssets, clipRate, DEFAULT_SCENE_DURATION, STILL_DURATION } from '@/lib/timeline'
 import { allocateClips, canCover } from '@/lib/sync/assemble'
 import { emptySub, getSubprojects, globalInsertIndex, mergeSubOrder, narrationEnd, relayNarration, sceneSub, MAIN_SUB } from '@/lib/subprojects'
 import { withDefaults, pickAnimation, pickTransition, type SyncSettings } from '@/lib/sync/presets'
@@ -303,7 +303,7 @@ export function useAutoAssemble() {
             .from('assets')
             .select('id, kind, filename, duration_seconds, file_size_bytes, metadata, created_at, storage_path, project_id')
             .eq('project_id', projectId)
-            .in('kind', ['video', 'audio']),
+            .in('kind', ['video', 'image', 'audio']),
           supabase.from('projects').select('config').eq('id', projectId).single(),
           supabase.from('scenes').select('*').eq('project_id', projectId).order('order_index', { ascending: true }),
         ])
@@ -312,8 +312,13 @@ export function useAutoAssemble() {
       if (scenesError) throw scenesError
 
       const assets = (rows || []).map((a) => ({ ...a, type: a.kind, duration: a.duration_seconds, url: '' })) as Asset[]
-      const videos = sortAssets(assets.filter((a) => a.type === 'video'), settings.order.by, settings.order.reverse)
-      if (videos.length === 0) throw new Error('Nenhum vídeo encontrado. Faça upload dos clipes primeiro.')
+      // Videos and still images share one ordered list (images hold as long as the scene needs)
+      const videos = sortAssets(
+        assets.filter((a) => a.type === 'video' || a.type === 'image'),
+        settings.order.by,
+        settings.order.reverse
+      )
+      if (videos.length === 0) throw new Error('Nenhum vídeo ou imagem encontrado. Faça upload dos clipes primeiro.')
 
       const blobs = new Map<string, Blob>()
       const download = async (a: Asset) => {
@@ -375,12 +380,14 @@ export function useAutoAssemble() {
         cursorClip += counts[ti]
         const track = relayNarration(target.audios.map((a) => ({ asset_id: a.id, duration: a.duration! })))
         const narrationDuration = narrationEnd(track)
-        const clipDurs = clips.map((v) => v.duration || DEFAULT_SCENE_DURATION)
+        // image = no length of its own: unlimited when it must fill a phrase, STILL_DURATION alone
+        const clipDurs = clips.map((v) => (v.type === 'image' ? Number.POSITIVE_INFINITY : v.duration || DEFAULT_SCENE_DURATION))
+        const ownDurs = clips.map((v) => (v.type === 'image' ? STILL_DURATION : v.duration || DEFAULT_SCENE_DURATION))
 
         // Scene durations
         let durations: number[] = []
         if (clips.length === 0) durations = []
-        else if (mode === 'scenes' || narrationDuration === 0 || !canCover(clipDurs, narrationDuration)) durations = clipDurs
+        else if (mode === 'scenes' || narrationDuration === 0 || !canCover(clipDurs, narrationDuration)) durations = ownDurs
         else if (useVariable) {
           onStatus?.(targets.length > 1 ? `${target.sub.name}: analisando pausas...` : 'Analisando pausas da narração...')
           const pauses: Pause[] = []
@@ -399,15 +406,16 @@ export function useAutoAssemble() {
         let cursor = 0
         const scenes = clips.map((video, index) => {
           const duration = durations[index]
-          const rate = clipRate(video.duration, duration)
-          if (video.duration && video.duration * rate < duration - 0.05) heldFrameScenes++
+          const isImage = video.type === 'image'
+          const rate = isImage ? 1 : clipRate(video.duration, duration)
+          if (!isImage && video.duration && video.duration * rate < duration - 0.05) heldFrameScenes++
           const seg = track.find((s) => cursor >= s.start && cursor < s.start + s.duration)
           const animation = pickAnimation(settings, index)
           const scene = {
             narration_text: `Cena ${index + 1}`,
-            media_type: 'video_clip' as const,
-            image_asset_id: null,
-            video_asset_id: video.id,
+            media_type: (isImage ? 'still_image' : 'video_clip') as Scene['media_type'],
+            image_asset_id: isImage ? video.id : null,
+            video_asset_id: isImage ? null : video.id,
             audio_asset_id: seg?.asset_id ?? null,
             audio_start: seg ? Math.round((cursor - seg.start) * 1000) / 1000 : null,
             audio_duration: Math.round(duration * 1000) / 1000,
@@ -419,7 +427,7 @@ export function useAutoAssemble() {
               video_filename: video.filename,
               timeline_start: Math.round(cursor * 1000) / 1000,
               playback_rate: rate,
-              clip_duration: video.duration,
+              clip_duration: isImage ? null : video.duration,
               ...(animation !== 'none' ? { anim: settings.animation.params } : {}),
             },
           }

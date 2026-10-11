@@ -95,8 +95,9 @@ export function planVariableRhythm(clipDurations: number[], total: number, pause
 
   const sceneCost = (k: number, d: number) => {
     if (d < MIN_SCENE) return INF
+    // Infinity = still image: it can fill any length
     const capacity = (clipDurations[k] || avg) / MIN_SLOWDOWN
-    const over = Math.max(0, d - capacity)
+    const over = Number.isFinite(capacity) ? Math.max(0, d - capacity) : 0
     const dev = (d - avg) / avg
     return over * over * 8 + dev * dev * 1.5
   }
@@ -105,7 +106,8 @@ export function planVariableRhythm(clipDurations: number[], total: number, pause
     const cur = new Float64Array(m).fill(INF)
     const from = new Int32Array(m).fill(-1)
     // limit scene length to keep it O(n*m*w)
-    const maxLen = Math.max(avg * 3, (clipDurations[k] || avg) / MIN_SLOWDOWN + 2)
+    const cap = (clipDurations[k] || avg) / MIN_SLOWDOWN
+    const maxLen = Number.isFinite(cap) ? Math.max(avg * 3, cap + 2) : avg * 3
     for (let j = 1; j < m; j++) {
       if (k === n - 1 && j !== last) continue
       const tj = candidates[j].t

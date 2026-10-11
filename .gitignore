@@ -115,3 +115,6 @@ video_assembler/saida_videos_*/
 
 # MCP config local
 .mcp.json
+
+# connector launcher served from the web app
+!web/public/iniciar-conector-syncexpress.bat

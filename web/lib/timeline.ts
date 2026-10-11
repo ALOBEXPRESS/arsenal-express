@@ -2,6 +2,8 @@
 // Mirrors the CLI assembler (video_assembler/core/scene_timing.py + edl.py).
 import type { Asset, Scene, NarrationSegment, SceneProps } from '@/types/project'
 
+/** A still image on its own (no narration to fill) */
+export const STILL_DURATION = 5
 export const DEFAULT_SCENE_DURATION = 6.6 // config.yaml -> cenas.duracao_padrao
 export const TRANSITION_DURATION = 0.5 // seconds (default; project setting overrides)
 export const MIN_SLOWDOWN_RATE = 0.8 // config.yaml -> ajuste_duracao.limite_desacelerar

@@ -147,15 +147,15 @@ export function TransitionTile({
 }
 
 /**
- * Flow picker: in every group of 3 scenes, how many get the effect.
- * Each option draws its own pattern (●○○ ●●○ ●●●) so the rule is visible, not just named.
+ * Flow picker: how many DIFFERENT effects each group of 3 scenes uses.
+ * Each option draws its pattern (same color = same effect) so the rule is visible.
  */
 export function FlowPicker({
   value,
   onChange,
   label,
   noun,
-  variado,
+  nounPlural,
   selectedCount,
 }: {
   value: 1 | 2 | 3
@@ -163,13 +163,17 @@ export function FlowPicker({
   label: string
   /** "animação" / "transição" */
   noun: string
-  variado: boolean
+  /** "animações" / "transições" */
+  nounPlural: string
   selectedCount: number
 }) {
-  const options: { v: 1 | 2 | 3; title: string; desc: string }[] = [
-    { v: 1, title: '1:3', desc: `1 ${noun} a cada 3 cenas` },
-    { v: 2, title: '2:3', desc: `2 ${variado ? 'diferentes' : ''} a cada 3`.replace('  ', ' ') },
-    { v: 3, title: '3:3', desc: variado ? '3 diferentes a cada 3' : 'em todas as cenas' },
+  // effect index of each of the 3 scenes in a group, per flow
+  const pattern: Record<1 | 2 | 3, number[]> = { 1: [0, 0, 0], 2: [0, 0, 1], 3: [0, 1, 2] }
+  const tone = ['bg-brand-pink', 'bg-brand-cyan', 'bg-express']
+  const options: { v: 1 | 2 | 3; desc: string }[] = [
+    { v: 1, desc: `1 ${noun} a cada 3 cenas` },
+    { v: 2, desc: `2 ${nounPlural} diferentes a cada 3` },
+    { v: 3, desc: `3 ${nounPlural} diferentes a cada 3` },
   ]
   return (
     <div className="space-y-2">
@@ -183,7 +187,7 @@ export function FlowPicker({
               type="button"
               role="radio"
               aria-checked={on}
-              aria-label={`${o.title}: ${o.desc}`}
+              aria-label={`${o.v}:3 — ${o.desc}`}
               onClick={() => onChange(o.v)}
               className={cn(
                 'flex cursor-pointer flex-col items-start gap-1.5 rounded-lg border px-2.5 py-2 text-left transition-colors duration-200',
@@ -191,20 +195,10 @@ export function FlowPicker({
               )}
             >
               <span className="flex w-full items-center justify-between">
-                <span className={cn('font-mono text-[13px] font-semibold tabular-nums', on ? 'text-primary' : 'text-foreground')}>{o.title}</span>
+                <span className={cn('font-mono text-[13px] font-semibold tabular-nums', on ? 'text-primary' : 'text-foreground')}>{o.v}:3</span>
                 <span className="flex gap-[3px]" aria-hidden>
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className={cn(
-                        'h-3.5 w-2.5 rounded-[3px] border',
-                        i < o.v
-                          ? on
-                            ? 'border-primary bg-primary'
-                            : 'border-foreground/50 bg-foreground/50'
-                          : 'border-foreground/25 bg-transparent'
-                      )}
-                    />
+                  {pattern[o.v].map((k, i) => (
+                    <span key={i} className={cn('h-3.5 w-2.5 rounded-[3px]', tone[k], !on && 'opacity-60')} />
                   ))}
                 </span>
               </span>
@@ -213,9 +207,9 @@ export function FlowPicker({
           )
         })}
       </div>
-      {variado && value > 1 && selectedCount > 0 && selectedCount < value && (
+      {value > 1 && selectedCount > 0 && selectedCount < value && (
         <p className="text-[11px] text-muted-foreground">
-          Com {selectedCount} marcada{selectedCount > 1 ? 's' : ''}, alguma se repete dentro do grupo de 3 — marque {value} pra ficarem todas diferentes.
+          Só {selectedCount} marcada{selectedCount > 1 ? 's' : ''}: marque {value} pra os {value} do grupo ficarem diferentes.
         </p>
       )}
     </div>

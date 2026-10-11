@@ -193,7 +193,12 @@ export function normalizeAnimation(value?: string | null): AnimationId {
 
 export type SceneOrderBy = 'modified' | 'upload' | 'name'
 
-/** Effect flow: in every group of 3 scenes, how many get an effect (1:3, 2:3, 3:3) */
+/**
+ * Effect flow = how many DIFFERENT effects each group of 3 scenes uses (1:3, 2:3, 3:3).
+ * Every scene gets an effect; the group just varies it:
+ *   1:3 → A A A | B B B     2:3 → A A B | C C D     3:3 → A B C | D E F
+ * (A, B, C… walk through the selected list, wrapping around)
+ */
 export type FlowCount = 1 | 2 | 3
 export const FLOW_GROUP = 3
 
@@ -245,7 +250,8 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
     flow: 3,
     params: DEFAULT_ANIMATION_PARAMS,
   },
-  transition: { enabled: false, mode: 'fixo', selected: ['fusao', 'flash_branco'], fixed: 'fusao', flow: 3, duration: 0.5 },
+  // variado: Fusão + Esmaecer alternando (3:3)
+  transition: { enabled: false, mode: 'variado', selected: ['fusao', 'flash_preto'], fixed: 'fusao', flow: 3, duration: 0.5 },
 }
 
 const normFlow = (v: unknown): FlowCount => (v === 1 || v === 2 || v === 3 ? v : 3)
@@ -267,32 +273,29 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
 }
 
 /**
- * Flow slot: position `i` (0-based) in a sequence where, out of every 3, the first `flow`
- * positions get an effect. Returns the effect's running number (to rotate the list) or -1.
- *   1:3 → ●○○ ●○○   2:3 → ●●○ ●●○   3:3 → ●●● ●●●
+ * Index into the selected list for item `i` (0-based) under a flow.
+ * Group g = floor(i/3) takes `flow` consecutive list entries; the 3 positions of the group are
+ * spread over them (flow 2 → A A B, flow 3 → A B C).
  */
-export function flowSlot(i: number, flow: FlowCount): number {
-  const pos = i % FLOW_GROUP
-  if (pos >= flow) return -1
-  return Math.floor(i / FLOW_GROUP) * flow + pos
+export function flowIndex(i: number, flow: FlowCount, listLength: number): number {
+  if (listLength <= 0) return -1
+  const group = Math.floor(i / FLOW_GROUP)
+  const k = Math.floor(((i % FLOW_GROUP) * flow) / FLOW_GROUP)
+  return (group * flow + k) % listLength
 }
 
-/** Animation for scene i ("variado" rotates the list; flow skips scenes) */
+/** Animation for scene i ("variado" walks the list following the flow; "fixo" = always the same) */
 export function pickAnimation(settings: SyncSettings, index: number): AnimationId {
   const a = settings.animation
   if (!a.enabled) return 'none'
-  const slot = flowSlot(index, a.flow)
-  if (slot < 0) return 'none'
   if (a.mode === 'fixo' || a.selected.length === 0) return a.fixed
-  return a.selected[slot % a.selected.length]
+  return a.selected[flowIndex(index, a.flow, a.selected.length)]
 }
 
-/** Transition into scene i (the cut before it). Cut k = i - 1 follows the same flow. */
+/** Transition into scene i (cut number i-1 follows the same flow) */
 export function pickTransition(settings: SyncSettings, index: number): TransitionId {
   const t = settings.transition
   if (index === 0 || !t.enabled) return 'cut'
-  const slot = flowSlot(index - 1, t.flow)
-  if (slot < 0) return 'cut'
   if (t.mode === 'fixo' || t.selected.length === 0) return t.fixed
-  return t.selected[slot % t.selected.length]
+  return t.selected[flowIndex(index - 1, t.flow, t.selected.length)]
 }

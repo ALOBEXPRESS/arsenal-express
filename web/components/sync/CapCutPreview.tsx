@@ -86,9 +86,20 @@ export function CapCutPreviewCard({
 }
 
 /** Success panel shown after export: exactly what to do to see it in CapCut */
-export function OpenInCapCut({ name, message, system }: { name: string; message: string; system: CapCutSystem }) {
+export function OpenInCapCut({
+  name,
+  message,
+  system,
+  launched = false,
+}: {
+  name: string
+  message: string
+  system: CapCutSystem
+  /** the connector already opened CapCut */
+  launched?: boolean
+}) {
   const steps = [
-    { icon: Power, text: 'Abra (ou reinicie) o CapCut' },
+    { icon: Power, text: launched ? 'O CapCut abre sozinho' : 'Abra (ou reinicie) o CapCut' },
     { icon: FolderOpen, text: <>Na tela inicial, em <b className="text-foreground">Projetos</b></> },
     {
       icon: MousePointerClick,
@@ -110,7 +121,7 @@ export function OpenInCapCut({ name, message, system }: { name: string; message:
           <BadgeCheck className="h-5 w-5 text-track-audio" aria-hidden />
         </span>
         <div>
-          <p className="font-display text-[15px] font-bold">Pronto! Vai abrir no seu CapCut</p>
+          <p className="font-display text-[15px] font-bold">{launched ? 'Pronto! Abrindo o CapCut' : 'Pronto! Vai abrir no seu CapCut'}</p>
           <p className="mt-0.5 text-[12px] text-muted-foreground">{message}</p>
         </div>
       </div>

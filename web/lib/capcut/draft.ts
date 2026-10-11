@@ -46,6 +46,8 @@ export interface DraftInput {
   projectName: string
   system: CapCutSystem
   username?: string
+  /** real CapCut projects folder reported by the local connector (overrides system/username) */
+  draftRoot?: string
   timelines: TimelineInput[]
   settings: SyncSettings
   canvas: { width: number; height: number }
@@ -626,7 +628,7 @@ function effectSegment(
  */
 export function buildDraft(input: DraftInput): DraftOutput {
   const folderName = safeProjectName(input.projectName)
-  const draftRoot = capcutDraftRoot(input.system, input.username)
+  const draftRoot = (input.draftRoot || capcutDraftRoot(input.system, input.username)).replace(/\\/g, '/').replace(/\/+$/, '')
   const draftFolder = `${draftRoot}/${folderName}`
   const mediaRoot = `${draftFolder}/media`
   const shared: Shared = {

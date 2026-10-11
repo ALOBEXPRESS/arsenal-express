@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Apple, Monitor, FolderDown, FileArchive, Copy, FileSpreadsheet, Loader2, Check, TriangleAlert } from 'lucide-react'
+import { Apple, Monitor, FolderDown, FileArchive, Copy, FileSpreadsheet, Loader2, Check, TriangleAlert, Rocket } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { capcutDraftRoot, safeProjectName, type CapCutSystem } from '@/lib/capcu
 import {
   downloadDraftZip,
   downloadTimingCsv,
+  installToCapCut,
   saveDraftToFolder,
   supportsDirectSave,
   type PackageOptions,
@@ -20,6 +21,9 @@ import { formatTime, totalDuration } from '@/lib/timeline'
 import type { TimelineInput } from '@/lib/capcut/draft'
 import { normalizeAnimation, normalizeTransition, type SyncSettings } from '@/lib/sync/presets'
 import { CapCutPreviewCard, OpenInCapCut } from './CapCutPreview'
+import { BridgePanel, useBridge } from './BridgePanel'
+import { BridgeError } from '@/lib/capcut/bridge'
+import { confirmDialog } from '@/components/ui/confirm'
 
 interface CapCutExportSheetProps {
   open: boolean
@@ -59,7 +63,9 @@ export function CapCutExportSheet({
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [launchedByBridge, setLaunchedByBridge] = useState(false)
   const [canDirect, setCanDirect] = useState(false)
+  const bridge = useBridge(open)
 
   useEffect(() => {
     setCanDirect(supportsDirectSave())
@@ -79,6 +85,7 @@ export function CapCutExportSheet({
       setResult(null)
       setError(null)
       setProgress(null)
+      setLaunchedByBridge(false)
       if (defaultFormat && ['auto', '9:16', '16:9', '1:1'].includes(defaultFormat)) setFormat(defaultFormat as CanvasFormat)
     }
   }, [open, projectTitle, defaultFormat])
@@ -94,6 +101,8 @@ export function CapCutExportSheet({
 
   const root = useMemo(() => capcutDraftRoot(system, username), [system, username])
   const pretty = system === 'windows' ? root.replace(/\//g, '\\') : root
+  const shownRoot =
+    bridge.ready && bridge.info?.draftRoot ? bridge.info.draftRoot.replace(/\//g, bridge.info.platform === 'win32' ? '\\' : '/') : pretty
   const total = Math.max(
     ...chosen.map((t) => Math.max(totalDuration(t.timeline), ...t.narration.map((n) => n.start + n.duration), 0)),
     0
@@ -103,22 +112,43 @@ export function CapCutExportSheet({
 
   const options = (): PackageOptions => ({
     projectName: name,
-    system,
+    system: bridge.ready && bridge.info?.platform ? (bridge.info.platform === 'darwin' ? 'mac' : 'windows') : system,
     username,
+    draftRoot: bridge.ready ? bridge.info?.draftRoot : undefined,
     timelines: chosen,
     settings,
     outputFormat: format,
     onProgress: (done, totalFiles, label) => setProgress({ done, total: totalFiles, label }),
   })
 
-  const run = async (fn: () => Promise<unknown>, okMsg: string) => {
+  /** Saves into CapCut's folder through the connector and opens CapCut */
+  const saveViaBridge = async () => {
+    const base = { ...options(), token: bridge.token, launch: true }
+    try {
+      return await installToCapCut({ ...base, closeCapCut: false })
+    } catch (e) {
+      if (e instanceof BridgeError && e.code === 'capcut_running') {
+        const ok = await confirmDialog({
+          title: 'Fechar o CapCut?',
+          description:
+            'Com o CapCut aberto ele sobrescreve a lista de projetos e o seu não aparece. Vou fechar o CapCut, salvar o projeto e abrir de novo. Salve o que estiver editando antes.',
+          confirmLabel: 'Fechar e salvar',
+        })
+        if (!ok) return null
+        return await installToCapCut({ ...base, closeCapCut: true })
+      }
+      throw e
+    }
+  }
+
+  const run = async (fn: () => Promise<unknown>, okMsg: string | ((out: unknown) => string)) => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ system, username }))
     setBusy(true)
     setError(null)
     setResult(null)
     try {
       const out = await fn()
-      if (out !== null) setResult(okMsg)
+      if (out !== null) setResult(typeof okMsg === 'function' ? okMsg(out) : okMsg)
     } catch (e) {
       if ((e as DOMException)?.name === 'AbortError') return
       console.error('[CapCut export]', e)
@@ -179,6 +209,8 @@ export function CapCutExportSheet({
             </div>
           )}
 
+          <BridgePanel bridge={bridge} />
+
           <div className="space-y-2">
             <Label>Sistema</Label>
             <ModeSwitch
@@ -230,13 +262,13 @@ export function CapCutExportSheet({
           <div className="rounded-lg border border-border bg-surface-0 p-3">
             <p className="eyebrow mb-1.5">Pasta de projetos do CapCut</p>
             <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-foreground/85">{pretty}</code>
+              <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-foreground/85">{shownRoot}</code>
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Copiar caminho"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(pretty)
+                  await navigator.clipboard.writeText(shownRoot)
                   setCopied(true)
                   setTimeout(() => setCopied(false), 1500)
                 }}
@@ -244,7 +276,7 @@ export function CapCutExportSheet({
                 {copied ? <Check className="text-primary" /> : <Copy />}
               </Button>
             </div>
-            {!username.trim() && (
+            {!bridge.ready && !username.trim() && (
               <p className="mt-2 flex items-start gap-1.5 text-[11px] text-primary">
                 <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
                 Sem o usuário, o CapCut vai pedir “Vincular mídia” uma vez — aponte pra pasta <code>media</code> do projeto.
@@ -268,7 +300,7 @@ export function CapCutExportSheet({
               </div>
             </div>
           )}
-          {result && <OpenInCapCut name={safeProjectName(name)} message={result} system={system} />}
+          {result && <OpenInCapCut name={safeProjectName(name)} message={result} system={system} launched={launchedByBridge} />}
           {error && (
             <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[13px] text-destructive" role="alert">
               {error}
@@ -277,40 +309,75 @@ export function CapCutExportSheet({
 
           <ol className="space-y-2 rounded-xl border border-border bg-surface-2/50 p-4 text-[13px] text-muted-foreground">
             <p className="eyebrow mb-1">Como usar</p>
-            <li>
-              <span className="font-mono text-primary">1</span> Feche o CapCut (ele sobrescreve a pasta se estiver aberto).
-            </li>
-            <li>
-              <span className="font-mono text-primary">2</span> <b className="text-foreground">Salvar direto</b>: escolha a pasta{' '}
-              <code>com.lveditor.draft</code> (caminho acima). Ou <b className="text-foreground">.zip</b>: botão direito →{' '}
-              <i>Extrair tudo…</i> → cole o caminho acima como destino.
-            </li>
-            <li>
-              <span className="font-mono text-primary">3</span> Abra o CapCut: o projeto <b className="text-foreground">{safeProjectName(name)}</b>{' '}
-              aparece na lista.
-            </li>
+            {bridge.ready ? (
+              <>
+                <li>
+                  <span className="font-mono text-primary">1</span> Clique em <b className="text-foreground">Salvar no CapCut e abrir</b>. Se o
+                  CapCut estiver aberto eu peço pra fechar.
+                </li>
+                <li>
+                  <span className="font-mono text-primary">2</span> O CapCut abre e o projeto{' '}
+                  <b className="text-foreground">{safeProjectName(name)}</b> já está em Projetos.
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <span className="font-mono text-primary">1</span> Feche o CapCut (ele sobrescreve a pasta se estiver aberto).
+                </li>
+                <li>
+                  <span className="font-mono text-primary">2</span> <b className="text-foreground">.zip</b>: botão direito → <i>Extrair tudo…</i> →
+                  cole o caminho acima como destino. (Ou ligue o conector acima pra salvar direto.)
+                </li>
+                <li>
+                  <span className="font-mono text-primary">3</span> Abra o CapCut: o projeto <b className="text-foreground">{safeProjectName(name)}</b>{' '}
+                  aparece na lista.
+                </li>
+              </>
+            )}
           </ol>
         </div>
 
         <div className="space-y-2 border-t border-border bg-surface-0/60 px-6 py-4">
-          {canDirect && (
+          {bridge.ready && (
+            <Button
+              className="h-11 w-full text-[15px] font-semibold"
+              disabled={disabled}
+              onClick={() =>
+                run(saveViaBridge, (out) => {
+                  const r = out as { launched?: boolean; registered?: boolean; folder?: string; warnings?: string[] }
+                  setLaunchedByBridge(!!r.launched)
+                  return [
+                    r.launched ? 'Projeto salvo e CapCut aberto.' : 'Projeto salvo na pasta do CapCut. Abra o CapCut.',
+                    !r.registered ? 'Não consegui registrar na lista — se não aparecer, reinicie o CapCut.' : '',
+                    ...(r.warnings || []),
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
+                })
+              }
+            >
+              {busy ? <Loader2 className="animate-spin" /> : <Rocket />} Salvar no CapCut e abrir
+            </Button>
+          )}
+          {!bridge.ready && canDirect && system === 'mac' && (
             <Button
               className="h-11 w-full text-[15px] font-semibold"
               disabled={disabled}
               onClick={() => run(() => saveDraftToFolder(options()), 'Projeto salvo na pasta do CapCut. Abra o CapCut.')}
             >
-              {busy ? <Loader2 className="animate-spin" /> : <FolderDown />} Salvar direto na pasta do CapCut
+              {busy ? <Loader2 className="animate-spin" /> : <FolderDown />} Escolher a pasta do CapCut
             </Button>
           )}
           <Button
-            variant={canDirect ? 'outline' : 'default'}
+            variant={bridge.ready || (canDirect && system === 'mac') ? 'outline' : 'default'}
             className="h-10 w-full"
             disabled={disabled}
             onClick={() =>
               run(() => downloadDraftZip(options()), 'Zip baixado. Extraia dentro de com.lveditor.draft e abra o CapCut.')
             }
           >
-            {busy && !canDirect ? <Loader2 className="animate-spin" /> : <FileArchive />} Baixar como .zip (funciona sempre)
+            {busy && !bridge.ready ? <Loader2 className="animate-spin" /> : <FileArchive />} Baixar como .zip (funciona sempre)
           </Button>
           <Button
             variant="ghost"
