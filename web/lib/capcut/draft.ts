@@ -166,6 +166,7 @@ function overlayAnimationKeyframes(
   baseX: number,
   baseY: number
 ) {
+  console.log('🎨 overlayAnimationKeyframes called:', { animationIn, animationOut, durationS, animDur })
   const keyframes: any[] = []
   const inDur = Math.min(animDur, durationS / 2)
   const outDur = Math.min(animDur, durationS / 2)
@@ -489,6 +490,12 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       mat.speeds.push(speedMat)
       
       // Generate entrance/exit animation keyframes
+      console.log('🎬 Overlay animation:', {
+        in: clip.animation_in,
+        out: clip.animation_out,
+        duration: clip.duration,
+        animDur: clip.animation_duration || 0.3
+      })
       const animKeyframes = overlayAnimationKeyframes(
         clip.animation_in,
         clip.animation_out,
@@ -498,6 +505,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
         clip.x,
         clip.y
       )
+      console.log('🎬 Generated keyframes:', animKeyframes.length)
       
       return {
         ...SEGMENT_COMMON,
