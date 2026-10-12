@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split } from 'lucide-react'
+import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split, Film, Volume2 } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
@@ -229,6 +229,76 @@ export function AssemblySheet({
               )}
             </div>
           </section>
+
+          <section aria-labelledby="media-title" className="rounded-xl border border-border bg-surface-2/60 p-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-3 text-muted-foreground" aria-hidden>
+                <Film className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 id="media-title" className="font-display text-[15px] font-bold">
+                  Tipo de mídia
+                </h3>
+                <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
+                  Escolha se quer usar imagens, vídeos, ou ambos na montagem das cenas.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              <label className="flex cursor-pointer items-center justify-between gap-3 text-[13px]">
+                <span>Juntar cenas com imagens</span>
+                <Switch
+                  checked={s.media.with_images}
+                  onCheckedChange={(with_images) => setS((p) => ({ ...p, media: { ...p.media, with_images } }))}
+                  aria-label="Usar imagens na montagem"
+                />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between gap-3 text-[13px]">
+                <span>Juntar cenas com vídeos</span>
+                <Switch
+                  checked={s.media.with_videos}
+                  onCheckedChange={(with_videos) => setS((p) => ({ ...p, media: { ...p.media, with_videos } }))}
+                  aria-label="Usar vídeos na montagem"
+                />
+              </label>
+              {s.media.with_images && s.media.with_videos && (
+                <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
+                  <div className="mb-2.5 flex items-center justify-between text-[12px]">
+                    <label htmlFor="images-overlay-every" className="text-muted-foreground">
+                      Imagens como sobreposição a cada N cenas
+                    </label>
+                    <span className="font-mono tabular-nums text-primary">{s.media.images_as_overlay_every}</span>
+                  </div>
+                  <Slider
+                    id="images-overlay-every"
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={[s.media.images_as_overlay_every]}
+                    onValueChange={([v]) => setS((p) => ({ ...p, media: { ...p.media, images_as_overlay_every: v } }))}
+                    aria-label="Frequência de imagens como overlay"
+                  />
+                  <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+                    Quando ambos estão ativos, imagens aparecem como sobreposição a cada {s.media.images_as_overlay_every} cenas de vídeo.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <Section
+            id="sfx"
+            icon={<Volume2 className="h-4 w-4" />}
+            title="Efeitos sonoros"
+            description="Adiciona SFX favoritos nas cenas com imagens (como sobreposição). O efeito é cortado exatamente onde a imagem aparece."
+            checked={s.sfx.enabled}
+            onCheckedChange={(v) => setS((p) => ({ ...p, sfx: { ...p.sfx, enabled: v } }))}
+          >
+            {/* TODO: Add SFX selector component */}
+            <p className="text-[12px] text-muted-foreground">
+              Selecione um efeito favorito na biblioteca de SFX antes de montar as cenas.
+            </p>
+          </Section>
 
           <Section
             id="rhythm"

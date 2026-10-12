@@ -215,6 +215,22 @@ export interface SyncSettings {
     /** average scene length used to decide how many clips each subproject gets (seconds) */
     pace: number
   }
+  /** Media type selection for scene assembly */
+  media: {
+    /** Use images in scene assembly */
+    with_images: boolean
+    /** Use videos in scene assembly */
+    with_videos: boolean
+    /** If both are enabled and images exist, place them as overlays every N scenes */
+    images_as_overlay_every: number
+  }
+  /** Sound effects options */
+  sfx: {
+    /** Enable adding favorite SFX to scenes with images */
+    enabled: boolean
+    /** Selected favorite SFX effect ID to use */
+    selected_effect_id: string | null
+  }
   animation: {
     enabled: boolean
     mode: PickMode
@@ -242,6 +258,15 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   variable_rhythm: true,
   order: { by: 'modified', reverse: false },
   narration: { split: 'per_audio', pace: DEFAULT_SCENE_PACE },
+  media: {
+    with_images: true,
+    with_videos: true,
+    images_as_overlay_every: 3,
+  },
+  sfx: {
+    enabled: false,
+    selected_effect_id: null,
+  },
   animation: {
     enabled: false,
     mode: 'variado',
@@ -260,12 +285,23 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
   const animation = { ...DEFAULT_SYNC_SETTINGS.animation, ...(s?.animation || {}) }
   const transition = { ...DEFAULT_SYNC_SETTINGS.transition, ...(s?.transition || {}) }
   const narration = { ...DEFAULT_SYNC_SETTINGS.narration, ...(s?.narration || {}) }
+  const media = { ...DEFAULT_SYNC_SETTINGS.media, ...(s?.media || {}) }
+  const sfx = { ...DEFAULT_SYNC_SETTINGS.sfx, ...(s?.sfx || {}) }
   return {
     variable_rhythm: s?.variable_rhythm ?? DEFAULT_SYNC_SETTINGS.variable_rhythm,
     order: { ...DEFAULT_SYNC_SETTINGS.order, ...(s?.order || {}) },
     narration: {
       split: narration.split === 'continuous' ? 'continuous' : 'per_audio',
       pace: Math.min(20, Math.max(2, Number(narration.pace) || DEFAULT_SCENE_PACE)),
+    },
+    media: {
+      with_images: media.with_images ?? DEFAULT_SYNC_SETTINGS.media.with_images,
+      with_videos: media.with_videos ?? DEFAULT_SYNC_SETTINGS.media.with_videos,
+      images_as_overlay_every: Math.max(1, Math.min(10, media.images_as_overlay_every || DEFAULT_SYNC_SETTINGS.media.images_as_overlay_every)),
+    },
+    sfx: {
+      enabled: sfx.enabled ?? DEFAULT_SYNC_SETTINGS.sfx.enabled,
+      selected_effect_id: sfx.selected_effect_id ?? DEFAULT_SYNC_SETTINGS.sfx.selected_effect_id,
     },
     animation: { ...animation, flow: normFlow(animation.flow), params: normalizeParams(animation.params) },
     transition: { ...transition, flow: normFlow(transition.flow) },
