@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Search, Wand2 } from 'lucide-react'
+import { useState, useMemo, useRef } from 'react'
+import { Search, Wand2, Upload } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { useSFXManifest } from '@/hooks/useSFXManifest'
 import { useAddSFXToTimeline } from '@/hooks/useAddSFXToTimeline'
+import { useUploadCustomSFX } from '@/hooks/useUploadCustomSFX'
 import { usePlayhead } from '@/lib/stores/playhead'
 import { SoundEffectCard } from './SoundEffectCard'
 import type { SFXCategory, SoundEffect } from '@/types/project'
@@ -23,12 +25,15 @@ const CATEGORY_LABELS: Record<SFXCategory, string> = {
   cinematic: 'Cinemático',
   comedy: 'Comédia',
   ambient: 'Ambiente',
+  custom: 'Custom',
 }
 
 export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
   const { data: manifest, isLoading, error } = useSFXManifest()
   const addSFX = useAddSFXToTimeline()
+  const uploadSFX = useUploadCustomSFX()
   const playheadTime = usePlayhead((s) => s.time)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState<SFXCategory | 'all'>('all')
@@ -77,6 +82,31 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
     })
   }
 
+  const handleUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Get name without extension
+    const nameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+    
+    // Default to current category or whoosh
+    const category = activeCategory === 'all' ? 'whoosh' : activeCategory
+
+    await uploadSFX.mutateAsync({
+      file,
+      name: nameWithoutExt,
+      category,
+      tags: ['transition', 'custom'],
+    })
+
+    // Reset input
+    e.target.value = ''
+  }
+
   const categories: { id: SFXCategory | 'all'; label: string; count: number }[] = [
     { id: 'all', label: 'Todos', count: manifest?.effects.length || 0 },
     ...Object.entries(CATEGORY_LABELS).map(([id, label]) => ({
@@ -103,11 +133,32 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
       <div className="space-y-3 border-b border-border p-3">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-[15px] font-bold">Efeitos Sonoros</h2>
-          <span className="eyebrow flex items-center gap-1" title="Adicione efeitos na linha do tempo">
-            <Wand2 className="h-3 w-3" />
-            {manifest?.effects.length || 0} efeitos
-          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleUploadClick}
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px]"
+              disabled={uploadSFX.isPending}
+            >
+              <Upload className="h-3 w-3" />
+              {uploadSFX.isPending ? 'Enviando...' : 'Upload'}
+            </Button>
+            <span className="eyebrow flex items-center gap-1" title="Adicione efeitos na linha do tempo">
+              <Wand2 className="h-3 w-3" />
+              {manifest?.effects.length || 0} efeitos
+            </span>
+          </div>
         </div>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/mpeg,audio/mp3,audio/ogg,audio/wav,audio/webm,.mp3,.ogg,.wav,.webm"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
 
         {/* Search */}
         <div className="relative">

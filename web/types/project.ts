@@ -208,6 +208,7 @@ export type SFXCategory =
   | 'cinematic' 
   | 'comedy' 
   | 'ambient'
+  | 'custom'
 
 export interface SoundEffect {
   id: string
