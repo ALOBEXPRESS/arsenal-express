@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner'
 import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
 import { newClipId, type Tracks } from '@/lib/hooks/useTracks'
+import { useSFXManifest } from '@/lib/hooks/useSFXManifest'
 import { Button } from '@/components/ui/button'
 import { confirmDialog } from '@/components/ui/confirm'
 import { buildTimeline, totalDuration, formatTime, formatClock, type TimedScene } from '@/lib/timeline'
@@ -61,7 +62,7 @@ interface TimelineProps {
   subId: string
 }
 
-type Lane = 'main' | 'overlay' | 'audio' | 'adjust' | 'narration'
+type Lane = 'main' | 'overlay' | 'audio' | 'sfx' | 'adjust' | 'narration'
 
 const GUTTER = 92
 const MIN_PPS = 4
@@ -416,6 +417,7 @@ export function Timeline({
   const patchScene = usePatchScene(projectId)
   const dragAsset = useDragAsset((s) => s.asset)
   const { selection, select } = useSelection()
+  const { data: sfxManifest } = useSFXManifest(projectId)
   const [draggedScene, setDraggedScene] = useState<number | null>(null)
   const [dropHint, setDropHint] = useState<{ lane: Lane; time: number } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -430,14 +432,30 @@ export function Timeline({
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
+  
+  // Map SFX IDs to names from manifest
+  const sfxById = useMemo(() => {
+    const map = new Map<string, string>()
+    if (sfxManifest) {
+      sfxManifest.forEach((sfx) => map.set(sfx.id, sfx.name))
+    }
+    return map
+  }, [sfxManifest])
+  
   const { overlays, audioClips, adjustments } = tracks
+  
+  // Separate audio clips into regular audio and SFX
+  const regularAudioClips = useMemo(() => audioClips.filter((c) => !c.asset_id.startsWith('sfx:')), [audioClips])
+  const sfxClips = useMemo(() => audioClips.filter((c) => c.asset_id.startsWith('sfx:')), [audioClips])
+  
   const sceneEnd = totalDuration(timeline)
   const narrationEndT = narrationTrack.reduce((a, s) => Math.max(a, s.start + s.duration), 0)
   const total = Math.max(
     sceneEnd,
     narrationEndT,
     ...overlays.map((o) => o.start + o.duration),
-    ...audioClips.map((c) => c.start + c.duration),
+    ...regularAudioClips.map((c) => c.start + c.duration),
+    ...sfxClips.map((c) => c.start + c.duration),
     ...adjustments.map((c) => c.start + c.duration),
     0
   )
@@ -491,11 +509,12 @@ export function Timeline({
   const snapPoints = useMemo(() => {
     const pts = [0, ...timeline.map((t) => t.start), totalDuration(timeline)]
     overlays.forEach((o) => pts.push(o.start, o.start + o.duration))
-    audioClips.forEach((c) => pts.push(c.start, c.start + c.duration))
+    regularAudioClips.forEach((c) => pts.push(c.start, c.start + c.duration))
+    sfxClips.forEach((c) => pts.push(c.start, c.start + c.duration))
     adjustments.forEach((c) => pts.push(c.start, c.start + c.duration))
     narrationTrack.forEach((n) => pts.push(n.start, n.start + n.duration))
     return pts
-  }, [timeline, overlays, audioClips, adjustments, narrationTrack])
+  }, [timeline, overlays, regularAudioClips, sfxClips, adjustments, narrationTrack])
   const snapWithPlayhead = () => [...snapPoints, usePlayhead.getState().time]
 
   // ---- Delete -------------------------------------------------------------------------
@@ -713,7 +732,7 @@ export function Timeline({
     selection?.kind === kind && selection.id === id
   const accepting = (lane: Lane) => {
     if (!dragAsset) return false
-    if (dragAsset.type === 'audio') return lane === 'audio' || lane === 'narration'
+    if (dragAsset.type === 'audio') return lane === 'audio' || lane === 'narration' || lane === 'sfx'
     return lane === 'main' || lane === 'overlay'
   }
   const laneClass = (lane: Lane) =>
@@ -1016,8 +1035,11 @@ export function Timeline({
               <div className="flex h-8 shrink-0 items-center gap-1.5 px-2.5">
                 <Mic className="h-3.5 w-3.5 text-track-audio" aria-hidden /> Narração
               </div>
-              <div className="mb-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
+              <div className="flex h-8 shrink-0 items-center gap-1.5 px-2.5">
                 <Music className="h-3.5 w-3.5 text-express" aria-hidden /> Áudio
+              </div>
+              <div className="mb-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
+                <Sparkles className="h-3.5 w-3.5 text-brand-pink" aria-hidden /> SFX
               </div>
             </div>
 
@@ -1246,17 +1268,17 @@ export function Timeline({
 
                 {/* Extra audio lane */}
                 <div
-                  className={cn(laneClass('audio'), 'mb-1 mt-1 h-8 shrink-0')}
+                  className={cn(laneClass('audio'), 'mt-1 h-8 shrink-0')}
                   onDragOver={laneDragOver('audio')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('audio')}
                 >
-                  {audioClips.length === 0 && !dragAsset && (
+                  {regularAudioClips.length === 0 && !dragAsset && (
                     <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
                       Arraste música ou efeito sonoro aqui
                     </span>
                   )}
-                  {audioClips.map((c) => {
+                  {regularAudioClips.map((c) => {
                     const a = assetById.get(c.asset_id)
                     return (
                       <LaneClip
@@ -1277,6 +1299,43 @@ export function Timeline({
                     )
                   })}
                   {dropHint?.lane === 'audio' && <DropMarker x={dropHint.time * scale} />}
+                </div>
+
+                {/* SFX lane (sound effects) */}
+                <div
+                  className={cn(laneClass('sfx'), 'mb-1 mt-1 h-8 shrink-0')}
+                  onDragOver={laneDragOver('sfx')}
+                  onDragLeave={laneDragLeave}
+                  onDrop={laneDrop('sfx')}
+                >
+                  {sfxClips.length === 0 && !dragAsset && (
+                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                      Efeitos sonoros adicionados aparecem aqui
+                    </span>
+                  )}
+                  {sfxClips.map((c) => {
+                    // Extract effect ID from sfx:effect-id reference
+                    const effectId = c.asset_id.startsWith('sfx:') ? c.asset_id.substring(4) : c.asset_id
+                    const sfxName = sfxById.get(effectId) || effectId
+                    return (
+                      <LaneClip
+                        key={c.id}
+                        id={c.id}
+                        start={c.start}
+                        duration={c.duration}
+                        pps={scale}
+                        tone="audio"
+                        label={sfxName}
+                        meta={`${Math.round(c.volume * 100)}%`}
+                        selected={isSelected('audio', c.id)}
+                        maxDuration={sourceMax(c.asset_id, c.speed)}
+                        snapTo={snapWithPlayhead()}
+                        onSelect={() => select({ kind: 'audio', id: c.id })}
+                        onCommit={(p) => tracks.updateAudio(c.id, p)}
+                      />
+                    )
+                  })}
+                  {dropHint?.lane === 'sfx' && <DropMarker x={dropHint.time * scale} />}
                 </div>
 
                 <Playhead pps={scale} scroller={scroller} onGrab={startScrub} />
