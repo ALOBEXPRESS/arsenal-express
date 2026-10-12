@@ -436,8 +436,8 @@ export function Timeline({
   // Map SFX IDs to names from manifest
   const sfxById = useMemo(() => {
     const map = new Map<string, string>()
-    if (sfxManifest) {
-      sfxManifest.forEach((sfx) => map.set(sfx.id, sfx.name))
+    if (sfxManifest?.effects) {
+      sfxManifest.effects.forEach((sfx) => map.set(sfx.id, sfx.name))
     }
     return map
   }, [sfxManifest])
