@@ -728,14 +728,27 @@ export function Timeline({
   }, [timeline, activeSceneIndex])
 
   const handleSplitAtPlayhead = useCallback(async () => {
-    if (activeSceneIndex === undefined) return
+    console.log('[Cut] Starting cut at playhead:', activeSceneIndex)
+    
+    if (activeSceneIndex === undefined) {
+      console.log('[Cut] No playhead position')
+      return
+    }
+    
     const scene = selectedSceneAtPlayhead
-    if (!scene) return
+    console.log('[Cut] Selected scene:', scene)
+    
+    if (!scene) {
+      toast.info('Nenhuma cena no playhead', { description: 'Posicione o playhead sobre uma cena de vídeo para cortar.' })
+      return
+    }
     
     const timedScene = timeline.find((t) => t.scene.id === scene.id)
     if (!timedScene) return
 
     const splitPoint = activeSceneIndex - timedScene.start
+    console.log('[Cut] Split point:', splitPoint, 'Scene duration:', timedScene.duration)
+    
     if (splitPoint <= 0.1) {
       toast.info('Posição muito próxima do início', { description: 'Mova a linha de tempo para um ponto dentro da cena.' })
       return
@@ -747,27 +760,36 @@ export function Timeline({
     }
 
     try {
-      // Calculate how much to trim from the video
-      const existingTrim = timedScene.trim || 0
-      const newTrim = existingTrim + (timedScene.duration - splitPoint)
+      console.log('[Cut] Cutting scene', scene.id, 'at', splitPoint, 'seconds')
       
-      // Update the scene: set the trim point AND reduce the audio_duration
+      // Update the scene: reduce the audio_duration
       // This makes the scene shorter and following scenes move up
-      await fetch(`/api/projects/${projectId}/scenes/${scene.id}`, {
+      const response = await fetch(`/api/projects/${projectId}/scenes/${scene.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           audio_duration: splitPoint,
           metadata: {
             ...scene.metadata,
-            trim: existingTrim, // Keep existing trim (cut from start)
           },
         }),
       })
 
+      if (!response.ok) {
+        const error = await response.text()
+        console.error('[Cut] API error:', error)
+        throw new Error(error)
+      }
+
       const removed = timedScene.duration - splitPoint
+      console.log('[Cut] Success! Removed', removed, 'seconds')
       toast.success('Cena cortada', { description: `${removed.toFixed(1)}s removidos · as próximas cenas se moveram.` })
       select(null)
+    } catch (err) {
+      console.error('[Cut] Failed:', err)
+      toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
+    }
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select, scenes])
     } catch (err) {
       console.error('Split failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
