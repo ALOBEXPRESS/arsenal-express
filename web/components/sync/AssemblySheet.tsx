@@ -102,7 +102,8 @@ function FavoriteSFXSelector({ selected, onSelect }: { selected: string | null; 
   const { favorites } = useFavoriteSFX()
   const { data: manifest } = useSFXManifest()
   
-  const favoriteEffects = manifest?.effects.filter((e) => favorites.has(e.id)) || []
+  const favoritesSet = new Set(favorites)
+  const favoriteEffects = manifest?.effects.filter((e) => favoritesSet.has(e.id)) || []
   
   if (favoriteEffects.length === 0) {
     return (
