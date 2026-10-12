@@ -25,7 +25,7 @@ import {
 import { toast } from 'sonner'
 import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
 import { newClipId, type Tracks } from '@/lib/hooks/useTracks'
-import { useSFXManifest } from '@/lib/hooks/useSFXManifest'
+import { useSFXManifest } from '@/hooks/useSFXManifest'
 import { Button } from '@/components/ui/button'
 import { confirmDialog } from '@/components/ui/confirm'
 import { buildTimeline, totalDuration, formatTime, formatClock, type TimedScene } from '@/lib/timeline'
