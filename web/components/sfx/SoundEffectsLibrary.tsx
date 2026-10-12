@@ -100,8 +100,11 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
     // Get name without extension
     const nameWithoutExt = file.name.replace(/\.[^.]+$/, '')
     
-    // Default to current category or whoosh
-    const category = activeCategory === 'all' ? 'whoosh' : activeCategory
+    // Default to current category or whoosh (exclude 'all' and 'favorites')
+    const category: SFXCategory = 
+      activeCategory === 'all' || activeCategory === 'favorites' 
+        ? 'whoosh' 
+        : activeCategory
 
     await uploadSFX.mutateAsync({
       file,
