@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { callRpc } from '@/lib/supabase/rpc'
-import type { Scene, CreateSceneInput, Asset, Subproject } from '@/types/project'
+import type { Scene, CreateSceneInput, Asset, Subproject, OverlayClip } from '@/types/project'
 import { sortByModificationDate, sortAssets, clipRate, DEFAULT_SCENE_DURATION, STILL_DURATION } from '@/lib/timeline'
 import { allocateClips, canCover } from '@/lib/sync/assemble'
 import { emptySub, getSubprojects, globalInsertIndex, mergeSubOrder, narrationEnd, relayNarration, sceneSub, MAIN_SUB } from '@/lib/subprojects'
@@ -312,13 +312,43 @@ export function useAutoAssemble() {
       if (scenesError) throw scenesError
 
       const assets = (rows || []).map((a) => ({ ...a, type: a.kind, duration: a.duration_seconds, url: '' })) as Asset[]
-      // Videos and still images share one ordered list (images hold as long as the scene needs)
-      const videos = sortAssets(
-        assets.filter((a) => a.type === 'video' || a.type === 'image'),
+      
+      // Filter media by user settings
+      const allowedTypes: string[] = []
+      if (settings.media.with_videos) allowedTypes.push('video')
+      if (settings.media.with_images) allowedTypes.push('image')
+      if (allowedTypes.length === 0) throw new Error('Selecione pelo menos um tipo de mídia (imagens ou vídeos) nas configurações de montagem.')
+      
+      // Separate images and videos for different handling
+      const images = sortAssets(
+        assets.filter((a) => a.type === 'image'),
         settings.order.by,
         settings.order.reverse
       )
-      if (videos.length === 0) throw new Error('Nenhum vídeo ou imagem encontrado. Faça upload dos clipes primeiro.')
+      const videoClips = sortAssets(
+        assets.filter((a) => a.type === 'video'),
+        settings.order.by,
+        settings.order.reverse
+      )
+      
+      // Decide media strategy based on settings
+      let videos: Asset[] = []
+      let overlayImages: Asset[] = []
+      
+      if (settings.media.with_videos && settings.media.with_images) {
+        // Both enabled: videos go to main track, images become overlays
+        videos = videoClips
+        overlayImages = images
+        if (videos.length === 0) throw new Error('Nenhum vídeo encontrado para a trilha principal. Adicione vídeos ou desative "Juntar cenas com vídeos".')
+      } else if (settings.media.with_videos) {
+        // Only videos
+        videos = videoClips
+        if (videos.length === 0) throw new Error('Nenhum vídeo encontrado. Faça upload dos clipes primeiro.')
+      } else {
+        // Only images
+        videos = images
+        if (videos.length === 0) throw new Error('Nenhuma imagem encontrada. Faça upload das imagens primeiro.')
+      }
 
       const blobs = new Map<string, Blob>()
       const download = async (a: Asset) => {
@@ -435,7 +465,50 @@ export function useAutoAssemble() {
           return scene
         })
         const covered = durations.reduce((a, b) => a + b, 0)
-        const sub: Subproject = mode === 'scenes' ? target.sub : { ...target.sub, narration_track: track }
+        
+        // Add image overlays if both videos and images are enabled
+        const overlays: OverlayClip[] = []
+        if (settings.media.with_videos && settings.media.with_images && overlayImages.length > 0) {
+          const everyN = settings.media.images_as_overlay_every
+          let imageIndex = 0
+          let sceneStart = 0
+          
+          for (let i = 0; i < scenes.length; i++) {
+            const sceneDur = durations[i]
+            
+            // Add image overlay every N scenes
+            if ((i + 1) % everyN === 0 && imageIndex < overlayImages.length) {
+              const image = overlayImages[imageIndex]
+              const overlayDur = Math.min(sceneDur, 5) // Max 5s overlay
+              const overlayStart = sceneStart + (sceneDur - overlayDur) / 2 // Center in scene
+              
+              overlays.push({
+                id: crypto.randomUUID(),
+                asset_id: image.id,
+                kind: 'image',
+                start: overlayStart,
+                duration: overlayDur,
+                scale: 0.3, // 30% of canvas
+                x: 0,
+                y: 0,
+                opacity: 1,
+                speed: 1,
+                volume: 1,
+                animation_in: 'fade',
+                animation_out: 'fade',
+                animation_duration: 0.3,
+              })
+              
+              imageIndex = (imageIndex + 1) % overlayImages.length // Cycle through images
+            }
+            
+            sceneStart += sceneDur
+          }
+        }
+        
+        const sub: Subproject = mode === 'scenes' 
+          ? { ...target.sub, overlays } 
+          : { ...target.sub, narration_track: track, overlays }
         built.push({
           sub,
           scenes,
