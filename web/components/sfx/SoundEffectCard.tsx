@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Volume2, StopCircle, Plus } from 'lucide-react'
+import { Volume2, StopCircle, Plus, Heart } from 'lucide-react'
 import type { SoundEffect } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
 import { getSFXPlayer } from '@/lib/audio/sfxPlayer'
@@ -10,9 +10,11 @@ import { cn } from '@/lib/utils'
 interface SoundEffectCardProps {
   effect: SoundEffect
   onAdd: (effect: SoundEffect) => void
+  isFavorite?: boolean
+  onToggleFavorite?: (effectId: string) => void
 }
 
-export function SoundEffectCard({ effect, onAdd }: SoundEffectCardProps) {
+export function SoundEffectCard({ effect, onAdd, isFavorite = false, onToggleFavorite }: SoundEffectCardProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -85,6 +87,25 @@ export function SoundEffectCard({ effect, onAdd }: SoundEffectCardProps) {
         <span className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] capitalize text-white/90">
           {effect.category}
         </span>
+
+        {/* Favorite button */}
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleFavorite(effect.id)
+            }}
+            className={cn(
+              'absolute right-1.5 top-1.5 rounded-full p-1 transition-all',
+              isFavorite 
+                ? 'bg-red-500/90 text-white opacity-100' 
+                : 'bg-black/50 text-white/60 opacity-0 hover:bg-black/80 hover:text-white group-hover:opacity-100'
+            )}
+            aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+          >
+            <Heart className={cn('h-3 w-3', isFavorite && 'fill-current')} />
+          </button>
+        )}
 
         {/* Duration */}
         <span className="absolute bottom-1.5 right-1.5 rounded bg-black/65 px-1 font-mono text-[10px] tabular-nums text-white/90">

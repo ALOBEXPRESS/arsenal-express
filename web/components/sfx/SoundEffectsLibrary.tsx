@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useMemo, useRef } from 'react'
-import { Search, Wand2, Upload } from 'lucide-react'
+import { Search, Wand2, Upload, Heart } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useSFXManifest } from '@/hooks/useSFXManifest'
 import { useAddSFXToTimeline } from '@/hooks/useAddSFXToTimeline'
 import { useUploadCustomSFX } from '@/hooks/useUploadCustomSFX'
+import { useFavoriteSFX } from '@/hooks/useFavoriteSFX'
 import { usePlayhead } from '@/lib/stores/playhead'
 import { SoundEffectCard } from './SoundEffectCard'
 import type { SFXCategory, SoundEffect } from '@/types/project'
@@ -18,6 +19,7 @@ interface SoundEffectsLibraryProps {
 
 const CATEGORY_LABELS: Record<SFXCategory, string> = {
   whoosh: 'Whoosh',
+  wish: 'Wish',
   ui: 'Interface',
   impact: 'Impacto',
   glitch: 'Glitch',
@@ -32,11 +34,12 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
   const { data: manifest, isLoading, error } = useSFXManifest()
   const addSFX = useAddSFXToTimeline()
   const uploadSFX = useUploadCustomSFX()
+  const { isFavorite, toggleFavorite, favorites } = useFavoriteSFX()
   const playheadTime = usePlayhead((s) => s.time)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeCategory, setActiveCategory] = useState<SFXCategory | 'all'>('all')
+  const [activeCategory, setActiveCategory] = useState<SFXCategory | 'all' | 'favorites'>('all')
 
   // Filter effects by search and category
   const filteredEffects = useMemo(() => {
@@ -44,8 +47,12 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
 
     let effects = manifest.effects
 
+    // Filter by favorites
+    if (activeCategory === 'favorites') {
+      effects = effects.filter((e) => isFavorite(e.id))
+    }
     // Filter by category
-    if (activeCategory !== 'all') {
+    else if (activeCategory !== 'all') {
       effects = effects.filter((e) => e.category === activeCategory)
     }
 
@@ -61,7 +68,7 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
     }
 
     return effects
-  }, [manifest, activeCategory, searchQuery])
+  }, [manifest, activeCategory, searchQuery, isFavorite])
 
   // Count effects per category
   const categoryCounts = useMemo(() => {
@@ -107,8 +114,9 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
     e.target.value = ''
   }
 
-  const categories: { id: SFXCategory | 'all'; label: string; count: number }[] = [
+  const categories: { id: SFXCategory | 'all' | 'favorites'; label: string; count: number; icon?: React.ReactNode }[] = [
     { id: 'all', label: 'Todos', count: manifest?.effects.length || 0 },
+    { id: 'favorites', label: 'Favoritos', count: favorites.length, icon: <Heart className="h-3 w-3 fill-current" /> },
     ...Object.entries(CATEGORY_LABELS).map(([id, label]) => ({
       id: id as SFXCategory,
       label,
@@ -181,12 +189,15 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
               aria-selected={activeCategory === cat.id}
               onClick={() => setActiveCategory(cat.id)}
               className={cn(
-                'cursor-pointer rounded-md px-2 py-1 text-[11px] transition-colors duration-200',
+                'flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors duration-200',
                 activeCategory === cat.id 
-                  ? 'bg-primary text-primary-foreground' 
+                  ? cat.id === 'favorites' 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-primary text-primary-foreground'
                   : 'bg-surface-0 text-muted-foreground hover:bg-surface-3 hover:text-foreground'
               )}
             >
+              {cat.icon}
               {cat.label} <span className="font-mono text-[10px] opacity-70">{cat.count}</span>
             </button>
           ))}
@@ -219,6 +230,8 @@ export function SoundEffectsLibrary({ projectId }: SoundEffectsLibraryProps) {
                 key={effect.id} 
                 effect={effect} 
                 onAdd={handleAddEffect}
+                isFavorite={isFavorite(effect.id)}
+                onToggleFavorite={toggleFavorite}
               />
             ))}
           </div>

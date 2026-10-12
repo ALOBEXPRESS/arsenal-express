@@ -156,6 +156,133 @@ function animationKeyframes(animationId: string, durationS: number, params?: Par
   return out
 }
 
+/** Overlay entrance/exit animations -> CapCut common_keyframes */
+function overlayAnimationKeyframes(
+  animationIn: string | undefined,
+  animationOut: string | undefined,
+  durationS: number,
+  animDur: number,
+  baseScale: number,
+  baseX: number,
+  baseY: number
+) {
+  const keyframes: any[] = []
+  const inDur = Math.min(animDur, durationS / 2)
+  const outDur = Math.min(animDur, durationS / 2)
+  const outStart = durationS - outDur
+
+  // Helper to create keyframes for a property
+  const createKeyframes = (propertyType: string, values: Array<{ time: number; value: number }>) => {
+    if (values.length === 0) return
+    keyframes.push({
+      id: hex(),
+      keyframe_list: values.map((v) => keyframe(toUs(v.time), v.value)),
+      material_id: '',
+      property_type: propertyType,
+    })
+  }
+
+  // Opacity keyframes
+  const opacityFrames: Array<{ time: number; value: number }> = []
+  
+  // Scale keyframes (uniform)
+  const scaleFrames: Array<{ time: number; value: number }> = []
+  
+  // Position keyframes
+  const posXFrames: Array<{ time: number; value: number }> = []
+  const posYFrames: Array<{ time: number; value: number }> = []
+
+  // Entrance animation
+  if (animationIn && animationIn !== 'none') {
+    switch (animationIn) {
+      case 'fade':
+        opacityFrames.push({ time: 0, value: 0 }, { time: inDur, value: 1 })
+        break
+      case 'zoom-in':
+        scaleFrames.push({ time: 0, value: 0 }, { time: inDur, value: baseScale })
+        opacityFrames.push({ time: 0, value: 0 }, { time: inDur * 0.3, value: 1 })
+        break
+      case 'zoom-out':
+        scaleFrames.push({ time: 0, value: baseScale * 2 }, { time: inDur, value: baseScale })
+        opacityFrames.push({ time: 0, value: 0 }, { time: inDur * 0.3, value: 1 })
+        break
+      case 'slide-up':
+        posYFrames.push({ time: 0, value: baseY - 2 }, { time: inDur, value: baseY })
+        opacityFrames.push({ time: 0, value: 0 }, { time: inDur * 0.2, value: 1 })
+        break
+      case 'slide-down':
+        posYFrames.push({ time: 0, value: baseY + 2 }, { time: inDur, value: baseY })
+        opacityFrames.push({ time: 0, value: 0 }, { time: inDur * 0.2, value: 1 })
+        break
+      case 'slide-left':
+        posXFrames.push({ time: 0, value: baseX - 2 }, { time: inDur, value: baseX })
+        opacityFrames.push({ time: 0, value: 0 }, { time: inDur * 0.2, value: 1 })
+        break
+      case 'slide-right':
+        posXFrames.push({ time: 0, value: baseX + 2 }, { time: inDur, value: baseX })
+        opacityFrames.push({ time: 0, value: 0 }, { time: inDur * 0.2, value: 1 })
+        break
+    }
+  }
+
+  // Exit animation
+  if (animationOut && animationOut !== 'none') {
+    switch (animationOut) {
+      case 'fade':
+        if (opacityFrames.length === 0) opacityFrames.push({ time: 0, value: 1 })
+        opacityFrames.push({ time: outStart, value: 1 }, { time: durationS, value: 0 })
+        break
+      case 'zoom-in':
+        if (scaleFrames.length === 0) scaleFrames.push({ time: 0, value: baseScale })
+        scaleFrames.push({ time: outStart, value: baseScale }, { time: durationS, value: 0 })
+        if (opacityFrames.length === 0) opacityFrames.push({ time: 0, value: 1 })
+        opacityFrames.push({ time: outStart + outDur * 0.7, value: 1 }, { time: durationS, value: 0 })
+        break
+      case 'zoom-out':
+        if (scaleFrames.length === 0) scaleFrames.push({ time: 0, value: baseScale })
+        scaleFrames.push({ time: outStart, value: baseScale }, { time: durationS, value: baseScale * 2 })
+        if (opacityFrames.length === 0) opacityFrames.push({ time: 0, value: 1 })
+        opacityFrames.push({ time: outStart + outDur * 0.7, value: 1 }, { time: durationS, value: 0 })
+        break
+      case 'slide-up':
+        if (posYFrames.length === 0) posYFrames.push({ time: 0, value: baseY })
+        posYFrames.push({ time: outStart, value: baseY }, { time: durationS, value: baseY + 2 })
+        if (opacityFrames.length === 0) opacityFrames.push({ time: 0, value: 1 })
+        opacityFrames.push({ time: outStart + outDur * 0.8, value: 1 }, { time: durationS, value: 0 })
+        break
+      case 'slide-down':
+        if (posYFrames.length === 0) posYFrames.push({ time: 0, value: baseY })
+        posYFrames.push({ time: outStart, value: baseY }, { time: durationS, value: baseY - 2 })
+        if (opacityFrames.length === 0) opacityFrames.push({ time: 0, value: 1 })
+        opacityFrames.push({ time: outStart + outDur * 0.8, value: 1 }, { time: durationS, value: 0 })
+        break
+      case 'slide-left':
+        if (posXFrames.length === 0) posXFrames.push({ time: 0, value: baseX })
+        posXFrames.push({ time: outStart, value: baseX }, { time: durationS, value: baseX + 2 })
+        if (opacityFrames.length === 0) opacityFrames.push({ time: 0, value: 1 })
+        opacityFrames.push({ time: outStart + outDur * 0.8, value: 1 }, { time: durationS, value: 0 })
+        break
+      case 'slide-right':
+        if (posXFrames.length === 0) posXFrames.push({ time: 0, value: baseX })
+        posXFrames.push({ time: outStart, value: baseX }, { time: durationS, value: baseX - 2 })
+        if (opacityFrames.length === 0) opacityFrames.push({ time: 0, value: 1 })
+        opacityFrames.push({ time: outStart + outDur * 0.8, value: 1 }, { time: durationS, value: 0 })
+        break
+    }
+  }
+
+  // Create keyframe objects
+  if (opacityFrames.length > 0) createKeyframes('KFTypeOpacity', opacityFrames)
+  if (scaleFrames.length > 0) {
+    createKeyframes('KFTypeScaleX', scaleFrames)
+    createKeyframes('KFTypeScaleY', scaleFrames) // Uniform scale
+  }
+  if (posXFrames.length > 0) createKeyframes('KFTypePositionX', posXFrames)
+  if (posYFrames.length > 0) createKeyframes('KFTypePositionY', posYFrames)
+
+  return keyframes
+}
+
 /** draft_content.json of one timeline */
 function buildTimelineContent(tl: TimelineInput, shared: Shared) {
   const input = {
@@ -360,13 +487,25 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       const speed = isPhoto ? 1 : clip.speed || 1
       const speedMat = speedMaterial(speed)
       mat.speeds.push(speedMat)
+      
+      // Generate entrance/exit animation keyframes
+      const animKeyframes = overlayAnimationKeyframes(
+        clip.animation_in,
+        clip.animation_out,
+        clip.duration,
+        clip.animation_duration || 0.3,
+        clip.scale,
+        clip.x,
+        clip.y
+      )
+      
       return {
         ...SEGMENT_COMMON,
         track_render_index: layer,
         id: hex(),
         material_id: registerVideo(asset),
         target_timerange: { start: toUs(clip.start), duration: durUs },
-        common_keyframes: [],
+        common_keyframes: animKeyframes,
         keyframe_refs: [],
         source_timerange: { start: toUs(inPoint), duration: isPhoto ? durUs : Math.min(Math.round(durUs * speed), toUs(clipS)) },
         speed,

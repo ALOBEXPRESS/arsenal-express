@@ -295,6 +295,60 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
             <PropSlider label="Opacidade" value={o.opacity} min={0} max={1} step={0.01} format={pct} onChange={(v) => set({ opacity: v })} onReset={o.opacity !== 1 ? () => set({ opacity: 1 }) : undefined} />
           </Group>
 
+          <Group title="Animações">
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-foreground/85">Entrada</label>
+                <select
+                  value={o.animation_in || 'none'}
+                  onChange={(e) => set({ animation_in: e.target.value as any })}
+                  className="w-full rounded-md border border-border bg-surface-0 px-2 py-1 text-[12px] text-foreground focus:border-primary focus:outline-none"
+                >
+                  <option value="none">Nenhuma</option>
+                  <option value="fade">Fade In</option>
+                  <option value="slide-up">Deslizar para Cima</option>
+                  <option value="slide-down">Deslizar para Baixo</option>
+                  <option value="slide-left">Deslizar para Esquerda</option>
+                  <option value="slide-right">Deslizar para Direita</option>
+                  <option value="zoom-in">Zoom In</option>
+                  <option value="zoom-out">Zoom Out</option>
+                </select>
+              </div>
+              
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-foreground/85">Saída</label>
+                <select
+                  value={o.animation_out || 'none'}
+                  onChange={(e) => set({ animation_out: e.target.value as any })}
+                  className="w-full rounded-md border border-border bg-surface-0 px-2 py-1 text-[12px] text-foreground focus:border-primary focus:outline-none"
+                >
+                  <option value="none">Nenhuma</option>
+                  <option value="fade">Fade Out</option>
+                  <option value="slide-up">Deslizar para Cima</option>
+                  <option value="slide-down">Deslizar para Baixo</option>
+                  <option value="slide-left">Deslizar para Esquerda</option>
+                  <option value="slide-right">Deslizar para Direita</option>
+                  <option value="zoom-in">Zoom In</option>
+                  <option value="zoom-out">Zoom Out</option>
+                </select>
+              </div>
+
+              <PropSlider 
+                label="Duração" 
+                value={o.animation_duration || 0.3} 
+                min={0.1} 
+                max={2} 
+                step={0.05} 
+                format={(v) => `${v.toFixed(2)}s`}
+                onChange={(v) => set({ animation_duration: v })} 
+                onReset={o.animation_duration && o.animation_duration !== 0.3 ? () => set({ animation_duration: 0.3 }) : undefined}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Animações funcionam no CapCut ao exportar o projeto
+            </p>
+          </Group>
+
           {o.kind === 'video' && (
             <Group title="Vídeo">
               <PropSlider

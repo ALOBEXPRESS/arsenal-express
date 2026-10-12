@@ -84,6 +84,12 @@ export interface OverlayClip {
   volume: number
   /** seconds of the source skipped at the start (set by the cut tool) */
   in_point?: number
+  /** CapCut animation for entrance */
+  animation_in?: 'none' | 'fade' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right' | 'zoom-in' | 'zoom-out'
+  /** CapCut animation for exit */
+  animation_out?: 'none' | 'fade' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right' | 'zoom-in' | 'zoom-out'
+  /** Animation duration in seconds (default: 0.3) */
+  animation_duration?: number
 }
 
 export interface AudioClip {
@@ -201,6 +207,7 @@ export interface UploadAssetInput {
 // Sound Effects Library Types
 export type SFXCategory = 
   | 'whoosh' 
+  | 'wish'
   | 'ui' 
   | 'impact' 
   | 'glitch' 
