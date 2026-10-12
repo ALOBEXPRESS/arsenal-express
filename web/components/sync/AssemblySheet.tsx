@@ -39,6 +39,7 @@ interface AssemblySheetProps {
   onSave: (s: SyncSettings) => Promise<void>
   onApplyEffects: (s: SyncSettings) => Promise<void>
   onAssemble: (s: SyncSettings) => Promise<void>
+  onAssembleScenes?: (s: SyncSettings) => Promise<void>
 }
 
 function Section({
@@ -149,6 +150,7 @@ export function AssemblySheet({
   onSave,
   onApplyEffects,
   onAssemble,
+  onAssembleScenes,
 }: AssemblySheetProps) {
   const [s, setS] = useState<SyncSettings>(() => withDefaults(initial))
   useEffect(() => {
@@ -458,9 +460,20 @@ export function AssemblySheet({
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> {status}
             </p>
           )}
-          <Button className="h-11 w-full text-[15px] font-semibold" disabled={busy || invalid} onClick={() => onAssemble(s)}>
-            <Wand2 /> Juntar cenas com áudio
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            {onAssembleScenes && (
+              <Button variant="outline" disabled={busy || invalid} onClick={() => onAssembleScenes(s)}>
+                <Film /> Juntar cenas
+              </Button>
+            )}
+            <Button 
+              className={cn("h-11 text-[15px] font-semibold", !onAssembleScenes && "col-span-2")} 
+              disabled={busy || invalid} 
+              onClick={() => onAssemble(s)}
+            >
+              <Wand2 /> Juntar cenas com áudio
+            </Button>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" disabled={busy || invalid || !hasScenes} onClick={() => onApplyEffects(s)}>
               Só aplicar efeitos

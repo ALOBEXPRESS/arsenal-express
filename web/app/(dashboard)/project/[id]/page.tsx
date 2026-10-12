@@ -454,6 +454,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           }
         }}
         onAssemble={(s) => runAssemble('scenes_with_audio', s)}
+        onAssembleScenes={(s) => runAssemble('scenes', s)}
       />
     </div>
   )

@@ -520,8 +520,8 @@ export function useAutoAssemble() {
         }
         
         const sub: Subproject = mode === 'scenes' 
-          ? { ...target.sub, overlays, audio_clips: [...(target.sub.audio_clips || []), ...sfxClips] } 
-          : { ...target.sub, narration_track: track, overlays, audio_clips: [...(target.sub.audio_clips || []), ...sfxClips] }
+          ? { ...target.sub, overlays, audio_clips: sfxClips } 
+          : { ...target.sub, narration_track: track, overlays, audio_clips: sfxClips }
         built.push({
           sub,
           scenes,
