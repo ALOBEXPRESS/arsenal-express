@@ -789,12 +789,7 @@ export function Timeline({
       console.error('[Cut] Failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
     }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select, scenes])
-    } catch (err) {
-      console.error('Split failed:', err)
-      toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
-    }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select, scenes])
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select])
 
   // Keyboard shortcut for split (Ctrl+B or S)
   useEffect(() => {
