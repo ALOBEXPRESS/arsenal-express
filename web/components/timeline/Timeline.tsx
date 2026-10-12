@@ -747,19 +747,26 @@ export function Timeline({
     }
 
     try {
-      // Update the scene to end at the split point (cuts everything after)
+      // Calculate how much to trim from the video
+      const existingTrim = timedScene.trim || 0
+      const newTrim = existingTrim + (timedScene.duration - splitPoint)
+      
+      // Update the scene: set the trim point AND reduce the audio_duration
+      // This makes the scene shorter and following scenes move up
       await fetch(`/api/projects/${projectId}/scenes/${scene.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          audio_duration: splitPoint,
           metadata: {
             ...scene.metadata,
-            trim: splitPoint,
+            trim: existingTrim, // Keep existing trim (cut from start)
           },
         }),
       })
 
-      toast.success('Cena cortada', { description: `Tudo depois de ${splitPoint.toFixed(1)}s foi removido.` })
+      const removed = timedScene.duration - splitPoint
+      toast.success('Cena cortada', { description: `${removed.toFixed(1)}s removidos · as próximas cenas se moveram.` })
       select(null)
     } catch (err) {
       console.error('Split failed:', err)
