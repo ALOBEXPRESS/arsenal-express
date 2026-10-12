@@ -417,7 +417,7 @@ export function Timeline({
   const patchScene = usePatchScene(projectId)
   const dragAsset = useDragAsset((s) => s.asset)
   const { selection, select } = useSelection()
-  const { data: sfxManifest } = useSFXManifest(projectId)
+  const { data: sfxManifest } = useSFXManifest()
   const [draggedScene, setDraggedScene] = useState<number | null>(null)
   const [dropHint, setDropHint] = useState<{ lane: Lane; time: number } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
