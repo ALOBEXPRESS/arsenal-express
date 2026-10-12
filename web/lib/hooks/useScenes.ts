@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { callRpc } from '@/lib/supabase/rpc'
-import type { Scene, CreateSceneInput, Asset, Subproject, OverlayClip } from '@/types/project'
+import type { Scene, CreateSceneInput, Asset, Subproject, OverlayClip, AudioClip } from '@/types/project'
 import { sortByModificationDate, sortAssets, clipRate, DEFAULT_SCENE_DURATION, STILL_DURATION } from '@/lib/timeline'
 import { allocateClips, canCover } from '@/lib/sync/assemble'
 import { emptySub, getSubprojects, globalInsertIndex, mergeSubOrder, narrationEnd, relayNarration, sceneSub, MAIN_SUB } from '@/lib/subprojects'
@@ -468,6 +468,7 @@ export function useAutoAssemble() {
         
         // Add image overlays if both videos and images are enabled
         const overlays: OverlayClip[] = []
+        const sfxClips: AudioClip[] = []
         if (settings.media.with_videos && settings.media.with_images && overlayImages.length > 0) {
           const everyN = settings.media.images_as_overlay_every
           let imageIndex = 0
@@ -499,6 +500,18 @@ export function useAutoAssemble() {
                 animation_duration: 0.3,
               })
               
+              // Add SFX clip if enabled and effect selected
+              if (settings.sfx.enabled && settings.sfx.selected_effect_id) {
+                sfxClips.push({
+                  id: crypto.randomUUID(),
+                  asset_id: `sfx:${settings.sfx.selected_effect_id}`, // Use sfx: prefix for SFX pseudo-assets
+                  start: overlayStart,
+                  duration: overlayDur,
+                  volume: 1,
+                  speed: 1,
+                })
+              }
+              
               imageIndex = (imageIndex + 1) % overlayImages.length // Cycle through images
             }
             
@@ -507,8 +520,8 @@ export function useAutoAssemble() {
         }
         
         const sub: Subproject = mode === 'scenes' 
-          ? { ...target.sub, overlays } 
-          : { ...target.sub, narration_track: track, overlays }
+          ? { ...target.sub, overlays, audio_clips: [...(target.sub.audio_clips || []), ...sfxClips] } 
+          : { ...target.sub, narration_track: track, overlays, audio_clips: [...(target.sub.audio_clips || []), ...sfxClips] }
         built.push({
           sub,
           scenes,

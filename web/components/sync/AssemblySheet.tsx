@@ -17,6 +17,8 @@ import {
   type PickMode,
 } from '@/lib/sync/presets'
 import { cn } from '@/lib/utils'
+import { useFavoriteSFX } from '@/hooks/useFavoriteSFX'
+import { useSFXManifest } from '@/hooks/useSFXManifest'
 
 const ORDER_HINT: Record<SceneOrderBy, string> = {
   modified: 'Data de modificação do arquivo (a mesma da coluna “Data de modificação” do Explorer).',
@@ -93,6 +95,44 @@ function Section({
       </div>
       {checked && children && <div className="mt-4 space-y-3">{children}</div>}
     </section>
+  )
+}
+
+function FavoriteSFXSelector({ selected, onSelect }: { selected: string | null; onSelect: (id: string | null) => void }) {
+  const { favorites } = useFavoriteSFX()
+  const { data: manifest } = useSFXManifest()
+  
+  const favoriteEffects = manifest?.effects.filter((e) => favorites.has(e.id)) || []
+  
+  if (favoriteEffects.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-surface-0 px-3 py-2.5 text-[12px] text-muted-foreground">
+        Nenhum SFX favorito. Marque efeitos como favoritos (❤️) na biblioteca de SFX.
+      </div>
+    )
+  }
+  
+  return (
+    <div className="space-y-2">
+      <label className="text-[11px] font-medium text-foreground/85">Efeito selecionado</label>
+      <select
+        value={selected || ''}
+        onChange={(e) => onSelect(e.target.value || null)}
+        className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
+      >
+        <option value="">Selecione um efeito...</option>
+        {favoriteEffects.map((effect) => (
+          <option key={effect.id} value={effect.id}>
+            {effect.name}
+          </option>
+        ))}
+      </select>
+      {selected && (
+        <p className="text-[11px] text-muted-foreground">
+          Este efeito será adicionado na trilha SFX em cada imagem overlay.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -294,10 +334,10 @@ export function AssemblySheet({
             checked={s.sfx.enabled}
             onCheckedChange={(v) => setS((p) => ({ ...p, sfx: { ...p.sfx, enabled: v } }))}
           >
-            {/* TODO: Add SFX selector component */}
-            <p className="text-[12px] text-muted-foreground">
-              Selecione um efeito favorito na biblioteca de SFX antes de montar as cenas.
-            </p>
+            <FavoriteSFXSelector
+              selected={s.sfx.selected_effect_id}
+              onSelect={(id) => setS((p) => ({ ...p, sfx: { ...p.sfx, selected_effect_id: id } }))}
+            />
           </Section>
 
           <Section
