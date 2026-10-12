@@ -424,6 +424,10 @@ export function Timeline({
   const content = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState(800)
 
+  // Undo/Redo history for cuts
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number }>>([])
+  const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
+
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
   const { overlays, audioClips, adjustments } = tracks
@@ -763,6 +767,16 @@ export function Timeline({
     try {
       console.log('[Cut] Cutting scene', scene.id, 'at', splitPoint, 'seconds')
       
+      // Save to history before cutting (for undo)
+      const newHistory = cutHistory.slice(0, cutHistoryIndex + 1)
+      newHistory.push({
+        sceneId: scene.id,
+        beforeDuration: timedScene.duration, // Original duration before cut
+        afterDuration: splitPoint, // New duration after cut
+      })
+      setCutHistory(newHistory)
+      setCutHistoryIndex(newHistory.length - 1)
+      
       // Update the scene: reduce the audio_duration
       // This makes the scene shorter and following scenes move up
       patchScene(scene.id, {
@@ -771,18 +785,76 @@ export function Timeline({
 
       const removed = timedScene.duration - splitPoint
       console.log('[Cut] Success! Removed', removed, 'seconds')
-      toast.success('Cena cortada', { description: `${removed.toFixed(1)}s removidos · as próximas cenas se moveram.` })
+      toast.success('Cena cortada', { description: `${removed.toFixed(1)}s removidos · Ctrl+Z para desfazer` })
       select(null)
     } catch (err) {
       console.error('[Cut] Failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
     }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select, patchScene])
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select, patchScene, cutHistory, cutHistoryIndex])
 
-  // Keyboard shortcut for split (Ctrl+B or S)
+  // Undo last cut
+  const handleUndo = useCallback(() => {
+    if (cutHistoryIndex < 0) {
+      toast.info('Nada para desfazer')
+      return
+    }
+
+    const entry = cutHistory[cutHistoryIndex]
+    const scene = scenes.find((s) => s.id === entry.sceneId)
+    if (!scene) {
+      toast.error('Cena não encontrada')
+      return
+    }
+
+    console.log('[Undo] Restoring scene', entry.sceneId, 'to duration', entry.beforeDuration)
+    patchScene(entry.sceneId, {
+      audio_duration: entry.beforeDuration,
+    })
+
+    setCutHistoryIndex(cutHistoryIndex - 1)
+    toast.success('Corte desfeito', { description: 'Ctrl+Y para refazer' })
+  }, [cutHistory, cutHistoryIndex, scenes, patchScene])
+
+  // Redo last undone cut
+  const handleRedo = useCallback(() => {
+    if (cutHistoryIndex >= cutHistory.length - 1) {
+      toast.info('Nada para refazer')
+      return
+    }
+
+    const nextIndex = cutHistoryIndex + 1
+    const entry = cutHistory[nextIndex]
+    const scene = scenes.find((s) => s.id === entry.sceneId)
+    if (!scene) {
+      toast.error('Cena não encontrada')
+      return
+    }
+
+    console.log('[Redo] Re-applying cut to scene', entry.sceneId, 'duration', entry.afterDuration)
+    patchScene(entry.sceneId, {
+      audio_duration: entry.afterDuration,
+    })
+
+    setCutHistoryIndex(nextIndex)
+    toast.success('Corte refeito', { description: 'Ctrl+Z para desfazer' })
+  }, [cutHistory, cutHistoryIndex, scenes, patchScene])
+
+  // Keyboard shortcuts for undo/redo and split
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      // Undo: Ctrl+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      }
+      // Redo: Ctrl+Y or Ctrl+Shift+Z
+      else if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) {
+        e.preventDefault()
+        handleRedo()
+      }
+      // Cut: Ctrl+B or S
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault()
         handleSplitAtPlayhead()
       } else if (e.key === 's' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
@@ -792,7 +864,7 @@ export function Timeline({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSplitAtPlayhead])
+  }, [handleSplitAtPlayhead, handleUndo, handleRedo])
 
   return (
     <div className="flex h-full flex-col bg-surface-1">
