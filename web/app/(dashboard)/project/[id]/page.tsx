@@ -282,7 +282,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                   overlays={tracks.overlays}
                   audioClips={tracks.audioClips}
                   adjustments={tracks.adjustments}
-                  onSceneChange={setActiveSceneIndex}
                   transitionDuration={syncSettings.transition.duration}
                   format={project.settings?.output_format || 'auto'}
                   selectedOverlayId={selection?.kind === 'overlay' ? selection.id : null}
