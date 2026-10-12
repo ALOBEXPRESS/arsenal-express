@@ -23,7 +23,7 @@ import {
   Scissors,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode } from '@/lib/hooks/useScenes'
+import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
 import { newClipId, type Tracks } from '@/lib/hooks/useTracks'
 import { Button } from '@/components/ui/button'
 import { confirmDialog } from '@/components/ui/confirm'
@@ -413,6 +413,7 @@ export function Timeline({
   const deleteScene = useDeleteScene()
   const reorderScenes = useReorderScenes()
   const insertScene = useInsertScene()
+  const patchScene = usePatchScene(projectId)
   const dragAsset = useDragAsset((s) => s.asset)
   const { selection, select } = useSelection()
   const [draggedScene, setDraggedScene] = useState<number | null>(null)
@@ -764,22 +765,9 @@ export function Timeline({
       
       // Update the scene: reduce the audio_duration
       // This makes the scene shorter and following scenes move up
-      const response = await fetch(`/api/projects/${projectId}/scenes/${scene.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audio_duration: splitPoint,
-          metadata: {
-            ...scene.metadata,
-          },
-        }),
+      patchScene(scene.id, {
+        audio_duration: splitPoint,
       })
-
-      if (!response.ok) {
-        const error = await response.text()
-        console.error('[Cut] API error:', error)
-        throw new Error(error)
-      }
 
       const removed = timedScene.duration - splitPoint
       console.log('[Cut] Success! Removed', removed, 'seconds')
@@ -789,7 +777,7 @@ export function Timeline({
       console.error('[Cut] Failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
     }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select])
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select, patchScene])
 
   // Keyboard shortcut for split (Ctrl+B or S)
   useEffect(() => {
