@@ -19,6 +19,7 @@ import { animationPose, poseToTransform, transitionStyle } from '@/lib/sync/visu
 import { usePlayhead } from '@/lib/stores/playhead'
 import { adjustmentsAt, adjustStyle } from '@/lib/sync/adjust'
 import { cn } from '@/lib/utils'
+import { useSFXManifest } from '@/hooks/useSFXManifest'
 
 interface VideoPreviewProps {
   scenes: Scene[]
@@ -107,6 +108,7 @@ export function VideoPreview({
   onOverlayChange,
 }: VideoPreviewProps) {
   const TRANSITION = transitionDuration
+  const { data: sfxManifest } = useSFXManifest()
   const publishTime = usePlayhead((s) => s.setTime)
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
@@ -236,10 +238,21 @@ export function VideoPreview({
       for (const c of audioClips) {
         const el = audioEls.current.get(c.id)
         if (!el) continue
-        const a = assetById.get(c.asset_id)
+        
+        // Get duration from asset or SFX manifest
+        let duration: number | undefined
+        if (c.asset_id.startsWith('sfx:')) {
+          const effectId = c.asset_id.substring(4)
+          const effect = sfxManifest?.effects.find((e) => e.id === effectId)
+          duration = effect?.duration
+        } else {
+          const a = assetById.get(c.asset_id)
+          duration = a?.duration
+        }
+        
         const active = t >= c.start && t < c.start + c.duration
         el.volume = Math.min(1, Math.max(0, c.volume ?? 1))
-        const end = a?.duration ? a.duration - 0.02 : Infinity
+        const end = duration ? duration - 0.02 : Infinity
         if (!active) {
           if (!el.paused) el.pause()
           continue
@@ -593,7 +606,17 @@ export function VideoPreview({
 
         <audio ref={audioRef} preload="auto" className="hidden" />
         {audioClips.map((c) => {
-          const a = assetById.get(c.asset_id)
+          // Check if it's a SFX pseudo-asset
+          let audioUrl: string | undefined
+          if (c.asset_id.startsWith('sfx:')) {
+            const effectId = c.asset_id.substring(4) // Remove "sfx:" prefix
+            const effect = sfxManifest?.effects.find((e) => e.id === effectId)
+            audioUrl = effect ? effect.path : undefined
+          } else {
+            const a = assetById.get(c.asset_id)
+            audioUrl = a?.url
+          }
+          
           return (
             <audio
               key={c.id}
@@ -601,7 +624,7 @@ export function VideoPreview({
                 if (el) audioEls.current.set(c.id, el)
                 else audioEls.current.delete(c.id)
               }}
-              src={a?.url || undefined}
+              src={audioUrl}
               preload="auto"
               className="hidden"
             />
