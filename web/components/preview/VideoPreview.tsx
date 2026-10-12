@@ -247,7 +247,7 @@ export function VideoPreview({
           duration = effect?.duration
         } else {
           const a = assetById.get(c.asset_id)
-          duration = a?.duration
+          duration = a?.duration ?? undefined
         }
         
         const active = t >= c.start && t < c.start + c.duration
