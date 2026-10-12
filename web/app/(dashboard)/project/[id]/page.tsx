@@ -21,6 +21,7 @@ import { usePlayhead } from '@/lib/stores/playhead'
 import { Button } from '@/components/ui/button'
 import { confirmDialog } from '@/components/ui/confirm'
 import { AssetLibrary } from '@/components/assets/AssetLibrary'
+import { SoundEffectsLibrary } from '@/components/sfx/SoundEffectsLibrary'
 import { Timeline } from '@/components/timeline/Timeline'
 import { SceneEditor } from '@/components/timeline/SceneEditor'
 import { VideoPreview } from '@/components/preview/VideoPreview'
@@ -33,6 +34,7 @@ import { withDefaults, type SyncSettings } from '@/lib/sync/presets'
 import type { Asset, Scene, Subproject } from '@/types/project'
 import { MAIN_SUB, scenesOf } from '@/lib/subprojects'
 import type { TimelineInput } from '@/lib/capcut/draft'
+import { cn } from '@/lib/utils'
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>
@@ -72,6 +74,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [showSceneEditor, setShowSceneEditor] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showAssembly, setShowAssembly] = useState(false)
+  const [sidebarTab, setSidebarTab] = useState<'assets' | 'sfx'>('assets')
 
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
   const [status, setStatus] = useState<string>()
@@ -89,8 +92,38 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // every subproject resolved for the CapCut export (one CapCut timeline each)
   const exportTimelines = useMemo<(TimelineInput & { id: string })[]>(() => {
+    // Resolve asset references (normal assets or sfx: pseudo-references)
+    const resolveAsset = (assetId: string): Asset | null => {
+      // Check if it's a sound effect reference (sfx:effect-id)
+      if (assetId.startsWith('sfx:')) {
+        const effectId = assetId.substring(4) // remove "sfx:" prefix
+        // Create pseudo-asset for SFX
+        // Note: The actual path will be determined from manifest when rendering
+        // For now, we just mark it as an SFX with the effect ID
+        return {
+          id: assetId,
+          project_id: id,
+          type: 'audio',
+          kind: 'audio',
+          filename: effectId,
+          storage_path: assetId, // Keep the sfx:id reference
+          url: assetId, // Will be resolved to actual path at render time
+          duration: null,
+          duration_seconds: null,
+          file_size_bytes: null,
+          metadata: { isSFX: true, effectId },
+          created_at: new Date().toISOString(),
+        } as Asset
+      }
+      // Normal asset lookup
+      return assetById.get(assetId) || null
+    }
+
     const resolve = <T extends { asset_id: string }>(list: T[]) =>
-      list.flatMap((clip) => (assetById.get(clip.asset_id) ? [{ clip, asset: assetById.get(clip.asset_id) as Asset }] : []))
+      list.flatMap((clip) => {
+        const asset = resolveAsset(clip.asset_id)
+        return asset ? [{ clip, asset }] : []
+      })
     return tracks.subprojects.map((sp: Subproject) => ({
       id: sp.id,
       name: sp.name,
@@ -264,9 +297,42 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Media bin */}
-        <aside className="w-64 flex-shrink-0 overflow-y-auto border-r border-border bg-surface-1 xl:w-72">
-          <AssetLibrary projectId={id} />
+        {/* Media bin with tabs */}
+        <aside className="w-64 flex-shrink-0 border-r border-border bg-surface-1 xl:w-72 flex flex-col">
+          {/* Tab switcher */}
+          <div className="flex border-b border-border bg-surface-0">
+            <button
+              onClick={() => setSidebarTab('assets')}
+              className={cn(
+                'flex-1 px-3 py-2 text-[12px] font-medium transition-colors',
+                sidebarTab === 'assets'
+                  ? 'border-b-2 border-primary bg-surface-1 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-1/50'
+              )}
+            >
+              Mídias
+            </button>
+            <button
+              onClick={() => setSidebarTab('sfx')}
+              className={cn(
+                'flex-1 px-3 py-2 text-[12px] font-medium transition-colors',
+                sidebarTab === 'sfx'
+                  ? 'border-b-2 border-primary bg-surface-1 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-1/50'
+              )}
+            >
+              Efeitos Sonoros
+            </button>
+          </div>
+          
+          {/* Tab content */}
+          <div className="flex-1 overflow-y-auto">
+            {sidebarTab === 'assets' ? (
+              <AssetLibrary projectId={id} />
+            ) : (
+              <SoundEffectsLibrary projectId={id} />
+            )}
+          </div>
         </aside>
 
         {/* Monitor + timeline (min-w-0 keeps the lanes from widening the page) */}

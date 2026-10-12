@@ -197,3 +197,36 @@ export interface UploadAssetInput {
   type: AssetType
   file: File
 }
+
+// Sound Effects Library Types
+export type SFXCategory = 
+  | 'whoosh' 
+  | 'ui' 
+  | 'impact' 
+  | 'glitch' 
+  | 'suspense' 
+  | 'cinematic' 
+  | 'comedy' 
+  | 'ambient'
+
+export interface SoundEffect {
+  id: string
+  category: SFXCategory
+  name: string
+  filename: string
+  path: string
+  duration: number
+  tags: string[]
+  license: string
+  attribution: string | null
+}
+
+export interface SFXManifest {
+  version: string
+  info: {
+    description: string
+    license: string
+    sources: string[]
+  }
+  effects: SoundEffect[]
+}

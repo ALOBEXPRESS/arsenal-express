@@ -1,0 +1,201 @@
+{
+  "version": "1.0.0",
+  "info": {
+    "description": "Biblioteca de efeitos sonoros para SyncExpress",
+    "license": "CC0 / Public Domain",
+    "sources": [
+      "Pixabay Sound Effects (CC0)",
+      "Freesound.org (CC0)",
+      "Kenney.nl (CC0)"
+    ]
+  },
+  "effects": [
+    {
+      "id": "whoosh-fast-01",
+      "category": "whoosh",
+      "name": "Whoosh Fast",
+      "filename": "whoosh-fast.mp3",
+      "path": "/sfx/whoosh/whoosh-fast.mp3",
+      "duration": 0.8,
+      "tags": ["transition", "fast", "air", "swoosh"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "whoosh-slow-01",
+      "category": "whoosh",
+      "name": "Whoosh Slow",
+      "filename": "whoosh-slow.mp3",
+      "path": "/sfx/whoosh/whoosh-slow.mp3",
+      "duration": 1.5,
+      "tags": ["transition", "slow", "air"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "ui-click-01",
+      "category": "ui",
+      "name": "UI Click",
+      "filename": "click.mp3",
+      "path": "/sfx/ui/click.mp3",
+      "duration": 0.1,
+      "tags": ["button", "interface", "click"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "ui-pop-01",
+      "category": "ui",
+      "name": "UI Pop",
+      "filename": "pop.mp3",
+      "path": "/sfx/ui/pop.mp3",
+      "duration": 0.2,
+      "tags": ["button", "interface", "pop"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "ui-notification-01",
+      "category": "ui",
+      "name": "Notification",
+      "filename": "notification.mp3",
+      "path": "/sfx/ui/notification.mp3",
+      "duration": 0.5,
+      "tags": ["alert", "notification", "bell"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "impact-hit-01",
+      "category": "impact",
+      "name": "Impact Hit",
+      "filename": "hit.mp3",
+      "path": "/sfx/impact/hit.mp3",
+      "duration": 0.6,
+      "tags": ["punch", "hit", "impact"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "impact-thud-01",
+      "category": "impact",
+      "name": "Thud",
+      "filename": "thud.mp3",
+      "path": "/sfx/impact/thud.mp3",
+      "duration": 0.8,
+      "tags": ["thud", "impact", "heavy"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "glitch-digital-01",
+      "category": "glitch",
+      "name": "Digital Glitch",
+      "filename": "glitch.mp3",
+      "path": "/sfx/glitch/glitch.mp3",
+      "duration": 1.0,
+      "tags": ["glitch", "digital", "error"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "glitch-static-01",
+      "category": "glitch",
+      "name": "Static",
+      "filename": "static.mp3",
+      "path": "/sfx/glitch/static.mp3",
+      "duration": 0.5,
+      "tags": ["static", "noise", "tv"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "suspense-drone-01",
+      "category": "suspense",
+      "name": "Suspense Drone",
+      "filename": "drone.mp3",
+      "path": "/sfx/suspense/drone.mp3",
+      "duration": 3.0,
+      "tags": ["drone", "tension", "suspense"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "suspense-heartbeat-01",
+      "category": "suspense",
+      "name": "Heartbeat",
+      "filename": "heartbeat.mp3",
+      "path": "/sfx/suspense/heartbeat.mp3",
+      "duration": 2.0,
+      "tags": ["heartbeat", "tension", "fear"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "cinematic-riser-01",
+      "category": "cinematic",
+      "name": "Cinematic Riser",
+      "filename": "riser.mp3",
+      "path": "/sfx/cinematic/riser.mp3",
+      "duration": 2.5,
+      "tags": ["riser", "build-up", "epic"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "cinematic-hit-01",
+      "category": "cinematic",
+      "name": "Trailer Hit",
+      "filename": "trailer-hit.mp3",
+      "path": "/sfx/cinematic/trailer-hit.mp3",
+      "duration": 1.5,
+      "tags": ["hit", "impact", "epic", "trailer"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "comedy-boing-01",
+      "category": "comedy",
+      "name": "Boing",
+      "filename": "boing.mp3",
+      "path": "/sfx/comedy/boing.mp3",
+      "duration": 0.6,
+      "tags": ["boing", "spring", "cartoon"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "comedy-slide-whistle-01",
+      "category": "comedy",
+      "name": "Slide Whistle",
+      "filename": "slide-whistle.mp3",
+      "path": "/sfx/comedy/slide-whistle.mp3",
+      "duration": 1.2,
+      "tags": ["whistle", "cartoon", "comedy"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "ambient-wind-01",
+      "category": "ambient",
+      "name": "Wind",
+      "filename": "wind.mp3",
+      "path": "/sfx/ambient/wind.mp3",
+      "duration": 5.0,
+      "tags": ["wind", "ambient", "nature"],
+      "license": "CC0",
+      "attribution": null
+    },
+    {
+      "id": "ambient-rain-01",
+      "category": "ambient",
+      "name": "Rain",
+      "filename": "rain.mp3",
+      "path": "/sfx/ambient/rain.mp3",
+      "duration": 5.0,
+      "tags": ["rain", "ambient", "nature", "weather"],
+      "license": "CC0",
+      "attribution": null
+    }
+  ]
+}
