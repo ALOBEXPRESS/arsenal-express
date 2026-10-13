@@ -1,0 +1,12 @@
+﻿{
+    "method":  "tools/call",
+    "params":  {
+                   "arguments":  {
+                                     "query":  "SELECT id, name, public, file_size_limit, allowed_mime_types FROM storage.buckets;",
+                                     "project_id":  "neuxjrdlzhhfsojjajwy"
+                                 },
+                   "name":  "execute_sql"
+               },
+    "id":  1,
+    "jsonrpc":  "2.0"
+}

@@ -20,10 +20,10 @@ const ACCEPT_TYPES: Record<AssetType, string> = {
 }
 
 const MAX_SIZES: Record<AssetType, number> = {
-  video: 500 * 1024 * 1024, // 500MB
-  audio: 100 * 1024 * 1024, // 100MB
+  video: 50 * 1024 * 1024, // 50MB (limite do Supabase Free tier)
+  audio: 50 * 1024 * 1024, // 50MB (limite do Supabase Free tier)
   image: 10 * 1024 * 1024, // 10MB
-  asset: 50 * 1024 * 1024, // 50MB (GIF, MOV, Lottie, stickers)
+  asset: 50 * 1024 * 1024, // 50MB
 }
 
 export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUploadProps) {

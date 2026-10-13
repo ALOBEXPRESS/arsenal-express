@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip } from '@/types/project'
-import { Play, Pause, Mic, Clock, Info, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
+import { Play, Pause, Mic, Clock, Info, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff } from 'lucide-react'
 import {
   buildTimeline,
   totalDuration,
@@ -835,26 +835,78 @@ export function VideoPreview({
         })}
 
         {/* Slate overlay */}
-        <div className="pointer-events-none absolute left-3 top-3 z-30 max-w-[60%] rounded-lg border border-white/10 bg-black/65 px-3 py-2 backdrop-blur-md">
-          <p className="eyebrow !text-primary">
-            {timeline.length === 0 || beyond
-              ? 'Sem cena'
-              : `Cena ${String(currentIndex + 1).padStart(2, '0')} / ${String(timeline.length).padStart(2, '0')}`}
-          </p>
-          <p className="mt-0.5 truncate text-xs text-foreground/90">{(current?.videoAsset || current?.imageAsset)?.filename}</p>
-          <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-            {formatTime(Math.max(0, sinceStart))} / {formatTime(current?.duration ?? 0)}
-            {current && current.rate !== 1 && ` · ${current.rate.toFixed(2)}x`}
-          </p>
-          {narrationName && (
-            <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-track-audio">
-              <Mic className="h-3 w-3" aria-hidden /> {narrationName}
-            </p>
+        <div
+          className={cn(
+            'absolute left-3 top-3 z-30 transition-opacity duration-300',
+            isPlaying ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'
+          )}
+        >
+          {showDetails ? (
+            <div className="max-w-[210px] rounded-lg border border-white/10 bg-black/75 p-2.5 shadow-lg backdrop-blur-md">
+              <div className="flex items-center justify-between gap-1.5">
+                <p className="eyebrow !text-primary truncate">
+                  {timeline.length === 0 || beyond
+                    ? 'Sem cena'
+                    : `Cena ${String(currentIndex + 1).padStart(2, '0')} / ${String(timeline.length).padStart(2, '0')}`}
+                </p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowDetails(false)
+                  }}
+                  title="Recolher informações"
+                  aria-label="Recolher informações da cena"
+                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+                >
+                  <EyeOff className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p
+                className="mt-1 truncate text-xs font-medium text-foreground/90"
+                title={(current?.videoAsset || current?.imageAsset)?.filename}
+              >
+                {(current?.videoAsset || current?.imageAsset)?.filename || 'Sem mídia'}
+              </p>
+              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                {formatTime(Math.max(0, sinceStart))} / {formatTime(current?.duration ?? 0)}
+                {current && current.rate !== 1 && ` · ${current.rate.toFixed(2)}x`}
+              </p>
+              {narrationName && (
+                <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-track-audio" title={narrationName}>
+                  <Mic className="h-2.5 w-2.5 shrink-0" aria-hidden />
+                  <span className="truncate">{narrationName}</span>
+                </p>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowDetails(true)
+              }}
+              title="Expandir informações da cena"
+              aria-label="Expandir informações da cena"
+              className="flex items-center gap-1.5 rounded-md border border-white/10 bg-black/75 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-md backdrop-blur-md transition-colors hover:bg-black/90 hover:text-foreground"
+            >
+              <Info className="h-3 w-3 text-primary" />
+              <span>
+                {timeline.length === 0 || beyond
+                  ? 'Sem cena'
+                  : `Cena ${String(currentIndex + 1).padStart(2, '0')}`}
+              </span>
+            </button>
           )}
         </div>
 
         {/* Timecode */}
-        <div className="pointer-events-none absolute right-3 top-3 z-30 rounded-md bg-black/65 px-2 py-1 font-mono text-xs tabular-nums text-brand-cyan backdrop-blur-md">
+        <div
+          className={cn(
+            'pointer-events-none absolute right-3 top-3 z-30 rounded-md bg-black/65 px-2 py-1 font-mono text-xs tabular-nums text-brand-cyan backdrop-blur-md transition-opacity duration-300',
+            isPlaying ? 'opacity-30 hover:opacity-100' : 'opacity-100'
+          )}
+        >
           {formatTimecode(time)}
         </div>
 
