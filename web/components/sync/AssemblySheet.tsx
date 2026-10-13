@@ -326,7 +326,14 @@ export function AssemblySheet({
                   </p>
                   
                   <div className="space-y-2 pt-2 border-t border-border">
-                    <label className="text-[11px] font-medium text-foreground/85">Imagem favorita (opcional)</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-medium text-foreground/85">Imagem favorita (opcional)</label>
+                      {s.media.favorite_image_id && (
+                        <span className="rounded border border-primary/50 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary">
+                          Ativa
+                        </span>
+                      )}
+                    </div>
                     <select
                       value={s.media.favorite_image_id || ''}
                       onChange={(e) => setS((p) => ({ ...p, media: { ...p.media, favorite_image_id: e.target.value || null } }))}
@@ -336,7 +343,10 @@ export function AssemblySheet({
                       {/* TODO: populate with available images */}
                     </select>
                     <p className="text-[11px] text-muted-foreground">
-                      Deixe vazio para alternar entre todas as imagens, ou selecione uma favorita para usar sempre.
+                      {s.media.favorite_image_id 
+                        ? "Esta imagem será usada em todos os overlays."
+                        : "Alternará entre todas as imagens disponíveis no projeto."
+                      }
                     </p>
                   </div>
                 </div>
