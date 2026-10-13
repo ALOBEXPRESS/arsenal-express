@@ -1039,10 +1039,10 @@ export function Timeline({
                 </button>
               </div>
               <div className="mt-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
-                <Layers className="h-3.5 w-3.5 text-violet-300" aria-hidden /> Sobrepor
+                <Type className="h-3.5 w-3.5 text-amber-300" aria-hidden /> Texto
               </div>
               <div className="mt-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
-                <ImageIcon className="h-3.5 w-3.5 text-blue-300" aria-hidden /> Overlays
+                <Layers className="h-3.5 w-3.5 text-violet-300" aria-hidden /> Sobrepor
               </div>
               <div className="flex flex-1 items-center gap-1.5 px-2.5">
                 <Clapperboard className="h-3.5 w-3.5 text-track-video" aria-hidden /> Mídia
@@ -1114,7 +1114,42 @@ export function Timeline({
                   })}
                 </div>
 
-                {/* Overlay lane (text bars) - track "Sobrepor" */}
+                {/* Text overlay lane (text bars from assembly) */}
+                <div
+                  className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
+                  onDragOver={laneDragOver('overlay')}
+                  onDragLeave={laneDragLeave}
+                  onDrop={laneDrop('overlay')}
+                >
+                  {overlays.filter(o => o.kind === 'text').length === 0 && !dragAsset && (
+                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                      Barras de texto aparecem aqui
+                    </span>
+                  )}
+                  {overlays.filter(o => o.kind === 'text').map((o) => {
+                    return (
+                      <LaneClip
+                        key={o.id}
+                        id={o.id}
+                        start={o.start}
+                        duration={o.duration}
+                        pps={scale}
+                        tone="overlay"
+                        thumb={undefined}
+                        label={o.text_content || 'Texto'}
+                        meta=""
+                        selected={isSelected('overlay', o.id)}
+                        maxDuration={undefined}
+                        snapTo={snapWithPlayhead()}
+                        onSelect={() => select({ kind: 'overlay', id: o.id })}
+                        onCommit={(p) => tracks.updateOverlay(o.id, p)}
+                      />
+                    )
+                  })}
+                  {dropHint?.lane === 'overlay' && <DropMarker x={dropHint.time * scale} />}
+                </div>
+
+                {/* Image/video overlay lane (Sobrepor) */}
                 <div
                   className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
                   onDragOver={laneDragOver('overlay')}
@@ -1144,43 +1179,6 @@ export function Timeline({
                         snapTo={snapWithPlayhead()}
                         onSelect={() => select({ kind: 'overlay', id: o.id })}
                         onCommit={(p) => tracks.updateImageOverlay(o.id, p)}
-                      />
-                    )
-                  })}
-                  {dropHint?.lane === 'overlay' && <DropMarker x={dropHint.time * scale} />}
-                </div>
-
-                {/* Text overlay bars lane - track "Overlays" */}
-                <div
-                  className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
-                  onDragOver={laneDragOver('overlay')}
-                  onDragLeave={laneDragLeave}
-                  onDrop={laneDrop('overlay')}
-                >
-                  {overlays.length === 0 && !dragAsset && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
-                      Barras de texto aparecem aqui
-                    </span>
-                  )}
-                  {overlays.map((o) => {
-                    const a = assetById.get(o.asset_id)
-                    const isTextBar = o.kind === 'text'
-                    return (
-                      <LaneClip
-                        key={o.id}
-                        id={o.id}
-                        start={o.start}
-                        duration={o.duration}
-                        pps={scale}
-                        tone="overlay"
-                        thumb={!isTextBar && a ? ((a?.metadata?.thumbnail as string | undefined) || (a?.type === 'image' ? a.url : undefined)) : undefined}
-                        label={isTextBar ? (o.text_content || 'Texto') : (a?.filename.replace(/\.[^.]+$/, '') || 'mídia removida')}
-                        meta={isTextBar ? '' : `${Math.round(o.opacity * 100)}% · ${o.scale.toFixed(2)}×`}
-                        selected={isSelected('overlay', o.id)}
-                        maxDuration={o.kind === 'video' ? sourceMax(o.asset_id, o.speed) : undefined}
-                        snapTo={snapWithPlayhead()}
-                        onSelect={() => select({ kind: 'overlay', id: o.id })}
-                        onCommit={(p) => tracks.updateOverlay(o.id, p)}
                       />
                     )
                   })}
