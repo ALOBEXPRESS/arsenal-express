@@ -145,7 +145,7 @@ interface ClipBlockProps {
   onDelete: () => void
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
-  onTrim: (newDuration: number) => void
+  onTrim: (newDuration: number, newAudioStart?: number) => void
 }
 
 function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, onDelete, onDragStart, onDragEnd, onTrim }: ClipBlockProps) {
@@ -155,26 +155,44 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
   const anim = ANIMATION_BY_ID.get(normalizeAnimation(item.scene.animation_type) as never)
   const name = media?.filename.replace(/\.[^.]+$/, '') || item.scene.narration_text
   const compact = width < 90
-  const [draft, setDraft] = useState<number | null>(null)
-  const d = draft ?? item.duration
+  const [draft, setDraft] = useState<{ duration: number; audioStart?: number } | null>(null)
+  const d = draft?.duration ?? item.duration
+  const audioStart = draft?.audioStart ?? (item.scene.audio_start || 0)
 
-  const beginTrim = (e: React.PointerEvent) => {
+  const beginTrim = (e: React.PointerEvent, edge: 'start' | 'end') => {
     e.stopPropagation()
     e.preventDefault()
     const x0 = e.clientX
     const el = e.currentTarget as HTMLElement
     el.setPointerCapture(e.pointerId)
-    let latest = item.duration
+    let latest = { duration: item.duration, audioStart: item.scene.audio_start || 0 }
     const move = (ev: PointerEvent) => {
       const dt = (ev.clientX - x0) / pps
-      let nd = Math.max(0.2, item.duration + dt)
-      // Limit to source duration if video
-      const sourceDur = media?.duration
-      if (sourceDur && media?.type === 'video') {
-        const rate = item.rate || 1
-        nd = Math.min(nd, sourceDur / rate)
+      
+      if (edge === 'end') {
+        // Trim end: adjust duration
+        let nd = Math.max(0.2, item.duration + dt)
+        // Limit to source duration if video
+        const sourceDur = media?.duration
+        if (sourceDur && media?.type === 'video') {
+          const rate = item.rate || 1
+          nd = Math.min(nd, sourceDur / rate - latest.audioStart)
+        }
+        latest = { duration: Math.round(nd * 1000) / 1000, audioStart: latest.audioStart }
+      } else {
+        // Trim start: adjust audio_start offset + reduce duration
+        let newStart = Math.max(0, (item.scene.audio_start || 0) + dt)
+        const sourceDur = media?.duration
+        if (sourceDur && media?.type === 'video') {
+          const rate = item.rate || 1
+          newStart = Math.min(newStart, sourceDur / rate - 0.2)
+        }
+        const deltaStart = newStart - (item.scene.audio_start || 0)
+        latest = {
+          audioStart: Math.round(newStart * 1000) / 1000,
+          duration: Math.max(0.2, item.duration - deltaStart),
+        }
       }
-      latest = Math.round(nd * 1000) / 1000
       setDraft(latest)
     }
     const up = () => {
@@ -182,7 +200,9 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       el.removeEventListener('pointerup', up)
       el.removeEventListener('pointercancel', up)
       setDraft(null)
-      if (latest !== item.duration) onTrim(latest)
+      if (latest.duration !== item.duration || latest.audioStart !== (item.scene.audio_start || 0)) {
+        onTrim(latest.duration, latest.audioStart)
+      }
     }
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
@@ -281,11 +301,16 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
-      {/* trim handle (right edge) */}
+      {/* trim handles */}
+      <span
+        className="absolute inset-y-0 left-0 w-3 cursor-ew-resize bg-white/0 transition-colors hover:bg-white/30 active:bg-white/40"
+        aria-label="Arraste para cortar início"
+        onPointerDown={(e) => beginTrim(e, 'start')}
+      />
       <span
         className="absolute inset-y-0 right-0 w-3 cursor-ew-resize bg-white/0 transition-colors hover:bg-white/30 active:bg-white/40"
-        aria-label="Arraste para cortar"
-        onPointerDown={beginTrim}
+        aria-label="Arraste para cortar fim"
+        onPointerDown={(e) => beginTrim(e, 'end')}
       />
     </div>
   )
@@ -1297,8 +1322,10 @@ export function Timeline({
                         setDraggedScene(null)
                         setDropHint(null)
                       }}
-                      onTrim={(newDuration) => {
-                        patchScene(item.scene.id, { audio_duration: newDuration })
+                      onTrim={(newDuration, newAudioStart) => {
+                        const patch: Partial<Scene> = { audio_duration: newDuration }
+                        if (newAudioStart !== undefined) patch.audio_start = newAudioStart
+                        patchScene(item.scene.id, patch)
                         toast.success('Cena cortada', { description: `${newDuration.toFixed(2)}s` })
                       }}
                     />

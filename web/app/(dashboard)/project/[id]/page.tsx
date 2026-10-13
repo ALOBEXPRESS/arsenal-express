@@ -361,7 +361,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         </aside>
 
         {/* Monitor + timeline (min-w-0 keeps the lanes from widening the page) */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden" style={{ transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center bg-surface-0 p-4">
               <div className="h-full w-full max-w-5xl">
@@ -389,7 +389,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               ref={inspectorRef}
               className="flex-shrink-0 border-l border-border bg-surface-1 overflow-y-auto"
               style={{
-                width: sidebarCollapsed ? 'calc(18rem + 16rem)' : '18rem', // w-72 + w-64 when collapsed
+                width: sidebarCollapsed ? '34rem' : '18rem', // w-72 (18rem) expands to include sidebar space (16rem)
                 transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
               aria-label="Propriedades do clipe"
@@ -410,7 +410,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
           <div className="h-[330px] flex-shrink-0 border-t border-border">
             <Timeline
-              key={`${subId}-${sidebarCollapsed}`} // Force re-render on collapse to recalc widths
               projectId={id}
               scenes={subScenes}
               subId={subId}
