@@ -99,20 +99,31 @@ function Playhead({
     if (x < left || x > right - 40) el.scrollLeft = Math.max(0, x - 80)
   }, [x, scroller])
   return (
-    <div className="absolute bottom-0 top-0 z-30 w-0" style={{ left: x }}>
-      {/* wide invisible grab area so the line can be dragged over the clips */}
+    <div className="absolute bottom-0 top-0 z-30 w-0 pointer-events-none" style={{ left: x }}>
+      {/* Line with glow effect */}
+      <div 
+        className="absolute -left-0.5 bottom-0 top-0 w-0.5 bg-gradient-to-b from-brand-cyan via-brand-cyan to-brand-cyan/60 shadow-[0_0_12px_rgba(34,211,238,0.6)]" 
+        aria-hidden 
+      />
+      {/* Draggable head */}
+      <span
+        role="slider"
+        aria-label="Agulha da timeline (arraste)"
+        aria-valuenow={Math.round(time)}
+        tabIndex={-1}
+        onPointerDown={onGrab}
+        className="absolute -left-2.5 -top-1 h-5 w-5 cursor-ew-resize touch-none rounded-md bg-gradient-to-br from-brand-cyan to-cyan-600 shadow-lg shadow-brand-cyan/40 pointer-events-auto transition-transform hover:scale-110 active:scale-95 flex items-center justify-center"
+      >
+        <div className="h-2 w-2 rounded-sm bg-white/90" />
+      </span>
+      {/* Wide invisible grab area */}
       <div
         role="slider"
         aria-label="Agulha da timeline (arraste)"
         aria-valuenow={Math.round(time)}
         tabIndex={-1}
         onPointerDown={onGrab}
-        className="absolute -left-[7px] bottom-0 top-0 w-[14px] cursor-ew-resize touch-none"
-      />
-      <div className="pointer-events-none absolute -left-px bottom-0 top-0 w-0.5 bg-brand-cyan shadow-[0_0_10px_hsl(var(--brand-cyan))]" aria-hidden />
-      <span
-        onPointerDown={onGrab}
-        className="absolute -left-[7px] -top-0.5 h-3.5 w-3.5 cursor-ew-resize touch-none rounded-[3px] bg-brand-cyan [clip-path:polygon(0_0,100%_0,100%_60%,50%_100%,0_60%)]"
+        className="absolute -left-[10px] bottom-0 top-0 w-[20px] cursor-ew-resize touch-none pointer-events-auto"
       />
     </div>
   )
@@ -152,6 +163,7 @@ interface ClipBlockProps {
 function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, onDelete, onDragStart, onDragEnd, onTrim }: ClipBlockProps) {
   const media: Asset | undefined = item.videoAsset || item.imageAsset
   const thumb = (media?.metadata?.thumbnail as string | undefined) || (item.imageAsset ? item.imageAsset.url : undefined)
+  
   const width = Math.max(item.duration * pps, 6)
   const anim = ANIMATION_BY_ID.get(normalizeAnimation(item.scene.animation_type) as never)
   const name = media?.filename.replace(/\.[^.]+$/, '') || item.scene.narration_text
@@ -234,71 +246,115 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       onDragEnd={onDragEnd}
       title={`${media?.filename ?? ''} · ${item.duration.toFixed(2)}s · arraste pra reordenar · duplo clique pra editar`}
       className={cn(
-        'group absolute bottom-0 top-0 cursor-pointer overflow-hidden rounded-md border transition-[border-color,opacity] duration-150',
-        selected ? 'z-10 border-brand-cyan ring-1 ring-brand-cyan' : active ? 'z-10 border-primary ring-1 ring-primary' : 'border-white/10 hover:border-white/40',
-        dragging && 'opacity-40'
+        'group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transition-all duration-200',
+        selected 
+          ? 'z-10 ring-2 ring-brand-cyan ring-offset-2 ring-offset-neutral-900 scale-[1.02]' 
+          : active 
+            ? 'z-10 ring-2 ring-violet-500 ring-offset-1 ring-offset-neutral-900' 
+            : 'hover:ring-1 hover:ring-white/30 hover:shadow-xl',
+        dragging && 'opacity-50 scale-95'
       )}
-      style={{ left: item.start * pps, width: d * pps - 2 }}
+      style={{ 
+        position: 'absolute',
+        bottom: 4,
+        top: 4,
+        left: item.start * pps + 2, 
+        width: d * pps - 4,
+        minWidth: 32
+      }}
     >
-      {/* filmstrip */}
+      {/* Background with gradient overlay */}
       {thumb ? (
-        <div
-          className="absolute inset-0 bg-track-video"
-          style={{ backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
-        />
-      ) : media ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-track-video/30">
-          {media.type === 'video' ? (
-            <Clapperboard className="h-12 w-12 text-white/30" aria-hidden />
-          ) : (
-            <ImageIcon className="h-12 w-12 text-white/30" aria-hidden />
-          )}
+        <>
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ 
+              backgroundImage: `url(${thumb})`,
+              filter: 'brightness(0.85) contrast(1.1)'
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+        </>
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-900/30 via-blue-900/20 to-purple-900/30">
+          <div className="absolute inset-0 flex items-center justify-center opacity-40">
+            {media?.type === 'video' ? (
+              <Film className="h-12 w-12 text-white" strokeWidth={1.5} aria-hidden />
+            ) : (
+              <ImageIcon className="h-12 w-12 text-white" strokeWidth={1.5} aria-hidden />
+            )}
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/50" />
+          <div 
+            className="absolute inset-0 opacity-20" 
+            style={{
+              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.03) 10px, rgba(255,255,255,.03) 20px)'
+            }}
+          />
         </div>
-      ) : null}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40" />
+      )}
 
-      <div className="relative flex h-full flex-col justify-between p-1.5">
-        <div className="flex items-center gap-1">
+      {/* Content overlay */}
+      <div className="relative flex h-full flex-col justify-between p-2 text-shadow">
+        {/* Top badges */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span
             className={cn(
-              'rounded px-1 font-mono text-[10px] font-semibold',
-              active ? 'bg-primary-fill text-primary-foreground' : 'bg-black/60 text-white/90'
+              'inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-xs font-bold backdrop-blur-sm',
+              active 
+                ? 'bg-violet-500/90 text-white shadow-lg shadow-violet-500/50' 
+                : 'bg-black/70 text-white/95'
             )}
           >
-            {String(item.index + 1).padStart(3, '0')}
+            {String(item.index + 1).padStart(2, '0')}
           </span>
           {!compact && anim && (
-            <span className="flex items-center gap-0.5 rounded bg-black/60 px-1 text-[9px] text-white/85" title={`Animação: ${anim.label}`}>
-              <Sparkles className="h-2.5 w-2.5" aria-hidden /> {anim.label}
+            <span 
+              className="inline-flex items-center gap-1 rounded-md bg-black/60 backdrop-blur-sm px-1.5 py-0.5 text-[10px] text-cyan-300"
+              title={`Animação: ${anim.label}`}
+            >
+              <Sparkles className="h-3 w-3" aria-hidden /> 
+              <span className="hidden sm:inline">{anim.label}</span>
             </span>
           )}
           {!compact && item.manualSpeed && (
-            <span className="flex items-center gap-0.5 rounded bg-black/60 px-1 font-mono text-[9px] text-brand-cyan" title="Velocidade manual">
-              <Gauge className="h-2.5 w-2.5" aria-hidden /> {item.rate.toFixed(2)}×
+            <span 
+              className="inline-flex items-center gap-1 rounded-md bg-black/60 backdrop-blur-sm px-1.5 py-0.5 font-mono text-[10px] text-amber-300"
+              title="Velocidade manual"
+            >
+              <Gauge className="h-3 w-3" aria-hidden /> {item.rate.toFixed(2)}×
             </span>
           )}
         </div>
+
+        {/* Bottom info */}
         {!compact && (
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-medium text-white">{name}</p>
-            <p className="font-mono text-[10px] tabular-nums text-white/70">
-              {item.duration.toFixed(1)}s{!item.manualSpeed && item.rate < 1 && ` · ${item.rate.toFixed(2)}×`}
+          <div className="space-y-0.5">
+            <p className="truncate text-xs font-semibold text-white drop-shadow-lg">
+              {name}
+            </p>
+            <p className="font-mono text-[11px] tabular-nums text-white/80">
+              {item.duration.toFixed(1)}s
+              {!item.manualSpeed && item.rate < 1 && (
+                <span className="ml-1 text-white/60">· {item.rate.toFixed(2)}×</span>
+              )}
             </p>
           </div>
         )}
       </div>
 
-      <div className="absolute right-1 bottom-1 flex gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+      {/* Action buttons */}
+      <div className="absolute right-2 bottom-2 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation()
             onEdit()
           }}
-          className="cursor-pointer rounded bg-black/70 p-1 text-white hover:bg-primary-fill hover:text-primary-foreground"
+          className="rounded-md bg-black/80 backdrop-blur-sm p-1.5 text-white transition-colors hover:bg-violet-600 hover:shadow-lg"
           aria-label={`Editar cena ${item.index + 1}`}
         >
-          <Pencil className="h-3 w-3" />
+          <Pencil className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
@@ -306,23 +362,28 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
             e.stopPropagation()
             onDelete()
           }}
-          className="cursor-pointer rounded bg-black/70 p-1 text-white hover:bg-destructive"
+          className="rounded-md bg-black/80 backdrop-blur-sm p-1.5 text-white transition-colors hover:bg-red-600 hover:shadow-lg"
           aria-label={`Excluir cena ${item.index + 1}`}
         >
-          <Trash2 className="h-3 w-3" />
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
-      {/* trim handles */}
+
+      {/* Trim handles with visual indicators */}
       <span
-        className="absolute inset-y-0 left-0 w-3 cursor-ew-resize bg-white/0 transition-colors hover:bg-white/30 active:bg-white/40"
+        className="absolute inset-y-0 left-0 w-4 cursor-ew-resize bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/20 to-transparent opacity-0 transition-opacity hover:opacity-100 active:opacity-100 group-hover:opacity-60"
         aria-label="Arraste para cortar início"
         onPointerDown={(e) => beginTrim(e, 'start')}
-      />
+      >
+        <div className="absolute left-1 top-1/2 h-8 w-0.5 -translate-y-1/2 rounded-full bg-brand-cyan shadow-lg shadow-brand-cyan/50" />
+      </span>
       <span
-        className="absolute inset-y-0 right-0 w-3 cursor-ew-resize bg-white/0 transition-colors hover:bg-white/30 active:bg-white/40"
+        className="absolute inset-y-0 right-0 w-4 cursor-ew-resize bg-gradient-to-l from-brand-cyan/0 via-brand-cyan/20 to-transparent opacity-0 transition-opacity hover:opacity-100 active:opacity-100 group-hover:opacity-60"
         aria-label="Arraste para cortar fim"
         onPointerDown={(e) => beginTrim(e, 'end')}
-      />
+      >
+        <div className="absolute right-1 top-1/2 h-8 w-0.5 -translate-y-1/2 rounded-full bg-brand-cyan shadow-lg shadow-brand-cyan/50" />
+      </span>
     </div>
   )
 }
@@ -431,34 +492,67 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, lab
       }}
       title={`${label} · ${d.toFixed(2)}s · arraste pra mover, puxe a borda direita pra cortar (setas: ajuste fino)`}
       className={cn(
-        'group absolute inset-y-0 cursor-grab touch-none overflow-hidden rounded-md border active:cursor-grabbing',
+        'group relative cursor-grab touch-none overflow-hidden rounded-lg shadow-md transition-all duration-150 active:cursor-grabbing active:shadow-xl',
         tone === 'overlay'
-          ? 'border-violet-300/40 bg-violet-500/25'
+          ? 'bg-gradient-to-br from-violet-500/40 via-purple-500/30 to-violet-600/40 border border-violet-400/50'
           : tone === 'adjust'
-            ? 'border-brand-cyan/40 bg-gradient-to-r from-brand-cyan/20 via-violet-500/20 to-brand-pink/25'
-            : 'border-express/50 bg-express/15',
-        selected && 'z-10 border-brand-cyan ring-1 ring-brand-cyan',
-        draft && 'z-20 shadow-lg'
+            ? 'bg-gradient-to-r from-brand-cyan/30 via-violet-500/25 to-brand-pink/30 border border-brand-cyan/60'
+            : 'bg-gradient-to-br from-emerald-500/30 via-green-500/25 to-teal-500/30 border border-emerald-400/50',
+        selected && 'z-10 ring-2 ring-brand-cyan ring-offset-1 ring-offset-neutral-900 scale-[1.02]',
+        draft && 'z-20 shadow-2xl scale-105'
       )}
-      style={{ left: s * pps, width: width - 2 }}
+      style={{ 
+        position: 'absolute',
+        top: 4,
+        bottom: 4,
+        left: s * pps + 2, 
+        width: width - 4,
+        minWidth: 24
+      }}
       data-id={id}
     >
-      {thumb && (
-        <div
-          className="pointer-events-none absolute inset-0 opacity-60"
-          style={{ backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+      {/* Background thumbnail or pattern */}
+      {thumb ? (
+        <>
+          <div
+            className="absolute inset-0 opacity-60 bg-cover bg-center"
+            style={{ backgroundImage: `url(${thumb})`, filter: 'brightness(0.8)' }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40" />
+        </>
+      ) : tone === 'audio' ? (
+        <Waveform seed={id} width={width} className="bg-emerald-400/70" />
+      ) : (
+        <div 
+          className="absolute inset-0 opacity-30" 
+          style={{
+            backgroundImage: tone === 'overlay'
+              ? 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(139, 92, 246, 0.15) 8px, rgba(139, 92, 246, 0.15) 16px)'
+              : 'repeating-linear-gradient(-45deg, transparent, transparent 8px, rgba(16, 185, 129, 0.15) 8px, rgba(16, 185, 129, 0.15) 16px)'
+          }}
         />
       )}
-      {tone === 'audio' && <Waveform seed={id} width={width} className="bg-express/80" />}
-      <span className="pointer-events-none relative block truncate px-1.5 pt-0.5 font-mono text-[9px] font-semibold text-white drop-shadow">
-        {label} <span className="font-normal text-white/70">{meta}</span>
-      </span>
-      {/* trim handle */}
+
+      {/* Content */}
+      <div className="relative flex items-center h-full px-2">
+        <span className="truncate font-mono text-[10px] font-semibold text-white drop-shadow-lg">
+          {label}
+        </span>
+        {meta && (
+          <span className="ml-1.5 font-mono text-[9px] text-white/70 drop-shadow">
+            {meta}
+          </span>
+        )}
+      </div>
+
+      {/* Trim handle with visual indicator */}
       <span
         onPointerDown={(e) => begin(e, 'trim')}
-        className="absolute inset-y-0 right-0 w-2.5 cursor-ew-resize bg-white/0 transition-colors group-hover:bg-white/25 group-focus-visible:bg-white/25"
+        className="absolute inset-y-0 right-0 w-3 cursor-ew-resize bg-gradient-to-l from-white/0 via-white/10 to-transparent opacity-0 transition-opacity hover:opacity-100 active:opacity-100 group-hover:opacity-60"
         aria-hidden
-      />
+      >
+        <div className="absolute right-0.5 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-white/80 shadow-lg" />
+      </span>
     </div>
   )
 }
@@ -1090,40 +1184,48 @@ export function Timeline({
         ) : (
           <div className="relative flex h-full min-h-[190px]" style={{ width: contentWidth + GUTTER }}>
             {/* Sticky lane labels */}
-            <div className="sticky left-0 z-40 flex h-full shrink-0 flex-col border-r border-border bg-surface-1 text-[11px] text-muted-foreground" style={{ width: GUTTER }}>
-              <div className="h-6 shrink-0 border-b border-border" />
-              <div className="mt-1 flex h-7 shrink-0 items-center gap-1.5 pl-2.5 pr-1">
-                <SlidersVertical className="h-3.5 w-3.5 text-brand-cyan" aria-hidden /> Ajuste
+            <div className="sticky left-0 z-40 flex h-full shrink-0 flex-col border-r border-border/80 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black text-[11px] text-muted-foreground shadow-lg" style={{ width: GUTTER }}>
+              <div className="h-7 shrink-0 border-b border-border/50 bg-gradient-to-b from-neutral-900 to-neutral-950" />
+              <div className="mt-1.5 flex h-7 shrink-0 items-center gap-1.5 pl-2.5 pr-1 transition-colors hover:bg-white/5">
+                <SlidersVertical className="h-3.5 w-3.5 text-brand-cyan" aria-hidden /> 
+                <span className="font-medium">Ajuste</span>
                 <button
                   type="button"
                   onClick={addAdjust}
                   aria-label="Adicionar camada de ajuste"
                   title="Adicionar camada de ajuste (filtro) no ponto da agulha"
-                  className="ml-auto flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:border-brand-cyan/60 hover:text-brand-cyan"
+                  className="ml-auto flex h-5 w-5 cursor-pointer items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-all hover:border-brand-cyan/60 hover:bg-brand-cyan/10 hover:text-brand-cyan"
                 >
                   <Plus className="h-3 w-3" />
                 </button>
               </div>
-              <div className="mt-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
-                <Type className="h-3.5 w-3.5 text-amber-300" aria-hidden /> Texto
+              <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+                <Type className="h-3.5 w-3.5 text-amber-400" aria-hidden /> 
+                <span className="font-medium">Texto</span>
               </div>
-              <div className="mt-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
-                <Layers className="h-3.5 w-3.5 text-blue-300" aria-hidden /> Overlays
+              <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+                <Layers className="h-3.5 w-3.5 text-blue-400" aria-hidden /> 
+                <span className="font-medium">Overlays</span>
               </div>
-              <div className="mt-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
-                <Layers className="h-3.5 w-3.5 text-violet-300" aria-hidden /> Sobrepor
+              <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+                <Layers className="h-3.5 w-3.5 text-violet-400" aria-hidden /> 
+                <span className="font-medium">Sobrepor</span>
               </div>
-              <div className="flex flex-1 items-center gap-1.5 px-2.5">
-                <Clapperboard className="h-3.5 w-3.5 text-track-video" aria-hidden /> Mídia
+              <div className="flex flex-1 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+                <Clapperboard className="h-4 w-4 text-blue-500" aria-hidden /> 
+                <span className="font-semibold">Mídia</span>
               </div>
-              <div className="flex h-8 shrink-0 items-center gap-1.5 px-2.5">
-                <Mic className="h-3.5 w-3.5 text-track-audio" aria-hidden /> Narração
+              <div className="flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+                <Mic className="h-3.5 w-3.5 text-violet-400" aria-hidden /> 
+                <span className="font-medium">Narração</span>
               </div>
-              <div className="flex h-8 shrink-0 items-center gap-1.5 px-2.5">
-                <Music className="h-3.5 w-3.5 text-express" aria-hidden /> Áudio
+              <div className="flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+                <Music className="h-3.5 w-3.5 text-emerald-400" aria-hidden /> 
+                <span className="font-medium">Áudio</span>
               </div>
-              <div className="mb-1 flex h-8 shrink-0 items-center gap-1.5 px-2.5">
-                <Sparkles className="h-3.5 w-3.5 text-brand-pink" aria-hidden /> SFX
+              <div className="mb-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+                <Sparkles className="h-3.5 w-3.5 text-pink-400" aria-hidden /> 
+                <span className="font-medium">SFX</span>
               </div>
             </div>
 
@@ -1142,23 +1244,44 @@ export function Timeline({
               >
                 {/* Ruler (click or drag to scrub) */}
                 <div
-                  className="ruler relative h-6 shrink-0 cursor-ew-resize touch-none border-b border-border"
+                  className="ruler relative h-7 shrink-0 cursor-ew-resize touch-none border-b border-border/50 bg-gradient-to-b from-neutral-900 to-neutral-950"
                   style={{ ['--major' as string]: `${step * scale}px` } as React.CSSProperties}
                   aria-label="Régua de tempo — clique ou arraste para posicionar"
                 >
+                  {/* Tick marks */}
+                  <div className="absolute inset-x-0 bottom-0 h-2 opacity-40">
+                    {Array.from({ length: Math.floor((contentWidth - 24) / scale) + 1 }, (_, i) => {
+                      const isMajor = i % step === 0
+                      return (
+                        <div
+                          key={i}
+                          className={cn(
+                            'absolute bottom-0 w-px',
+                            isMajor ? 'h-2 bg-white/40' : 'h-1 bg-white/20'
+                          )}
+                          style={{ left: i * scale }}
+                        />
+                      )
+                    })}
+                  </div>
+                  {/* Time labels */}
                   {Array.from({ length: Math.floor((contentWidth - 24) / scale / step) + 1 }, (_, i) => (
-                    <span key={i} className="pointer-events-none absolute top-0.5 font-mono text-[9px] tabular-nums text-muted-foreground" style={{ left: i * step * scale + 3 }}>
+                    <span 
+                      key={i} 
+                      className="pointer-events-none absolute top-1 font-mono text-[10px] font-medium tabular-nums text-white/70 drop-shadow-sm" 
+                      style={{ left: i * step * scale + 4 }}
+                    >
                       {formatTime(i * step)}
                     </span>
                   ))}
                 </div>
 
                 {/* Adjustment lane (filters over everything below) */}
-                <div className="relative mt-1 h-7 shrink-0 rounded-md" onDoubleClick={(e) => {
+                <div className="relative mt-1.5 h-7 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5" onDoubleClick={(e) => {
                   if (!(e.target as HTMLElement).closest('[data-clip]')) addAdjust()
                 }}>
                   {adjustments.length === 0 && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 italic">
                       Camada de ajuste: clique em + (ou duplo clique aqui) pra pôr um filtro sobre os vídeos
                     </span>
                   )}
@@ -1185,13 +1308,13 @@ export function Timeline({
 
                 {/* Text overlay lane (text bars from assembly) */}
                 <div
-                  className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
+                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('overlay')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('overlay')}
                 >
                   {overlays.filter(o => o.kind === 'text').length === 0 && !dragAsset && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 italic">
                       Barras de texto aparecem aqui
                     </span>
                   )}
@@ -1220,13 +1343,13 @@ export function Timeline({
 
                 {/* Image/video overlay lane (from assembly - imageOverlays) */}
                 <div
-                  className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
+                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('overlay')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('overlay')}
                 >
                   {imageOverlays.length === 0 && !dragAsset && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 italic">
                       Imagens da montagem aparecem aqui
                     </span>
                   )}
@@ -1256,13 +1379,13 @@ export function Timeline({
 
                 {/* Manual overlay lane (Sobrepor - user dragged) */}
                 <div
-                  className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
+                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('overlay')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('overlay')}
                 >
                   {overlays.filter(o => o.kind !== 'text').length === 0 && !dragAsset && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 italic">
                       Arraste uma imagem ou vídeo aqui pra sobrepor
                     </span>
                   )}
@@ -1292,7 +1415,7 @@ export function Timeline({
 
                 {/* Main (video) lane */}
                 <div
-                  className={cn(laneClass('main'), 'my-1 flex-1')}
+                  className={cn(laneClass('main'), 'relative my-2 flex-1 min-h-[100px] rounded-lg bg-gradient-to-b from-neutral-900/50 to-neutral-950/30 border border-white/10 shadow-inner')}
                   onDragOver={laneDragOver('main')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('main')}
@@ -1301,11 +1424,11 @@ export function Timeline({
                     <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center text-[13px] text-muted-foreground" style={{ width: Math.min(viewport, contentWidth - 24) }}>
                       {narrationTrack.length > 0 ? (
                         <span className="mx-auto px-4 text-center">
-                          Narração pronta — arraste os clipes dela pra cá ou clique em <span className="text-primary">Juntar com áudio</span>
+                          Narração pronta — arraste os clipes dela pra cá ou clique em <span className="text-violet-400 font-semibold">Juntar com áudio</span>
                         </span>
                       ) : (
-                        <span className="mx-auto rounded-md border border-dashed border-border px-4 py-3">
-                          Clique em <span className="text-primary">Juntar com áudio</span> ou arraste clipes da biblioteca pra cá
+                        <span className="mx-auto rounded-lg border-2 border-dashed border-white/20 bg-black/20 backdrop-blur-sm px-6 py-4 text-center">
+                          Clique em <span className="text-violet-400 font-semibold">Juntar com áudio</span> ou arraste clipes da biblioteca pra cá
                         </span>
                       )}
                     </div>
@@ -1376,13 +1499,13 @@ export function Timeline({
 
                 {/* Narration lane (drop an audio to append it) */}
                 <div
-                  className={cn(laneClass('narration'), 'h-8 shrink-0')}
+                  className={cn(laneClass('narration'), 'relative h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('narration')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('narration')}
                 >
                   {narrationTrack.length === 0 && !dragAsset && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 italic">
                       Arraste a narração deste subprojeto aqui
                     </span>
                   )}
@@ -1429,13 +1552,13 @@ export function Timeline({
 
                 {/* Extra audio lane */}
                 <div
-                  className={cn(laneClass('audio'), 'mt-1 h-8 shrink-0')}
+                  className={cn(laneClass('audio'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('audio')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('audio')}
                 >
                   {regularAudioClips.length === 0 && !dragAsset && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 italic">
                       Arraste música ou efeito sonoro aqui
                     </span>
                   )}
@@ -1464,13 +1587,13 @@ export function Timeline({
 
                 {/* SFX lane (sound effects) */}
                 <div
-                  className={cn(laneClass('sfx'), 'mb-1 mt-1 h-8 shrink-0')}
+                  className={cn(laneClass('sfx'), 'relative mb-1.5 mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('sfx')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('sfx')}
                 >
                   {sfxClips.length === 0 && !dragAsset && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 italic">
                       Efeitos sonoros adicionados aparecem aqui
                     </span>
                   )}
