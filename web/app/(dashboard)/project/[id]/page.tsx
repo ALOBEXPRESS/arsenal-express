@@ -76,6 +76,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [showAssembly, setShowAssembly] = useState(false)
   const [sidebarTab, setSidebarTab] = useState<'assets' | 'sfx'>('assets')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [inspectorHeight, setInspectorHeight] = useState(400) // Initial height in pixels
+  const [isResizing, setIsResizing] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const inspectorRef = useRef<HTMLDivElement>(null)
@@ -250,6 +252,34 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const busy = autoAssemble.isPending || applyEffects.isPending
   const hasTimeline = exportTimelines.some((t) => t.timeline.length > 0 || t.narration.length > 0 || (t.overlays?.length ?? 0) > 0)
 
+  // Handle inspector resize
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+    
+    const startY = e.clientY
+    const startHeight = inspectorHeight
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY
+      const newHeight = Math.max(200, Math.min(800, startHeight + deltaY))
+      setInspectorHeight(newHeight)
+    }
+    
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    
+    document.body.style.cursor = 'ns-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [inspectorHeight])
+
   const removeSub = async (sid: string) => {
     const sp = tracks.subprojects.find((x) => x.id === sid)
     const n = scenesOf(scenes || [], sid, knownSubs).length
@@ -384,28 +414,57 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               </div>
             </div>
 
-            {/* Properties */}
-            <aside
-              ref={inspectorRef}
-              className="flex-shrink-0 border-l border-border bg-surface-1 overflow-y-auto"
+            {/* Properties with resize handle */}
+            <div className="flex flex-col flex-shrink-0 border-l border-border bg-surface-1"
               style={{
-                width: sidebarCollapsed ? '34rem' : '18rem', // w-72 (18rem) expands to include sidebar space (16rem)
-                transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                width: sidebarCollapsed ? '34rem' : '18rem',
+                transition: isResizing ? 'none' : 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
-              aria-label="Propriedades do clipe"
             >
-              <Inspector
-                projectId={id}
-                scenes={subScenes}
-                assets={assets || []}
-                narrationTrack={narrationTrack}
-                tracks={tracks}
-                onEditScene={(scene) => {
-                  setEditingScene(scene)
-                  setShowSceneEditor(true)
-                }}
-              />
-            </aside>
+              <aside
+                ref={inspectorRef}
+                className="overflow-y-auto"
+                style={{ height: `${inspectorHeight}px` }}
+                aria-label="Propriedades do clipe"
+              >
+                <Inspector
+                  projectId={id}
+                  scenes={subScenes}
+                  assets={assets || []}
+                  narrationTrack={narrationTrack}
+                  tracks={tracks}
+                  onEditScene={(scene) => {
+                    setEditingScene(scene)
+                    setShowSceneEditor(true)
+                  }}
+                />
+              </aside>
+              
+              {/* Resize handle */}
+              <div
+                onMouseDown={handleResizeStart}
+                className={cn(
+                  "group relative flex h-2 w-full cursor-ns-resize items-center justify-center border-t border-border bg-surface-2 transition-colors hover:bg-surface-3",
+                  isResizing && "bg-brand-cyan/20"
+                )}
+                title="Arraste para redimensionar"
+              >
+                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-muted-foreground/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                <svg
+                  className="h-3 w-6 text-muted-foreground transition-colors group-hover:text-foreground"
+                  viewBox="0 0 24 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M3 4h18M3 8h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+
+              {/* Preview area below inspector */}
+              <div className="flex-1 overflow-hidden bg-surface-0/50" style={{ minHeight: '100px' }}>
+                {/* This area will show thumbnails or additional info */}
+              </div>
+            </div>
           </div>
 
           <div className="h-[330px] flex-shrink-0 border-t border-border">
