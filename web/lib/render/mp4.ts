@@ -389,46 +389,58 @@ async function mixAndAddAudio(
   const duration = Math.ceil(input.duration)
   const audioCtx = new OfflineAudioContext(2, duration * sampleRate, sampleRate)
 
-  // Load narration segments (áudio das cenas)
+  // Load audio from scenes (áudio de narração ou voz)
   for (const scene of input.timeline) {
     if (signal?.aborted) throw new Error('Aborted')
-    if (!scene.audioAsset) continue
     
-    const buffer = await loadAudioBuffer(scene.audioAsset.url, audioCtx)
-    const source = audioCtx.createBufferSource()
-    source.buffer = buffer
+    // Scene audio is specified via audio_asset_id in the Scene object
+    const sceneAudio = (scene.scene as any).audio_asset
+    if (!sceneAudio?.url) continue
     
-    // Apply speed/rate
-    source.playbackRate.value = scene.rate || 1
-    
-    // Apply volume (lower for narration under music)
-    const gain = audioCtx.createGain()
-    gain.gain.value = scene.volume ?? 1
-    
-    source.connect(gain)
-    gain.connect(audioCtx.destination)
-    
-    // Start at scene time, from trim point
-    source.start(scene.start, scene.trim || 0, scene.duration)
+    try {
+      const buffer = await loadAudioBuffer(sceneAudio.url, audioCtx)
+      const source = audioCtx.createBufferSource()
+      source.buffer = buffer
+      
+      // Apply speed/rate
+      source.playbackRate.value = scene.rate || 1
+      
+      // Apply volume (lower for narration under music)
+      const gain = audioCtx.createGain()
+      gain.gain.value = scene.volume ?? 1
+      
+      source.connect(gain)
+      gain.connect(audioCtx.destination)
+      
+      // Start at scene time, from trim point
+      source.start(scene.start, scene.trim || 0, scene.duration)
+    } catch (err) {
+      console.warn('[mixAndAddAudio] Failed to load scene audio:', err)
+    }
   }
 
-  // Load audio clips (música, SFX, narração extra)
+  // Load audio clips (música, SFX)
   for (const clip of input.audioClips) {
     if (signal?.aborted) throw new Error('Aborted')
+    
     const asset = (clip as any).asset
-    if (!asset) continue
+    if (!asset?.url) continue
     
-    const buffer = await loadAudioBuffer(asset.url, audioCtx)
-    const source = audioCtx.createBufferSource()
-    source.buffer = buffer
-    source.playbackRate.value = clip.speed || 1
-    
-    const gain = audioCtx.createGain()
-    gain.gain.value = clip.volume ?? 1
-    
-    source.connect(gain)
-    gain.connect(audioCtx.destination)
-    source.start(clip.start, clip.in_point || 0, clip.duration)
+    try {
+      const buffer = await loadAudioBuffer(asset.url, audioCtx)
+      const source = audioCtx.createBufferSource()
+      source.buffer = buffer
+      source.playbackRate.value = clip.speed || 1
+      
+      const gain = audioCtx.createGain()
+      gain.gain.value = clip.volume ?? 1
+      
+      source.connect(gain)
+      gain.connect(audioCtx.destination)
+      source.start(clip.start, clip.in_point || 0, clip.duration)
+    } catch (err) {
+      console.warn('[mixAndAddAudio] Failed to load audio clip:', err)
+    }
   }
 
   // Render the mixed audio
