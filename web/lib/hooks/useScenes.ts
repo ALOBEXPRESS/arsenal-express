@@ -581,13 +581,13 @@ export function useAutoAssemble() {
             const positions: { y: number, scale: number }[] = []
             
             if (settings.overlay_bars.position === 'top') {
-              positions.push({ y: -0.75, scale: 1.0 }) // Topo
+              positions.push({ y: -1.2, scale: 1.0 }) // Topo: 60%
             } else if (settings.overlay_bars.position === 'bottom') {
-              positions.push({ y: 0.75, scale: 1.0 }) // Rodapé
+              positions.push({ y: 1.2, scale: 1.0 }) // Rodapé: -60%
             } else {
               // Ambos: duplicar - uma no topo e outra no rodapé
-              positions.push({ y: -0.75, scale: 1.0 })  // Topo
-              positions.push({ y: 0.75, scale: 1.0 }) // Rodapé
+              positions.push({ y: -1.2, scale: 1.0 })  // Topo: 60%
+              positions.push({ y: 1.2, scale: 1.0 }) // Rodapé: -60%
             }
             
             // Create ONE overlay per position that spans all scenes
