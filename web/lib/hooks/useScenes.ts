@@ -583,7 +583,7 @@ export function useAutoAssemble() {
                   duration: sceneDur,
                   scale: 1.0, // Full width
                   x: 0,
-                  y: -0.8, // Top position
+                  y: 1.5, // Top position (+75% = 1.5 in CapCut units)
                   opacity: 1,
                   speed: settings.speed.enabled ? settings.speed.value : 1,
                   volume: 0, // Muted
@@ -635,7 +635,7 @@ export function useAutoAssemble() {
                   duration: sceneDur,
                   scale: 1.0, // Full width
                   x: 0,
-                  y: 0.8, // Bottom position
+                  y: -1.5, // Bottom position (-75% = -1.5 in CapCut units)
                   opacity: 1,
                   speed: settings.speed.enabled ? settings.speed.value : 1,
                   volume: 0, // Muted
