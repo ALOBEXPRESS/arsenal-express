@@ -579,32 +579,38 @@ export function useAutoAssemble() {
             for (let i = 0; i < scenes.length; i++) {
               const sceneDur = durations[i]
               
-              // Determine Y position based on setting
-              // Y position: 0.75 for top, -0.75 for bottom, 0 for both/center
-              let yPos = 0 // Center (both)
+              // Determine positions and how many overlays based on setting
+              const positions: number[] = []
+              
               if (settings.overlay_bars.position === 'top') {
-                yPos = 0.75 // Top
+                positions.push(0.60) // Topo: 60%
               } else if (settings.overlay_bars.position === 'bottom') {
-                yPos = -0.75 // Bottom
+                positions.push(-0.60) // Rodapé: -60%
+              } else {
+                // Ambos: duplicar - uma no topo e outra no rodapé
+                positions.push(0.60)  // Topo
+                positions.push(-0.60) // Rodapé
               }
               
-              // Add single overlay per scene with full width (scale 1.0)
-              overlays.push({
-                id: crypto.randomUUID(),
-                asset_id: overlayAsset.id,
-                kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
-                start: sceneStart,
-                duration: sceneDur,
-                scale: 1.0, // 100% - largura total
-                x: 0, // Centralizado horizontalmente
-                y: yPos,
-                opacity: 1,
-                speed: 1,
-                volume: 0, // Muted
-                animation_in: 'none',
-                animation_out: 'none',
-                animation_duration: 0,
-              })
+              // Add overlay(s) for each position
+              for (const yPos of positions) {
+                overlays.push({
+                  id: crypto.randomUUID(),
+                  asset_id: overlayAsset.id,
+                  kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
+                  start: sceneStart,
+                  duration: sceneDur,
+                  scale: 1.0, // 100% - largura total
+                  x: 0, // Centralizado horizontalmente
+                  y: yPos,
+                  opacity: 1,
+                  speed: 1,
+                  volume: 0, // Muted
+                  animation_in: 'none',
+                  animation_out: 'none',
+                  animation_duration: 0,
+                })
+              }
               
               sceneStart += sceneDur
             }
