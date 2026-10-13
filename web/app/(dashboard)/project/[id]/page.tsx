@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, SlidersHorizontal, FolderDown } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal, FolderDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProject } from '@/lib/hooks/useProjects'
 import {
@@ -75,6 +75,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [showExport, setShowExport] = useState(false)
   const [showAssembly, setShowAssembly] = useState(false)
   const [sidebarTab, setSidebarTab] = useState<'assets' | 'sfx'>('assets')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const sidebarRef = useRef<HTMLElement>(null)
+  const timelineRef = useRef<HTMLDivElement>(null)
+  const inspectorRef = useRef<HTMLDivElement>(null)
 
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
   const [status, setStatus] = useState<string>()
@@ -298,8 +302,28 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       </header>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Collapse toggle button */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="absolute left-0 top-1/2 z-50 flex h-12 w-6 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-surface-1 text-muted-foreground transition-all hover:bg-surface-2 hover:text-foreground"
+          style={{
+            left: sidebarCollapsed ? '0px' : 'calc(16rem - 1.5rem)', // w-64 = 16rem
+            transition: 'left 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+          aria-label={sidebarCollapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+        >
+          {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
+
         {/* Media bin with tabs */}
-        <aside className="w-64 flex-shrink-0 border-r border-border bg-surface-1 xl:w-72 flex flex-col">
+        <aside
+          ref={sidebarRef}
+          className="flex-shrink-0 border-r border-border bg-surface-1 flex flex-col overflow-hidden"
+          style={{
+            width: sidebarCollapsed ? '0px' : '16rem', // w-64
+            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
           {/* Tab switcher */}
           <div className="flex border-b border-border bg-surface-0">
             <button
@@ -361,7 +385,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             </div>
 
             {/* Properties */}
-            <aside className="w-72 flex-shrink-0 border-l border-border bg-surface-1" aria-label="Propriedades do clipe">
+            <aside
+              ref={inspectorRef}
+              className="flex-shrink-0 border-l border-border bg-surface-1 overflow-y-auto"
+              style={{
+                width: sidebarCollapsed ? 'calc(18rem + 16rem)' : '18rem', // w-72 + w-64 when collapsed
+                transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              aria-label="Propriedades do clipe"
+            >
               <Inspector
                 projectId={id}
                 scenes={subScenes}
@@ -378,6 +410,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
           <div className="h-[330px] flex-shrink-0 border-t border-border">
             <Timeline
+              key={`${subId}-${sidebarCollapsed}`} // Force re-render on collapse to recalc widths
               projectId={id}
               scenes={subScenes}
               subId={subId}
