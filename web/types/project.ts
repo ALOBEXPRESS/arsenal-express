@@ -131,6 +131,14 @@ export interface SceneProps {
   /** duration after trim (from in_point to out_point in seconds) */
   trim?: number
   anim?: Partial<AnimationParams>
+  /** scale/zoom (1 = 100%, 2 = 200%, 0.5 = 50%) */
+  scale?: number
+  /** horizontal position (-1 to 1, 0 = center) */
+  x?: number
+  /** vertical position (-1 to 1, 0 = center) */
+  y?: number
+  /** rotation in degrees (-180 to 180) */
+  rotation?: number
 }
 
 export interface NarrationSegment {

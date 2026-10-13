@@ -210,6 +210,53 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
             </Group>
           )}
 
+          <Group title="Transformar">
+            <PropSlider
+              label="Escala (Zoom)"
+              value={props.scale ?? 1}
+              min={0.5}
+              max={3}
+              step={0.01}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => setMeta({ scale: Math.round(v * 100) / 100 })}
+              onReset={props.scale !== undefined ? () => setMeta({ scale: null }) : undefined}
+              hint="Zoom in (>100%) ou zoom out (<100%)"
+            />
+            <PropSlider
+              label="Posição X"
+              value={props.x ?? 0}
+              min={-1}
+              max={1}
+              step={0.01}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => setMeta({ x: Math.round(v * 100) / 100 })}
+              onReset={props.x !== undefined ? () => setMeta({ x: null }) : undefined}
+              hint="Mover horizontal: -100% (esquerda) a +100% (direita)"
+            />
+            <PropSlider
+              label="Posição Y"
+              value={props.y ?? 0}
+              min={-1}
+              max={1}
+              step={0.01}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => setMeta({ y: Math.round(v * 100) / 100 })}
+              onReset={props.y !== undefined ? () => setMeta({ y: null }) : undefined}
+              hint="Mover vertical: -100% (baixo) a +100% (cima)"
+            />
+            <PropSlider
+              label="Rotação"
+              value={props.rotation ?? 0}
+              min={-180}
+              max={180}
+              step={1}
+              format={(v) => `${v}°`}
+              onChange={(v) => setMeta({ rotation: v })}
+              onReset={props.rotation !== undefined ? () => setMeta({ rotation: null }) : undefined}
+              hint="Girar o vídeo em graus"
+            />
+          </Group>
+
           <Group title="Animação">
             <div role="radiogroup" aria-label="Animação do clipe" className="grid grid-cols-2 gap-1.5">
               <Chip selected={animation === 'none'} onClick={() => patchScene(scene.id, { animation_type: 'none' })}>

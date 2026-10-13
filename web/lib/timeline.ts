@@ -72,11 +72,20 @@ export function sceneProps(scene: Scene): SceneProps {
   const speed = m.speed == null ? NaN : Number(m.speed)
   const volume = m.volume == null ? NaN : Number(m.volume)
   const trim = m.trim == null ? NaN : Number(m.trim)
+  const scale = m.scale == null ? NaN : Number(m.scale)
+  const x = m.x == null ? NaN : Number(m.x)
+  const y = m.y == null ? NaN : Number(m.y)
+  const rotation = m.rotation == null ? NaN : Number(m.rotation)
+  
   return {
     trim: Number.isFinite(trim) && trim > 0 ? trim : undefined,
     speed: Number.isFinite(speed) && speed > 0 ? speed : undefined,
     volume: Number.isFinite(volume) && volume >= 0 ? volume : undefined,
     anim: (m.anim as SceneProps['anim']) || undefined,
+    scale: Number.isFinite(scale) ? scale : undefined,
+    x: Number.isFinite(x) ? x : undefined,
+    y: Number.isFinite(y) ? y : undefined,
+    rotation: Number.isFinite(rotation) ? rotation : undefined,
   }
 }
 

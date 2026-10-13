@@ -441,11 +441,17 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       clip: {
         alpha: 1.0,
         flip: { horizontal: false, vertical: false },
-        rotation: 0.0,
-        scale: { x: 1.0, y: 1.0 },
-        transform: { x: 0.0, y: 0.0 },
+        rotation: props.rotation ?? 0.0,
+        scale: { 
+          x: props.scale ?? 1.0, 
+          y: props.scale ?? 1.0 
+        },
+        transform: { 
+          x: props.x ?? 0.0, 
+          y: props.y ?? 0.0 
+        },
       },
-      uniform_scale: { on: true, value: 1.0 },
+      uniform_scale: { on: true, value: props.scale ?? 1.0 },
       hdr_settings: { intensity: 1.0, mode: 1, nits: 1000 },
       render_index: 0,
     })
