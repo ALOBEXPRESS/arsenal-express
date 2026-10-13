@@ -40,6 +40,8 @@ interface VideoPreviewProps {
   onSelectOverlay?: (id: string) => void
   /** Overlay moved by dragging it on the monitor (committed on pointer up) */
   onOverlayChange?: (id: string, patch: Partial<OverlayClip>) => void
+  /** Manual bar height (0 = auto) */
+  overlayBarHeight?: number
 }
 
 // Clip audio is kept low under narration (config.yaml -> audio.clipes.volume_db: -18)
@@ -108,6 +110,7 @@ export function VideoPreview({
   selectedOverlayId,
   onSelectOverlay,
   onOverlayChange,
+  overlayBarHeight = 0,
 }: VideoPreviewProps) {
   const TRANSITION = transitionDuration
   const { data: sfxManifest } = useSFXManifest()
@@ -523,7 +526,9 @@ export function VideoPreview({
           {overlays.map((o, i) => {
             // Text overlay bars (no asset needed)
             if (o.kind === 'text') {
-              const barHeight = Math.max(40, Math.min(80, stage.h * 0.08)) // 8% of video height, min 40px, max 80px
+              const barHeight = overlayBarHeight > 0 
+                ? overlayBarHeight 
+                : Math.max(40, Math.min(80, stage.h * 0.08)) // 8% of video height, min 40px, max 80px
               const maxFontSize = Math.max(12, Math.min(24, barHeight * 0.35)) // 35% of bar height, smaller ratio
               const actualFontSize = o.text_style?.font_size ? Math.min(o.text_style.font_size, maxFontSize) : maxFontSize
               const selected = o.id === selectedOverlayId

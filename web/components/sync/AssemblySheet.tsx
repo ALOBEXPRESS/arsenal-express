@@ -386,8 +386,57 @@ export function AssemblySheet({
                 { value: 'both', label: 'Ambos' },
               ]}
             />
+            
+            <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
+              <div className="mb-2.5 flex items-center justify-between text-[12px]">
+                <label htmlFor="bar-height" className="text-muted-foreground">
+                  Altura da barra (0 = auto 8%)
+                </label>
+                <span className="font-mono tabular-nums text-primary">
+                  {s.overlay_bars.height_override === 0 ? 'Auto' : `${s.overlay_bars.height_override}px`}
+                </span>
+              </div>
+              <Slider
+                id="bar-height"
+                min={0}
+                max={150}
+                step={5}
+                value={[s.overlay_bars.height_override]}
+                onValueChange={([v]) => setS((p) => ({ ...p, overlay_bars: { ...p.overlay_bars, height_override: v } }))}
+                aria-label="Altura manual da barra de texto"
+              />
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Auto ajusta 8% da altura do vídeo (ideal 16:9). Manual força altura fixa.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-medium text-foreground/85">Vídeo favorito (opcional)</label>
+                {s.overlay_bars.favorite_video_id && (
+                  <span className="rounded border border-primary/50 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary">
+                    Ativa
+                  </span>
+                )}
+              </div>
+              <select
+                value={s.overlay_bars.favorite_video_id || ''}
+                onChange={(e) => setS((p) => ({ ...p, overlay_bars: { ...p.overlay_bars, favorite_video_id: e.target.value || null } }))}
+                className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
+              >
+                <option value="">Nenhum vídeo overlay</option>
+                {/* TODO: populate with available videos */}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                {s.overlay_bars.favorite_video_id 
+                  ? "Vídeo aparece como overlay em todas cenas."
+                  : "Usa imagens como overlay (se configurado)."
+                }
+              </p>
+            </div>
+
             <p className="text-[11px] text-muted-foreground">
-              As barras aparecerão em todas as cenas como overlay. Você pode editar o texto de cada barra no inspector de propriedades.
+              As barras aparecem em todas as cenas. Edite o texto no inspector de propriedades.
             </p>
           </Section>
 
