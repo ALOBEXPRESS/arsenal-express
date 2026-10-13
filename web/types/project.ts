@@ -138,6 +138,8 @@ export interface NarrationSegment {
   /** Global start time on the project timeline (seconds) */
   start: number
   duration: number
+  /** Playback speed multiplier (0.5x to 2x, default: 1) */
+  speed?: number
 }
 
 export interface Asset {

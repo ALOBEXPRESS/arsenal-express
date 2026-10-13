@@ -412,6 +412,11 @@ export function useAutoAssemble() {
         const clips = videos.slice(cursorClip, cursorClip + counts[ti])
         cursorClip += counts[ti]
         const track = relayNarration(target.audios.map((a) => ({ asset_id: a.id, duration: a.duration! })))
+        // Apply speed to narration segments if enabled
+        const trackWithSpeed = track.map(seg => ({
+          ...seg,
+          ...(settings.speed.enabled ? { speed: settings.speed.value } : {}),
+        }))
         const narrationDuration = narrationEnd(track)
         // image = no length of its own: unlimited when it must fill a phrase, STILL_DURATION alone
         const clipDurs = clips.map((v) => (v.type === 'image' ? Number.POSITIVE_INFINITY : v.duration || DEFAULT_SCENE_DURATION))
@@ -462,6 +467,7 @@ export function useAutoAssemble() {
               playback_rate: rate,
               clip_duration: isImage ? null : video.duration,
               ...(animation !== 'none' ? { anim: settings.animation.params } : {}),
+              ...(settings.speed.enabled ? { speed: settings.speed.value } : {}),
             },
           }
           cursor += duration
@@ -518,7 +524,7 @@ export function useAutoAssemble() {
                 x: 0,
                 y: 0,
                 opacity: 1,
-                speed: 1,
+                speed: settings.speed.enabled ? settings.speed.value : 1,
                 volume: 1,
                 animation_in: 'fade',
                 animation_out: 'fade',
@@ -533,7 +539,7 @@ export function useAutoAssemble() {
                   start: overlayStart,
                   duration: overlayDur,
                   volume: 1,
-                  speed: 1,
+                  speed: settings.speed.enabled ? settings.speed.value : 1,
                 })
               }
               
@@ -563,7 +569,7 @@ export function useAutoAssemble() {
                 x: 0,
                 y: -0.8, // Top position (normalized -1 to 1)
                 opacity: 1,
-                speed: 1,
+                speed: settings.speed.enabled ? settings.speed.value : 1,
                 volume: 1,
                 animation_in: 'none',
                 animation_out: 'none',
@@ -594,7 +600,7 @@ export function useAutoAssemble() {
                 x: 0,
                 y: 0.8, // Bottom position (normalized -1 to 1)
                 opacity: 1,
-                speed: 1,
+                speed: settings.speed.enabled ? settings.speed.value : 1,
                 volume: 1,
                 animation_in: 'none',
                 animation_out: 'none',
@@ -619,7 +625,7 @@ export function useAutoAssemble() {
         
         const sub: Subproject = mode === 'scenes' 
           ? { ...target.sub, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] } 
-          : { ...target.sub, narration_track: track, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] }
+          : { ...target.sub, narration_track: trackWithSpeed, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] }
         built.push({
           sub,
           scenes,
