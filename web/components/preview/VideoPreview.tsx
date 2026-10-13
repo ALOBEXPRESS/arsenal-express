@@ -523,7 +523,8 @@ export function VideoPreview({
           {overlays.map((o, i) => {
             // Text overlay bars (no asset needed)
             if (o.kind === 'text') {
-              const f = { w: stage.w, h: 100 } // Full width bar
+              const barHeight = Math.max(40, Math.min(80, stage.h * 0.08)) // 8% of video height, min 40px, max 80px
+              const fontSize = Math.max(14, Math.min(32, barHeight * 0.4)) // 40% of bar height
               const selected = o.id === selectedOverlayId
               return (
                 <div
@@ -536,27 +537,36 @@ export function VideoPreview({
                   className="absolute pointer-events-none"
                   style={{
                     zIndex: 10 + i,
-                    width: f.w,
-                    height: f.h,
+                    width: stage.w,
+                    height: barHeight,
                     left: 0,
-                    top: o.y < 0 ? 0 : stage.h - f.h, // Top or bottom
+                    top: o.y < 0 ? 0 : stage.h - barHeight, // Top or bottom
                     opacity: o.opacity,
                     visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
                     backgroundColor: o.text_style?.background_color || '#000000',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: o.text_style?.alignment || 'center',
-                    padding: `${o.text_style?.padding || 20}px`,
+                    padding: `${Math.max(8, barHeight * 0.15)}px ${Math.max(12, stage.w * 0.03)}px`,
+                    overflow: 'hidden',
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <span
                     style={{
                       fontFamily: o.text_style?.font_family || 'Arial',
-                      fontSize: `${o.text_style?.font_size || 48}px`,
+                      fontSize: `${o.text_style?.font_size ? Math.min(o.text_style.font_size, fontSize) : fontSize}px`,
                       fontWeight: o.text_style?.font_weight || 'bold',
                       color: o.text_style?.color || '#FFFFFF',
                       textAlign: o.text_style?.alignment || 'center',
+                      width: '100%',
+                      lineHeight: '1.2',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      wordBreak: 'break-word',
                     }}
                   >
                     {o.text_content || 'TEXTO'}

@@ -558,12 +558,12 @@ export function useAutoAssemble() {
                 text_content: 'TEXTO DO TOPO',
                 text_style: {
                   font_family: 'Arial',
-                  font_size: 48,
+                  font_size: 24, // Smaller default font
                   font_weight: 'bold',
                   color: '#FFFFFF',
                   background_color: '#000000',
                   background_opacity: 1,
-                  padding: 20,
+                  padding: 12, // Smaller padding
                   alignment: 'center',
                 },
               })
@@ -589,12 +589,12 @@ export function useAutoAssemble() {
                 text_content: 'TEXTO DO RODAPÉ',
                 text_style: {
                   font_family: 'Arial',
-                  font_size: 48,
+                  font_size: 24, // Smaller default font
                   font_weight: 'bold',
                   color: '#FFFFFF',
                   background_color: '#000000',
                   background_opacity: 1,
-                  padding: 20,
+                  padding: 12, // Smaller padding
                   alignment: 'center',
                 },
               })
