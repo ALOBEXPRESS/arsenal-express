@@ -581,13 +581,13 @@ export function useAutoAssemble() {
             const positions: number[] = []
             
             if (settings.overlay_bars.position === 'top') {
-              positions.push(0.60) // Topo: 60%
+              positions.push(-1.2) // Topo: 60% (invertido no CapCut)
             } else if (settings.overlay_bars.position === 'bottom') {
-              positions.push(-0.60) // Rodapé: -60%
+              positions.push(1.2) // Rodapé: -60% (invertido no CapCut)
             } else {
               // Ambos: duplicar - uma no topo e outra no rodapé
-              positions.push(0.60)  // Topo
-              positions.push(-0.60) // Rodapé
+              positions.push(-1.2)  // Topo
+              positions.push(1.2) // Rodapé
             }
             
             // Create ONE overlay per position that spans all scenes
