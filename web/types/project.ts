@@ -69,7 +69,7 @@ export interface AdjustClip {
 export interface OverlayClip {
   id: string
   asset_id: string
-  kind: 'image' | 'video'
+  kind: 'image' | 'video' | 'text'
   /** timeline seconds */
   start: number
   duration: number
@@ -90,6 +90,18 @@ export interface OverlayClip {
   animation_out?: 'none' | 'fade' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right' | 'zoom-in' | 'zoom-out'
   /** Animation duration in seconds (default: 0.3) */
   animation_duration?: number
+  /** Text overlay fields */
+  text_content?: string
+  text_style?: {
+    font_family?: string
+    font_size?: number
+    font_weight?: 'normal' | 'bold' | 'bolder' | 'lighter'
+    color?: string
+    background_color?: string
+    background_opacity?: number
+    padding?: number
+    alignment?: 'left' | 'center' | 'right'
+  }
 }
 
 export interface AudioClip {

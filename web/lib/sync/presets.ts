@@ -231,6 +231,13 @@ export interface SyncSettings {
     /** Selected favorite SFX effect ID to use */
     selected_effect_id: string | null
   }
+  /** Video overlay bars with text */
+  overlay_bars: {
+    /** Enable black bars overlay */
+    enabled: boolean
+    /** Position: 'top' | 'bottom' | 'both' */
+    position: 'top' | 'bottom' | 'both'
+  }
   animation: {
     enabled: boolean
     mode: PickMode
@@ -267,6 +274,10 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
     enabled: false,
     selected_effect_id: null,
   },
+  overlay_bars: {
+    enabled: false,
+    position: 'both',
+  },
   animation: {
     enabled: false,
     mode: 'variado',
@@ -287,6 +298,7 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
   const narration = { ...DEFAULT_SYNC_SETTINGS.narration, ...(s?.narration || {}) }
   const media = { ...DEFAULT_SYNC_SETTINGS.media, ...(s?.media || {}) }
   const sfx = { ...DEFAULT_SYNC_SETTINGS.sfx, ...(s?.sfx || {}) }
+  const overlay_bars = { ...DEFAULT_SYNC_SETTINGS.overlay_bars, ...(s?.overlay_bars || {}) }
   return {
     variable_rhythm: s?.variable_rhythm ?? DEFAULT_SYNC_SETTINGS.variable_rhythm,
     order: { ...DEFAULT_SYNC_SETTINGS.order, ...(s?.order || {}) },
@@ -302,6 +314,10 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
     sfx: {
       enabled: sfx.enabled ?? DEFAULT_SYNC_SETTINGS.sfx.enabled,
       selected_effect_id: sfx.selected_effect_id ?? DEFAULT_SYNC_SETTINGS.sfx.selected_effect_id,
+    },
+    overlay_bars: {
+      enabled: overlay_bars.enabled ?? DEFAULT_SYNC_SETTINGS.overlay_bars.enabled,
+      position: ['top', 'bottom', 'both'].includes(overlay_bars.position as string) ? (overlay_bars.position as 'top' | 'bottom' | 'both') : DEFAULT_SYNC_SETTINGS.overlay_bars.position,
     },
     animation: { ...animation, flow: normFlow(animation.flow), params: normalizeParams(animation.params) },
     transition: { ...transition, flow: normFlow(transition.flow) },

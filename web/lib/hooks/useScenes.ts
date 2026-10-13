@@ -519,6 +519,79 @@ export function useAutoAssemble() {
           }
         }
         
+        // Add text overlay bars if enabled
+        if (settings.overlay_bars.enabled) {
+          let sceneStart = 0
+          
+          for (let i = 0; i < scenes.length; i++) {
+            const sceneDur = durations[i]
+            
+            // Add top bar if position is 'top' or 'both'
+            if (settings.overlay_bars.position === 'top' || settings.overlay_bars.position === 'both') {
+              overlays.push({
+                id: crypto.randomUUID(),
+                asset_id: 'text-bar-top',
+                kind: 'text',
+                start: sceneStart,
+                duration: sceneDur,
+                scale: 1,
+                x: 0,
+                y: -0.8, // Top position (normalized -1 to 1)
+                opacity: 1,
+                speed: 1,
+                volume: 1,
+                animation_in: 'none',
+                animation_out: 'none',
+                animation_duration: 0,
+                text_content: 'TEXTO DO TOPO',
+                text_style: {
+                  font_family: 'Arial',
+                  font_size: 48,
+                  font_weight: 'bold',
+                  color: '#FFFFFF',
+                  background_color: '#000000',
+                  background_opacity: 1,
+                  padding: 20,
+                  alignment: 'center',
+                },
+              })
+            }
+            
+            // Add bottom bar if position is 'bottom' or 'both'
+            if (settings.overlay_bars.position === 'bottom' || settings.overlay_bars.position === 'both') {
+              overlays.push({
+                id: crypto.randomUUID(),
+                asset_id: 'text-bar-bottom',
+                kind: 'text',
+                start: sceneStart,
+                duration: sceneDur,
+                scale: 1,
+                x: 0,
+                y: 0.8, // Bottom position (normalized -1 to 1)
+                opacity: 1,
+                speed: 1,
+                volume: 1,
+                animation_in: 'none',
+                animation_out: 'none',
+                animation_duration: 0,
+                text_content: 'TEXTO DO RODAPÉ',
+                text_style: {
+                  font_family: 'Arial',
+                  font_size: 48,
+                  font_weight: 'bold',
+                  color: '#FFFFFF',
+                  background_color: '#000000',
+                  background_opacity: 1,
+                  padding: 20,
+                  alignment: 'center',
+                },
+              })
+            }
+            
+            sceneStart += sceneDur
+          }
+        }
+        
         const sub: Subproject = mode === 'scenes' 
           ? { ...target.sub, overlays, audio_clips: sfxClips } 
           : { ...target.sub, narration_track: track, overlays, audio_clips: sfxClips }

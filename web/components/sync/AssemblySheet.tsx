@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split, Film, Volume2 } from 'lucide-react'
+import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split, Film, Volume2, RectangleHorizontal } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
@@ -341,6 +341,29 @@ export function AssemblySheet({
               selected={s.sfx.selected_effect_id}
               onSelect={(id) => setS((p) => ({ ...p, sfx: { ...p.sfx, selected_effect_id: id } }))}
             />
+          </Section>
+
+          <Section
+            id="overlay-bars"
+            icon={<RectangleHorizontal className="h-4 w-4" />}
+            title="Barras de texto (Overlay)"
+            description="Adiciona barras pretas com texto no topo e/ou rodapé em todas as cenas. Ideal para frases de impacto."
+            checked={s.overlay_bars.enabled}
+            onCheckedChange={(v) => setS((p) => ({ ...p, overlay_bars: { ...p.overlay_bars, enabled: v } }))}
+          >
+            <ModeSwitch
+              label="Posição das barras"
+              value={s.overlay_bars.position}
+              onChange={(position) => setS((p) => ({ ...p, overlay_bars: { ...p.overlay_bars, position } }))}
+              options={[
+                { value: 'top', label: 'Topo' },
+                { value: 'bottom', label: 'Rodapé' },
+                { value: 'both', label: 'Ambos' },
+              ]}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              As barras aparecerão em todas as cenas como overlay. Você pode editar o texto de cada barra no inspector de propriedades.
+            </p>
           </Section>
 
           <Section

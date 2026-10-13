@@ -503,6 +503,51 @@ export function VideoPreview({
 
           {/* Overlay layers (Sobreposição) — later clips on top */}
           {overlays.map((o, i) => {
+            // Text overlay bars (no asset needed)
+            if (o.kind === 'text') {
+              const f = { w: stage.w, h: 100 } // Full width bar
+              const selected = o.id === selectedOverlayId
+              return (
+                <div
+                  key={o.id}
+                  ref={(el) => {
+                    if (el) overlayEls.current.set(o.id, el)
+                    else overlayEls.current.delete(o.id)
+                  }}
+                  data-overlay={o.id}
+                  className="absolute pointer-events-none"
+                  style={{
+                    zIndex: 10 + i,
+                    width: f.w,
+                    height: f.h,
+                    left: 0,
+                    top: o.y < 0 ? 0 : stage.h - f.h, // Top or bottom
+                    opacity: o.opacity,
+                    visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
+                    backgroundColor: o.text_style?.background_color || '#000000',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: o.text_style?.alignment || 'center',
+                    padding: `${o.text_style?.padding || 20}px`,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span
+                    style={{
+                      fontFamily: o.text_style?.font_family || 'Arial',
+                      fontSize: `${o.text_style?.font_size || 48}px`,
+                      fontWeight: o.text_style?.font_weight || 'bold',
+                      color: o.text_style?.color || '#FFFFFF',
+                      textAlign: o.text_style?.alignment || 'center',
+                    }}
+                  >
+                    {o.text_content || 'TEXTO'}
+                  </span>
+                  {selected && <span className="pointer-events-none absolute inset-0 outline outline-2 outline-offset-0 outline-brand-cyan" aria-hidden />}
+                </div>
+              )
+            }
+            
             const a = assetById.get(o.asset_id)
             if (!a) return null
             const f = fitted(o)
