@@ -85,6 +85,34 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [editingScene, setEditingScene] = useState<Scene | null>(null)
   const [status, setStatus] = useState<string>()
 
+  // Handle inspector resize - MUST be before any conditional returns (Rules of Hooks)
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+    
+    const startY = e.clientY
+    const startHeight = inspectorHeight
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = moveEvent.clientY - startY
+      const newHeight = Math.max(200, Math.min(800, startHeight + deltaY))
+      setInspectorHeight(newHeight)
+    }
+    
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    
+    document.body.style.cursor = 'ns-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [inspectorHeight])
+
   const knownSubs = useMemo(() => new Set(tracks.subprojects.map((s) => s.id)), [tracks.subprojects])
   const subScenes = useMemo(() => scenesOf(scenes || [], subId, knownSubs), [scenes, subId, knownSubs])
   const timeline = useMemo(() => buildTimeline(subScenes, assets || []), [subScenes, assets])
@@ -251,34 +279,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   const busy = autoAssemble.isPending || applyEffects.isPending
   const hasTimeline = exportTimelines.some((t) => t.timeline.length > 0 || t.narration.length > 0 || (t.overlays?.length ?? 0) > 0)
-
-  // Handle inspector resize
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizing(true)
-    
-    const startY = e.clientY
-    const startHeight = inspectorHeight
-    
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY
-      const newHeight = Math.max(200, Math.min(800, startHeight + deltaY))
-      setInspectorHeight(newHeight)
-    }
-    
-    const handleMouseUp = () => {
-      setIsResizing(false)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    
-    document.body.style.cursor = 'ns-resize'
-    document.body.style.userSelect = 'none'
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [inspectorHeight])
 
   const removeSub = async (sid: string) => {
     const sp = tracks.subprojects.find((x) => x.id === sid)
