@@ -305,7 +305,7 @@ export function AssemblySheet({
                 />
               </label>
               {s.media.with_images && s.media.with_videos && (
-                <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
+                <div className="rounded-lg border border-border bg-surface-0 px-3 py-3 space-y-3">
                   <div className="mb-2.5 flex items-center justify-between text-[12px]">
                     <label htmlFor="images-overlay-every" className="text-muted-foreground">
                       Imagens como sobreposição a cada N cenas
@@ -324,6 +324,21 @@ export function AssemblySheet({
                   <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
                     Quando ambos estão ativos, imagens aparecem como sobreposição a cada {s.media.images_as_overlay_every} cenas de vídeo.
                   </p>
+                  
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <label className="text-[11px] font-medium text-foreground/85">Imagem favorita (opcional)</label>
+                    <select
+                      value={s.media.favorite_image_id || ''}
+                      onChange={(e) => setS((p) => ({ ...p, media: { ...p.media, favorite_image_id: e.target.value || null } }))}
+                      className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
+                    >
+                      <option value="">Todas as imagens (rodízio)</option>
+                      {/* TODO: populate with available images */}
+                    </select>
+                    <p className="text-[11px] text-muted-foreground">
+                      Deixe vazio para alternar entre todas as imagens, ou selecione uma favorita para usar sempre.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

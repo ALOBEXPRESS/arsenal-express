@@ -43,7 +43,10 @@ export interface Subproject {
   id: string
   name: string
   narration_track: NarrationSegment[]
+  /** Text/bar overlays (top layer) */
   overlays: OverlayClip[]
+  /** Image/video overlays (middle layer - between text overlays and main media) */
+  image_overlays: OverlayClip[]
   audio_clips: AudioClip[]
   adjustments: AdjustClip[]
 }

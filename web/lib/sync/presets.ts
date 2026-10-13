@@ -223,6 +223,8 @@ export interface SyncSettings {
     with_videos: boolean
     /** If both are enabled and images exist, place them as overlays every N scenes */
     images_as_overlay_every: number
+    /** Favorite image asset ID to use as overlay (instead of cycling through all images) */
+    favorite_image_id: string | null
   }
   /** Sound effects options */
   sfx: {
@@ -269,6 +271,7 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
     with_images: true,
     with_videos: true,
     images_as_overlay_every: 3,
+    favorite_image_id: null,
   },
   sfx: {
     enabled: false,
@@ -310,6 +313,7 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
       with_images: media.with_images ?? DEFAULT_SYNC_SETTINGS.media.with_images,
       with_videos: media.with_videos ?? DEFAULT_SYNC_SETTINGS.media.with_videos,
       images_as_overlay_every: Math.max(1, Math.min(10, media.images_as_overlay_every || DEFAULT_SYNC_SETTINGS.media.images_as_overlay_every)),
+      favorite_image_id: media.favorite_image_id ?? DEFAULT_SYNC_SETTINGS.media.favorite_image_id,
     },
     sfx: {
       enabled: sfx.enabled ?? DEFAULT_SYNC_SETTINGS.sfx.enabled,

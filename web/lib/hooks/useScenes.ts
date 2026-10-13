@@ -467,23 +467,35 @@ export function useAutoAssemble() {
         const covered = durations.reduce((a, b) => a + b, 0)
         
         // Add image overlays if both videos and images are enabled
-        const overlays: OverlayClip[] = []
+        const imageOverlays: OverlayClip[] = []
+        const textOverlays: OverlayClip[] = []
         const sfxClips: AudioClip[] = []
+        
         if (settings.media.with_videos && settings.media.with_images && overlayImages.length > 0) {
           const everyN = settings.media.images_as_overlay_every
           let imageIndex = 0
           let sceneStart = 0
           
+          // Use favorite image if selected, otherwise cycle through all images
+          const imagesToUse = settings.media.favorite_image_id 
+            ? overlayImages.filter(img => img.id === settings.media.favorite_image_id)
+            : overlayImages
+          
+          if (imagesToUse.length === 0 && settings.media.favorite_image_id) {
+            // Favorite not found, fallback to all images
+            imagesToUse.push(...overlayImages)
+          }
+          
           for (let i = 0; i < scenes.length; i++) {
             const sceneDur = durations[i]
             
             // Add image overlay every N scenes
-            if ((i + 1) % everyN === 0 && imageIndex < overlayImages.length) {
-              const image = overlayImages[imageIndex]
+            if ((i + 1) % everyN === 0 && imagesToUse.length > 0) {
+              const image = imagesToUse[imageIndex % imagesToUse.length]
               const overlayDur = Math.min(sceneDur, 5) // Max 5s overlay
               const overlayStart = sceneStart + (sceneDur - overlayDur) / 2 // Center in scene
               
-              overlays.push({
+              imageOverlays.push({
                 id: crypto.randomUUID(),
                 asset_id: image.id,
                 kind: 'image',
@@ -512,7 +524,7 @@ export function useAutoAssemble() {
                 })
               }
               
-              imageIndex = (imageIndex + 1) % overlayImages.length // Cycle through images
+              imageIndex++
             }
             
             sceneStart += sceneDur
@@ -528,7 +540,7 @@ export function useAutoAssemble() {
             
             // Add top bar if position is 'top' or 'both'
             if (settings.overlay_bars.position === 'top' || settings.overlay_bars.position === 'both') {
-              overlays.push({
+              textOverlays.push({
                 id: crypto.randomUUID(),
                 asset_id: 'text-bar-top',
                 kind: 'text',
@@ -559,7 +571,7 @@ export function useAutoAssemble() {
             
             // Add bottom bar if position is 'bottom' or 'both'
             if (settings.overlay_bars.position === 'bottom' || settings.overlay_bars.position === 'both') {
-              overlays.push({
+              textOverlays.push({
                 id: crypto.randomUUID(),
                 asset_id: 'text-bar-bottom',
                 kind: 'text',
@@ -593,8 +605,8 @@ export function useAutoAssemble() {
         }
         
         const sub: Subproject = mode === 'scenes' 
-          ? { ...target.sub, overlays, audio_clips: sfxClips } 
-          : { ...target.sub, narration_track: track, overlays, audio_clips: sfxClips }
+          ? { ...target.sub, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: sfxClips } 
+          : { ...target.sub, narration_track: track, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: sfxClips }
         built.push({
           sub,
           scenes,

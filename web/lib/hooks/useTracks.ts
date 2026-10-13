@@ -79,6 +79,10 @@ export function useTracks(projectId: string, subId: string) {
         commit((s) => ({ overlays: s.overlays.map((o) => (o.id === id ? { ...o, ...patch } : o)) })),
       addOverlay: (clip: OverlayClip) => commit((s) => ({ overlays: [...s.overlays, clip] })),
       removeOverlay: (id: string) => commit((s) => ({ overlays: s.overlays.filter((o) => o.id !== id) })),
+      updateImageOverlay: (id: string, patch: Partial<OverlayClip>) =>
+        commit((s) => ({ image_overlays: s.image_overlays.map((o) => (o.id === id ? { ...o, ...patch } : o)) })),
+      addImageOverlay: (clip: OverlayClip) => commit((s) => ({ image_overlays: [...s.image_overlays, clip] })),
+      removeImageOverlay: (id: string) => commit((s) => ({ image_overlays: s.image_overlays.filter((o) => o.id !== id) })),
       updateAudio: (id: string, patch: Partial<AudioClip>) =>
         commit((s) => ({ audio_clips: s.audio_clips.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
       addAudio: (clip: AudioClip) => commit((s) => ({ audio_clips: [...s.audio_clips, clip] })),
@@ -144,6 +148,7 @@ export function useTracks(projectId: string, subId: string) {
     subprojects,
     sub,
     overlays: sub.overlays,
+    imageOverlays: sub.image_overlays,
     audioClips: sub.audio_clips,
     adjustments: sub.adjustments,
     narrationTrack: sub.narration_track,

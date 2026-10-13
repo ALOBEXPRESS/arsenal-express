@@ -10,7 +10,7 @@ export const MAIN_SUB = 'main'
 export const subName = (index: number) => `Subprojeto ${index + 1}`
 
 export function emptySub(id: string, index: number): Subproject {
-  return { id, name: subName(index), narration_track: [], overlays: [], audio_clips: [], adjustments: [] }
+  return { id, name: subName(index), narration_track: [], overlays: [], image_overlays: [], audio_clips: [], adjustments: [] }
 }
 
 export function getSubprojects(settings?: Partial<ProjectSettings> | null): Subproject[] {
@@ -21,6 +21,7 @@ export function getSubprojects(settings?: Partial<ProjectSettings> | null): Subp
       name: s.name || subName(i),
       narration_track: s.narration_track || [],
       overlays: s.overlays || [],
+      image_overlays: s.image_overlays || [],
       audio_clips: s.audio_clips || [],
       adjustments: s.adjustments || [],
     }))
@@ -31,6 +32,7 @@ export function getSubprojects(settings?: Partial<ProjectSettings> | null): Subp
       name: subName(0),
       narration_track: settings?.narration_track || [],
       overlays: settings?.overlays || [],
+      image_overlays: [],
       audio_clips: settings?.audio_clips || [],
       adjustments: [],
     },
