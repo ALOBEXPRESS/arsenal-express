@@ -471,7 +471,7 @@ export function AssemblySheet({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-medium text-foreground/85">Asset's Favoritos</label>
+                <label className="text-[11px] font-medium text-foreground/85">Vídeos Favoritos</label>
                 {s.overlay_bars.favorite_video_id && (
                   <span className="rounded border border-primary/50 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary">
                     Ativa
@@ -493,7 +493,36 @@ export function AssemblySheet({
               <p className="text-[11px] text-muted-foreground">
                 {s.overlay_bars.favorite_video_id 
                   ? "Vídeo aparece como overlay em todas cenas."
-                  : "Usa imagens como overlay (se configurado)."
+                  : "Selecione um vídeo favorito para usar como fundo das barras."
+                }
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-medium text-foreground/85">Imagens Favoritas</label>
+                {s.overlay_bars.favorite_image_id && (
+                  <span className="rounded border border-primary/50 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary">
+                    Ativa
+                  </span>
+                )}
+              </div>
+              <select
+                value={s.overlay_bars.favorite_image_id || ''}
+                onChange={(e) => setS((p) => ({ ...p, overlay_bars: { ...p.overlay_bars, favorite_image_id: e.target.value || null } }))}
+                className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
+              >
+                <option value="">Nenhuma imagem overlay</option>
+                {images.filter(img => img.is_favorite).map((img) => (
+                  <option key={img.id} value={img.id}>
+                    {img.filename}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                {s.overlay_bars.favorite_image_id 
+                  ? "Imagem aparece como overlay em todas cenas."
+                  : "Selecione uma imagem favorita para usar como overlay."
                 }
               </p>
             </div>

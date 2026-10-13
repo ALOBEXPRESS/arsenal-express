@@ -250,6 +250,8 @@ export interface SyncSettings {
     height_override: number
     /** Favorite video asset ID for overlays */
     favorite_video_id: string | null
+    /** Favorite image asset ID for overlays */
+    favorite_image_id: string | null
   }
   animation: {
     enabled: boolean
@@ -294,6 +296,7 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
     position: 'both',
     height_override: 0,
     favorite_video_id: null,
+    favorite_image_id: null,
   },
   animation: {
     enabled: false,
