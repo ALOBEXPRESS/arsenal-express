@@ -1104,7 +1104,43 @@ export function Timeline({
                   })}
                 </div>
 
-                {/* Overlay lane (text bars) */}
+                {/* Overlay lane (text bars) - track "Sobrepor" */}
+                <div
+                  className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
+                  onDragOver={laneDragOver('overlay')}
+                  onDragLeave={laneDragLeave}
+                  onDrop={laneDrop('overlay')}
+                >
+                  {imageOverlays.length === 0 && !dragAsset && (
+                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
+                      Arraste uma imagem ou vídeo aqui pra sobrepor
+                    </span>
+                  )}
+                  {imageOverlays.map((o) => {
+                    const a = assetById.get(o.asset_id)
+                    return (
+                      <LaneClip
+                        key={o.id}
+                        id={o.id}
+                        start={o.start}
+                        duration={o.duration}
+                        pps={scale}
+                        tone="overlay"
+                        thumb={(a?.metadata?.thumbnail as string | undefined) || (a?.type === 'image' ? a.url : undefined)}
+                        label={a?.filename.replace(/\.[^.]+$/, '') || 'mídia removida'}
+                        meta={`${Math.round(o.opacity * 100)}% · ${o.scale.toFixed(2)}×`}
+                        selected={isSelected('overlay', o.id)}
+                        maxDuration={o.kind === 'video' ? sourceMax(o.asset_id, o.speed) : undefined}
+                        snapTo={snapWithPlayhead()}
+                        onSelect={() => select({ kind: 'overlay', id: o.id })}
+                        onCommit={(p) => tracks.updateImageOverlay(o.id, p)}
+                      />
+                    )
+                  })}
+                  {dropHint?.lane === 'overlay' && <DropMarker x={dropHint.time * scale} />}
+                </div>
+
+                {/* Text overlay bars lane - track "Overlays" */}
                 <div
                   className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
                   onDragOver={laneDragOver('overlay')}
@@ -1135,42 +1171,6 @@ export function Timeline({
                         snapTo={snapWithPlayhead()}
                         onSelect={() => select({ kind: 'overlay', id: o.id })}
                         onCommit={(p) => tracks.updateOverlay(o.id, p)}
-                      />
-                    )
-                  })}
-                  {dropHint?.lane === 'overlay' && <DropMarker x={dropHint.time * scale} />}
-                </div>
-
-                {/* Image overlays lane */}
-                <div
-                  className={cn(laneClass('overlay'), 'mt-1 h-8 shrink-0')}
-                  onDragOver={laneDragOver('overlay')}
-                  onDragLeave={laneDragLeave}
-                  onDrop={laneDrop('overlay')}
-                >
-                  {imageOverlays.length === 0 && !dragAsset && (
-                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60">
-                      Arraste uma imagem ou vídeo aqui pra sobrepor
-                    </span>
-                  )}
-                  {imageOverlays.map((o) => {
-                    const a = assetById.get(o.asset_id)
-                    return (
-                      <LaneClip
-                        key={o.id}
-                        id={o.id}
-                        start={o.start}
-                        duration={o.duration}
-                        pps={scale}
-                        tone="overlay"
-                        thumb={(a?.metadata?.thumbnail as string | undefined) || (a?.type === 'image' ? a.url : undefined)}
-                        label={a?.filename.replace(/\.[^.]+$/, '') || 'mídia removida'}
-                        meta={`${Math.round(o.opacity * 100)}% · ${o.scale.toFixed(2)}×`}
-                        selected={isSelected('overlay', o.id)}
-                        maxDuration={o.kind === 'video' ? sourceMax(o.asset_id, o.speed) : undefined}
-                        snapTo={snapWithPlayhead()}
-                        onSelect={() => select({ kind: 'overlay', id: o.id })}
-                        onCommit={(p) => tracks.updateImageOverlay(o.id, p)}
                       />
                     )
                   })}
