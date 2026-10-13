@@ -555,10 +555,18 @@ export function useAutoAssemble() {
         if (settings.overlay_bars.enabled) {
           let sceneStart = 0
           
-          // Check if there's a favorite video for overlays
+          // Check if there's a favorite video for overlays (search in all video assets)
           const favoriteVideo = settings.overlay_bars.favorite_video_id 
-            ? videos.find(v => v.id === settings.overlay_bars.favorite_video_id)
+            ? videoClips.find(v => v.id === settings.overlay_bars.favorite_video_id)
             : null
+          
+          console.log('[Overlay Bars]', {
+            enabled: settings.overlay_bars.enabled,
+            favorite_video_id: settings.overlay_bars.favorite_video_id,
+            favoriteVideo: favoriteVideo?.filename,
+            videoClipsCount: videoClips.length,
+            position: settings.overlay_bars.position
+          })
           
           for (let i = 0; i < scenes.length; i++) {
             const sceneDur = durations[i]
