@@ -422,46 +422,42 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 transition: isResizing ? 'none' : 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
-              {/* Inspector panel that overlays downward */}
+              {/* Inspector panel that overlays downward when expanded */}
               <aside
                 ref={inspectorRef}
-                className="overflow-y-auto relative z-20 bg-surface-1"
+                className={cn(
+                  "overflow-y-auto bg-surface-1",
+                  inspectorCollapsed ? "relative z-10" : "absolute top-0 left-0 right-0 z-50 shadow-2xl"
+                )}
                 style={{ 
-                  height: inspectorCollapsed ? '48px' : `${inspectorHeight}px`,
+                  height: inspectorCollapsed ? `${inspectorHeight}px` : 'calc(100vh - 64px - 100px)',
                   transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
                 aria-label="Propriedades do clipe"
               >
-                <div 
-                  style={{
-                    opacity: inspectorCollapsed ? 0 : 1,
-                    transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    pointerEvents: inspectorCollapsed ? 'none' : 'auto'
+                <Inspector
+                  projectId={id}
+                  scenes={subScenes}
+                  assets={assets || []}
+                  narrationTrack={narrationTrack}
+                  tracks={tracks}
+                  onEditScene={(scene) => {
+                    setEditingScene(scene)
+                    setShowSceneEditor(true)
                   }}
-                >
-                  <Inspector
-                    projectId={id}
-                    scenes={subScenes}
-                    assets={assets || []}
-                    narrationTrack={narrationTrack}
-                    tracks={tracks}
-                    onEditScene={(scene) => {
-                      setEditingScene(scene)
-                      setShowSceneEditor(true)
-                    }}
-                  />
-                </div>
+                />
               </aside>
               
               {/* Collapse/Expand button */}
               <button
                 onClick={() => setInspectorCollapsed(!inspectorCollapsed)}
                 className={cn(
-                  "group relative flex h-10 w-full items-center justify-center border-t border-border bg-surface-2 transition-colors hover:bg-surface-3 z-20",
-                  "cursor-pointer shrink-0"
+                  "group relative flex h-10 w-full items-center justify-center border-t border-border bg-surface-2 transition-colors hover:bg-surface-3 shrink-0",
+                  "cursor-pointer",
+                  inspectorCollapsed ? "mt-0" : "absolute top-[calc(100vh-64px-100px)] left-0 right-0 z-50 shadow-lg"
                 )}
-                title={inspectorCollapsed ? "Expandir propriedades" : "Recolher propriedades"}
-                aria-label={inspectorCollapsed ? "Expandir propriedades" : "Recolher propriedades"}
+                title={inspectorCollapsed ? "Expandir propriedades para baixo" : "Recolher propriedades"}
+                aria-label={inspectorCollapsed ? "Expandir propriedades para baixo" : "Recolher propriedades"}
               >
                 <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-muted-foreground/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                 {inspectorCollapsed ? (
@@ -471,8 +467,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 )}
               </button>
 
-              {/* Filler space below button (grows when Inspector collapses) */}
-              <div className="flex-1 bg-surface-0/50"></div>
+              {/* Filler space below Inspector when collapsed */}
+              {inspectorCollapsed && <div className="flex-1 bg-surface-0/50"></div>}
             </div>
           </div>
 
