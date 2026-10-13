@@ -81,11 +81,11 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
               aria-selected={activeTab === t.id}
               onClick={() => setActiveTab(t.id)}
               className={cn(
-                'flex-1 cursor-pointer rounded-md px-1.5 py-1 text-[11px] transition-colors duration-200',
+                'flex-1 cursor-pointer rounded-md px-1 py-1 text-[11px] transition-colors duration-200 min-w-0',
                 activeTab === t.id ? 'bg-surface-3 text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              {t.label} <span className="font-mono text-[10px] opacity-70">{t.n}</span>
+              <span className="block truncate">{t.label} <span className="font-mono text-[10px] opacity-70">{t.n}</span></span>
             </button>
           ))}
         </div>
