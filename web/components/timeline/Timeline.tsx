@@ -188,7 +188,7 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       {/* filmstrip */}
       <div
         className="absolute inset-0 bg-track-video"
-        style={thumb ? { backgroundImage: `url(${thumb})`, backgroundSize: 'auto 100%', backgroundRepeat: 'repeat-x' } : undefined}
+        style={thumb ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' } : undefined}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40" />
 
@@ -380,7 +380,7 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, lab
       {thumb && (
         <div
           className="pointer-events-none absolute inset-0 opacity-60"
-          style={{ backgroundImage: `url(${thumb})`, backgroundSize: 'auto 100%', backgroundRepeat: 'repeat-x' }}
+          style={{ backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         />
       )}
       {tone === 'audio' && <Waveform seed={id} width={width} className="bg-express/80" />}
