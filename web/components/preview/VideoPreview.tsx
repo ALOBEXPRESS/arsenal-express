@@ -438,6 +438,25 @@ export function VideoPreview({
   }
   const overlayTransform = (o: { x: number; y: number; scale: number }) =>
     `translate3d(${((o.x * stage.w) / 2).toFixed(2)}px, ${((-o.y * stage.h) / 2).toFixed(2)}px, 0) scale(${o.scale.toFixed(4)})`
+  
+  const overlayFilter = (o: OverlayClip) => {
+    const filters: string[] = []
+    if (o.brightness && o.brightness !== 0) filters.push(`brightness(${100 + o.brightness}%)`)
+    if (o.contrast && o.contrast !== 0) filters.push(`contrast(${100 + o.contrast}%)`)
+    if (o.saturation && o.saturation !== 0) filters.push(`saturate(${100 + o.saturation}%)`)
+    return filters.length > 0 ? filters.join(' ') : undefined
+  }
+  
+  const overlayMixBlendMode = (o: OverlayClip): React.CSSProperties['mixBlendMode'] => {
+    const mode = o.blend_mode || 'normal'
+    // CSS mix-blend-mode values
+    const validModes: React.CSSProperties['mixBlendMode'][] = [
+      'normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 
+      'color-dodge', 'color-burn', 'hard-light', 'soft-light', 
+      'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'
+    ]
+    return validModes.includes(mode as any) ? (mode as React.CSSProperties['mixBlendMode']) : 'normal'
+  }
 
   if (!hasContent) {
     return (
@@ -618,6 +637,8 @@ export function VideoPreview({
                   opacity: o.opacity,
                   transform: overlayTransform(o),
                   visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
+                  filter: overlayFilter(o),
+                  mixBlendMode: overlayMixBlendMode(o),
                 }}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => {
@@ -698,6 +719,8 @@ export function VideoPreview({
                   opacity: o.opacity,
                   transform: overlayTransform(o),
                   visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
+                  filter: overlayFilter(o),
+                  mixBlendMode: overlayMixBlendMode(o),
                 }}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => {
