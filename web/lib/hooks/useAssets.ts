@@ -322,3 +322,133 @@ function detectSubtype(file: File): string {
   
   return 'unknown'
 }
+
+// Regenerate thumbnail for an existing asset
+export function useRegenerateThumbnail() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (asset: Asset) => {
+      // Download the asset file from storage
+      const { data: blob, error } = await supabase.storage.from('media').download(asset.storage_path)
+      if (error || !blob) throw error || new Error(`Failed to download ${asset.filename}`)
+
+      // Generate thumbnail based on type
+      let thumbnail: string | undefined
+      if (asset.type === 'video') {
+        thumbnail = await generateVideoThumbnail(blob)
+      } else if (asset.type === 'image') {
+        thumbnail = await generateImageThumbnail(blob)
+      } else {
+        throw new Error(`Cannot generate thumbnail for type: ${asset.type}`)
+      }
+
+      if (!thumbnail) throw new Error('Failed to generate thumbnail')
+
+      // Update asset metadata with new thumbnail
+      const { data, error: updateError } = await supabase
+        .from('assets')
+        .update({
+          metadata: {
+            ...(asset.metadata || {}),
+            thumbnail,
+          },
+        })
+        .eq('id', asset.id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      return data as Asset
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['assets', data.project_id] })
+    },
+  })
+}
+
+// Batch regenerate thumbnails for all assets without them in a project
+export function useBatchRegenerateThumbnails() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ projectId, onProgress }: { projectId: string; onProgress?: (current: number, total: number) => void }) => {
+      // Get all video/image assets without thumbnails
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('project_id', projectId)
+        .in('kind', ['video', 'image'])
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      const assetsToFix = (assets || []).filter((a) => {
+        const meta = a.metadata as Record<string, unknown> | null
+        return !meta?.thumbnail
+      })
+
+      if (assetsToFix.length === 0) {
+        return { fixed: 0, total: 0, skipped: 0 }
+      }
+
+      let fixed = 0
+      let skipped = 0
+
+      for (let i = 0; i < assetsToFix.length; i++) {
+        const asset = assetsToFix[i]
+        onProgress?.(i + 1, assetsToFix.length)
+
+        try {
+          // Download the file
+          const { data: blob, error: downloadError } = await supabase.storage.from('media').download(asset.storage_path)
+          if (downloadError || !blob) {
+            console.warn(`[batch regen] Skip ${asset.filename}: download failed`, downloadError)
+            skipped++
+            continue
+          }
+
+          // Generate thumbnail
+          let thumbnail: string | undefined
+          if (asset.kind === 'video') {
+            thumbnail = await generateVideoThumbnail(blob)
+          } else if (asset.kind === 'image') {
+            thumbnail = await generateImageThumbnail(blob)
+          }
+
+          if (!thumbnail) {
+            console.warn(`[batch regen] Skip ${asset.filename}: thumbnail generation failed`)
+            skipped++
+            continue
+          }
+
+          // Update metadata
+          const { error: updateError } = await supabase
+            .from('assets')
+            .update({
+              metadata: {
+                ...(asset.metadata || {}),
+                thumbnail,
+              },
+            })
+            .eq('id', asset.id)
+
+          if (updateError) {
+            console.warn(`[batch regen] Skip ${asset.filename}: update failed`, updateError)
+            skipped++
+            continue
+          }
+
+          fixed++
+        } catch (err) {
+          console.warn(`[batch regen] Skip ${asset.filename}:`, err)
+          skipped++
+        }
+      }
+
+      return { fixed, total: assetsToFix.length, skipped }
+    },
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: ['assets', projectId] })
+    },
+  })
+}
