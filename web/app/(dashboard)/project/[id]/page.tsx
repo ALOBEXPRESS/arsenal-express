@@ -346,6 +346,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                   assets={assets || []}
                   narrationTrack={narrationTrack}
                   overlays={tracks.overlays}
+                  imageOverlays={tracks.imageOverlays}
                   audioClips={tracks.audioClips}
                   adjustments={tracks.adjustments}
                   transitionDuration={syncSettings.transition.duration}

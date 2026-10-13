@@ -26,6 +26,7 @@ interface VideoPreviewProps {
   assets: Asset[]
   narrationTrack?: NarrationSegment[]
   overlays?: OverlayClip[]
+  imageOverlays?: OverlayClip[]
   audioClips?: AudioClip[]
   /** adjustment layers (filters) applied over the main track + overlays */
   adjustments?: AdjustClip[]
@@ -97,6 +98,7 @@ export function VideoPreview({
   assets,
   narrationTrack = [],
   overlays = [],
+  imageOverlays = [],
   audioClips = [],
   adjustments = [],
   seekRequest,
@@ -117,11 +119,12 @@ export function VideoPreview({
       Math.max(
         totalDuration(timeline),
         ...overlays.map((o) => o.start + o.duration),
+        ...imageOverlays.map((o) => o.start + o.duration),
         ...audioClips.map((a) => a.start + a.duration),
         ...narrationTrack.map((n) => n.start + n.duration),
         0
       ),
-    [timeline, overlays, audioClips, narrationTrack]
+    [timeline, overlays, imageOverlays, audioClips, narrationTrack]
   )
 
   const sceneEnd = totalDuration(timeline)
@@ -219,8 +222,23 @@ export function VideoPreview({
         syncMedia(el, item.trim + since * item.rate, item.rate, playing, visible, clipDur > 0 ? clipDur - 0.05 : Infinity)
       })
 
-      // Overlays: visibility per frame + video sync
+      // Overlays: visibility per frame + video sync (text bars)
       for (const o of overlays) {
+        const host = overlayEls.current.get(o.id)
+        if (!host) continue
+        const active = t >= o.start && t < o.start + o.duration
+        host.style.visibility = active ? 'visible' : 'hidden'
+        const v = host.querySelector('video')
+        if (v) {
+          const a = assetById.get(o.asset_id)
+          v.volume = Math.min(1, Math.max(0, o.volume ?? 1))
+          const end = a?.duration ? a.duration - 0.05 : Infinity
+          syncMedia(v, (o.in_point || 0) + (t - o.start) * (o.speed || 1), o.speed || 1, playing, active, end)
+        }
+      }
+
+      // Image overlays: visibility per frame + video sync
+      for (const o of imageOverlays) {
         const host = overlayEls.current.get(o.id)
         if (!host) continue
         const active = t >= o.start && t < o.start + o.duration
@@ -501,7 +519,7 @@ export function VideoPreview({
             />
           )}
 
-          {/* Overlay layers (Sobreposição) — later clips on top */}
+          {/* Overlay layers (Sobreposição) — text bars on top */}
           {overlays.map((o, i) => {
             // Text overlay bars (no asset needed)
             if (o.kind === 'text') {
@@ -563,6 +581,86 @@ export function VideoPreview({
                 className={cn('absolute touch-none', onOverlayChange && 'cursor-move')}
                 style={{
                   zIndex: 10 + i,
+                  width: f.w,
+                  height: f.h,
+                  left: (stage.w - f.w) / 2,
+                  top: (stage.h - f.h) / 2,
+                  opacity: o.opacity,
+                  transform: overlayTransform(o),
+                  visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  onSelectOverlay?.(o.id)
+                  if (!onOverlayChange) return
+                  e.currentTarget.setPointerCapture(e.pointerId)
+                  dragRef.current = { id: o.id, px: e.clientX, py: e.clientY, x: o.x, y: o.y, moved: false }
+                }}
+                onPointerMove={(e) => {
+                  const d = dragRef.current
+                  if (!d || d.id !== o.id || !stage.w) return
+                  const nx = d.x + ((e.clientX - d.px) * 2) / stage.w
+                  const ny = d.y - ((e.clientY - d.py) * 2) / stage.h
+                  d.moved = true
+                  e.currentTarget.style.transform = overlayTransform({ x: nx, y: ny, scale: o.scale })
+                  e.currentTarget.dataset.nx = String(nx)
+                  e.currentTarget.dataset.ny = String(ny)
+                }}
+                onPointerUp={(e) => {
+                  const d = dragRef.current
+                  dragRef.current = null
+                  if (!d?.moved) return
+                  const round = (v: number) => Math.round(v * 1000) / 1000
+                  onOverlayChange?.(o.id, { x: round(Number(e.currentTarget.dataset.nx)), y: round(Number(e.currentTarget.dataset.ny)) })
+                }}
+              >
+                {a.type === 'video' ? (
+                  <video
+                    src={a.url || undefined}
+                    preload="auto"
+                    playsInline
+                    onLoadedMetadata={(e) => {
+                      const v = e.currentTarget
+                      if (v.videoWidth) setNatural((p) => ({ ...p, [o.id]: { w: v.videoWidth, h: v.videoHeight } }))
+                    }}
+                    className="pointer-events-none h-full w-full object-contain"
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={a.url}
+                    alt={a.filename}
+                    draggable={false}
+                    onLoad={(e) => {
+                      const img = e.currentTarget
+                      if (img.naturalWidth) setNatural((p) => ({ ...p, [o.id]: { w: img.naturalWidth, h: img.naturalHeight } }))
+                    }}
+                    className="pointer-events-none h-full w-full select-none object-contain"
+                  />
+                )}
+                {selected && <span className="pointer-events-none absolute inset-0 outline outline-2 outline-offset-0 outline-brand-cyan" aria-hidden />}
+              </div>
+            )
+          })}
+
+          {/* Image overlay layers (middle layer - below text overlays) */}
+          {imageOverlays.map((o, i) => {
+            const a = assetById.get(o.asset_id)
+            if (!a) return null
+            const f = fitted(o)
+            const selected = o.id === selectedOverlayId
+            return (
+              <div
+                key={o.id}
+                ref={(el) => {
+                  if (el) overlayEls.current.set(o.id, el)
+                  else overlayEls.current.delete(o.id)
+                }}
+                data-overlay={o.id}
+                className={cn('absolute touch-none', onOverlayChange && 'cursor-move')}
+                style={{
+                  zIndex: 5 + i,
                   width: f.w,
                   height: f.h,
                   left: (stage.w - f.w) / 2,
