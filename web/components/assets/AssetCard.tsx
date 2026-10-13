@@ -1,11 +1,13 @@
 'use client'
 
 import { useRef } from 'react'
-import { AudioLines, Clapperboard, Image as ImageIcon, Trash2 } from 'lucide-react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic } from 'lucide-react'
 import type { Asset } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
 import { confirmDialog } from '@/components/ui/confirm'
 import { useDragAsset, ASSET_MIME } from '@/lib/stores/drag'
+import { useUpdateAsset } from '@/lib/hooks/useAssets'
+import { toast } from 'sonner'
 
 interface AssetCardProps {
   asset: Asset
@@ -20,6 +22,7 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
   const thumb = asset.metadata?.thumbnail as string | undefined
   const Icon = ICONS[asset.type] || Clapperboard
   const setDragAsset = useDragAsset((s) => s.setAsset)
+  const updateAsset = useUpdateAsset()
 
   return (
     <div
@@ -86,6 +89,30 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
       </div>
 
       <p className="truncate px-2 py-1.5 text-[11px] text-foreground/85">{asset.filename}</p>
+
+      {asset.type === 'audio' && (
+        <div className="mx-2 mb-2 flex items-center gap-1.5 rounded-md border border-border bg-surface-0 px-2 py-1">
+          <input
+            type="checkbox"
+            checked={asset.is_narration || false}
+            onChange={(e) => {
+              e.stopPropagation()
+              updateAsset.mutate(
+                { id: asset.id, patch: { is_narration: e.target.checked } },
+                {
+                  onSuccess: () => toast.success(e.target.checked ? 'Marcado como narração' : 'Desmarcado como narração'),
+                  onError: (err) => toast.error('Falha ao atualizar', { description: (err as Error).message }),
+                }
+              )
+            }}
+            className="h-3.5 w-3.5 cursor-pointer rounded border-border accent-primary"
+            id={`narration-${asset.id}`}
+          />
+          <label htmlFor={`narration-${asset.id}`} className="flex cursor-pointer items-center gap-1 text-[10px] text-muted-foreground">
+            <Mic className="h-3 w-3" aria-hidden /> Narração
+          </label>
+        </div>
+      )}
 
       {onDelete && (
         <button

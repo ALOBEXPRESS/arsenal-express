@@ -262,3 +262,26 @@ async function generateImageThumbnail(file: File): Promise<string | undefined> {
     img.src = URL.createObjectURL(file)
   })
 }
+
+// Update asset metadata
+export function useUpdateAsset() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<Asset> }) => {
+      const { data, error } = await supabase
+        .from('assets')
+        .update(patch)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_, { id }) => {
+      // Invalidate all asset queries that might contain this asset
+      queryClient.invalidateQueries({ queryKey: ['assets'] })
+    },
+  })
+}

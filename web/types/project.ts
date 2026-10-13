@@ -151,6 +151,8 @@ export interface Asset {
   duration?: number | null
   duration_seconds?: number | null
   file_size_bytes?: number | null
+  /** For audio assets: true = narration track, false/undefined = music/SFX track */
+  is_narration?: boolean
   metadata?: Record<string, any> | null
   created_at: string
 }

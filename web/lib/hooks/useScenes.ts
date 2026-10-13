@@ -364,14 +364,17 @@ export function useAutoAssemble() {
       // (two parts of the same narration often have the same length and size).
       const skippedDuplicateAudios: string[] = []
       const narration: Asset[] = []
+      const musicAudios: Asset[] = [] // Non-narration audio → audio track
       if (mode === 'scenes_with_audio') {
-        const audios = sortByModificationDate(assets.filter((a) => a.type === 'audio'))
-        if (audios.length === 0) throw new Error('Nenhum áudio de narração encontrado.')
-        if (audios.some((a) => !a.duration)) throw new Error('Algum áudio está sem duração. Remova e faça upload novamente.')
+        const allAudios = sortByModificationDate(assets.filter((a) => a.type === 'audio'))
+        const narrationAudios = allAudios.filter((a) => a.is_narration)
+        musicAudios.push(...allAudios.filter((a) => !a.is_narration))
+        if (narrationAudios.length === 0) throw new Error('Nenhum áudio de narração encontrado. Marque áudios como narração na biblioteca.')
+        if (narrationAudios.some((a) => !a.duration)) throw new Error('Algum áudio está sem duração. Remova e faça upload novamente.')
         const sameShape = new Map<string, number>()
-        audios.forEach((a) => sameShape.set(`${a.file_size_bytes}-${a.duration}`, (sameShape.get(`${a.file_size_bytes}-${a.duration}`) || 0) + 1))
+        narrationAudios.forEach((a) => sameShape.set(`${a.file_size_bytes}-${a.duration}`, (sameShape.get(`${a.file_size_bytes}-${a.duration}`) || 0) + 1))
         const hashes = new Set<string>()
-        for (const audio of audios) {
+        for (const audio of narrationAudios) {
           if ((sameShape.get(`${audio.file_size_bytes}-${audio.duration}`) || 0) > 1) {
             onStatus?.(`Comparando ${audio.filename}...`)
             const h = await sha256(await download(audio))
@@ -470,6 +473,16 @@ export function useAutoAssemble() {
         const imageOverlays: OverlayClip[] = []
         const textOverlays: OverlayClip[] = []
         const sfxClips: AudioClip[] = []
+        
+        // Add music/audio clips for non-narration audio (goes to Audio track)
+        const musicClips: AudioClip[] = musicAudios.map((audio, idx) => ({
+          id: crypto.randomUUID(),
+          asset_id: audio.id,
+          start: 0, // User can reposition in timeline
+          duration: audio.duration || 0,
+          volume: 0.3, // Lower volume for background music
+          speed: 1,
+        }))
         
         if (settings.media.with_videos && settings.media.with_images && overlayImages.length > 0) {
           const everyN = settings.media.images_as_overlay_every
@@ -605,8 +618,8 @@ export function useAutoAssemble() {
         }
         
         const sub: Subproject = mode === 'scenes' 
-          ? { ...target.sub, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: sfxClips } 
-          : { ...target.sub, narration_track: track, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: sfxClips }
+          ? { ...target.sub, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] } 
+          : { ...target.sub, narration_track: track, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] }
         built.push({
           sub,
           scenes,

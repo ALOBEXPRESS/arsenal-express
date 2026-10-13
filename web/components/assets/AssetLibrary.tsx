@@ -17,7 +17,7 @@ interface AssetLibraryProps {
 
 const UPLOAD_COPY: Record<AssetType, { title: string; text: string }> = {
   video: { title: 'Clipes de vídeo', text: 'Selecione vários de uma vez. A ordem na timeline segue a data de modificação.' },
-  audio: { title: 'Narração', text: 'Um ou mais áudios. Partes da narração são unidas na ordem de modificação.' },
+  audio: { title: 'Áudio', text: 'Um ou mais áudios. Marque como narração se for narração de fato.' },
   image: { title: 'Imagens', text: 'Fotos ou artes pra cenas estáticas (com animação de câmera).' },
 }
 
@@ -41,7 +41,7 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
 
   const uploads: { type: AssetType; label: string; icon: React.ReactNode }[] = [
     { type: 'video', label: 'Clipes', icon: <Clapperboard className="h-4 w-4" /> },
-    { type: 'audio', label: 'Narração', icon: <AudioLines className="h-4 w-4" /> },
+    { type: 'audio', label: 'Áudio', icon: <AudioLines className="h-4 w-4" /> },
     { type: 'image', label: 'Imagem', icon: <ImageIcon className="h-4 w-4" /> },
   ]
 
