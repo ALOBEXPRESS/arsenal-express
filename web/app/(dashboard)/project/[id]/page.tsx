@@ -354,6 +354,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                   selectedOverlayId={selection?.kind === 'overlay' ? selection.id : null}
                   onSelectOverlay={(oid) => select({ kind: 'overlay', id: oid })}
                   onOverlayChange={tracks.updateOverlay}
+                  overlayBarHeight={syncSettings.overlay_bars.height_override}
                 />
               </div>
             </div>
