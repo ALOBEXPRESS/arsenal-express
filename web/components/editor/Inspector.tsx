@@ -304,7 +304,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
       <div className="flex h-full flex-col">
         <Header
           icon={o.kind === 'text' ? <ImageIcon className="h-4 w-4" /> : o.kind === 'video' ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-          eyebrow={`${isImageOverlay ? 'Overlay' : 'Sobrepor'} · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}${groupedOverlay ? ' · AGRUPADO' : ''}`}
+          eyebrow={`${isImageOverlay ? 'Overlay' : 'Sobrepor'} · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}`}
           title={o.kind === 'text' ? 'Barra de texto' : (a?.filename || 'Mídia removida')}
           onDelete={remove}
         />
