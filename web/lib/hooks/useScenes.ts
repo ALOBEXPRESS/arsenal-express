@@ -564,18 +564,13 @@ export function useAutoAssemble() {
             ? assets.find(a => a.id === settings.overlay_bars.favorite_image_id)
             : null
           
-          const favoriteVideo = settings.overlay_bars.favorite_video_id 
-            ? assets.find(a => a.id === settings.overlay_bars.favorite_video_id)
-            : null
-          
-          // Use first available: asset > image > video
-          const overlayAsset = favoriteAsset || favoriteImage || favoriteVideo
+          // Use only asset or image (NOT video)
+          const overlayAsset = favoriteAsset || favoriteImage
           
           console.log('[Overlay Bars]', {
             enabled: settings.overlay_bars.enabled,
             favorite_asset_id: settings.overlay_bars.favorite_asset_id,
             favorite_image_id: settings.overlay_bars.favorite_image_id,
-            favorite_video_id: settings.overlay_bars.favorite_video_id,
             overlayAsset: overlayAsset?.filename,
             position: settings.overlay_bars.position
           })
@@ -585,22 +580,22 @@ export function useAutoAssemble() {
               const sceneDur = durations[i]
               
               // Determine Y position based on setting
-              let yPos = 0 // Center
+              // Y position: 0.75 for top, -0.75 for bottom, 0 for both/center
+              let yPos = 0 // Center (both)
               if (settings.overlay_bars.position === 'top') {
-                yPos = 0.85 // Near top
+                yPos = 0.75 // Top
               } else if (settings.overlay_bars.position === 'bottom') {
-                yPos = -0.85 // Near bottom
+                yPos = -0.75 // Bottom
               }
-              // If 'both', keep centered (yPos = 0)
               
-              // Add single overlay per scene
+              // Add single overlay per scene with full width (scale 1.0)
               overlays.push({
                 id: crypto.randomUUID(),
                 asset_id: overlayAsset.id,
                 kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
                 start: sceneStart,
                 duration: sceneDur,
-                scale: 0.25, // 25% do tamanho
+                scale: 1.0, // 100% - largura total
                 x: 0, // Centralizado horizontalmente
                 y: yPos,
                 opacity: 1,
