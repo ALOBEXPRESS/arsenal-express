@@ -1129,7 +1129,7 @@ export function Timeline({
                         tone="overlay"
                         thumb={!isTextBar && a ? ((a?.metadata?.thumbnail as string | undefined) || (a?.type === 'image' ? a.url : undefined)) : undefined}
                         label={isTextBar ? (o.text_content || 'Texto') : (a?.filename.replace(/\.[^.]+$/, '') || 'mídia removida')}
-                        meta={isTextBar ? undefined : `${Math.round(o.opacity * 100)}% · ${o.scale.toFixed(2)}×`}
+                        meta={isTextBar ? '' : `${Math.round(o.opacity * 100)}% · ${o.scale.toFixed(2)}×`}
                         selected={isSelected('overlay', o.id)}
                         maxDuration={o.kind === 'video' ? sourceMax(o.asset_id, o.speed) : undefined}
                         snapTo={snapWithPlayhead()}
