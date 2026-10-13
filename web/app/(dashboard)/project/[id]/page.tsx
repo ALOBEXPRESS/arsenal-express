@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, SlidersHorizontal, FolderDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, SlidersHorizontal, FolderDown, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProject } from '@/lib/hooks/useProjects'
 import {
@@ -78,6 +78,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [inspectorHeight, setInspectorHeight] = useState(400) // Initial height in pixels
   const [isResizing, setIsResizing] = useState(false)
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false) // New state for Inspector collapse
   const sidebarRef = useRef<HTMLElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const inspectorRef = useRef<HTMLDivElement>(null)
@@ -424,8 +425,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               <aside
                 ref={inspectorRef}
                 className="overflow-y-auto"
-                style={{ height: `${inspectorHeight}px` }}
+                style={{ 
+                  height: inspectorCollapsed ? '0px' : `${inspectorHeight}px`,
+                  transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  opacity: inspectorCollapsed ? 0 : 1
+                }}
                 aria-label="Propriedades do clipe"
+                aria-hidden={inspectorCollapsed}
               >
                 <Inspector
                   projectId={id}
@@ -440,25 +446,23 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 />
               </aside>
               
-              {/* Resize handle */}
-              <div
-                onMouseDown={handleResizeStart}
+              {/* Collapse/Expand button */}
+              <button
+                onClick={() => setInspectorCollapsed(!inspectorCollapsed)}
                 className={cn(
-                  "group relative flex h-2 w-full cursor-ns-resize items-center justify-center border-t border-border bg-surface-2 transition-colors hover:bg-surface-3",
-                  isResizing && "bg-brand-cyan/20"
+                  "group relative flex h-8 w-full items-center justify-center border-t border-border bg-surface-2 transition-colors hover:bg-surface-3",
+                  "cursor-pointer"
                 )}
-                title="Arraste para redimensionar"
+                title={inspectorCollapsed ? "Expandir propriedades" : "Recolher propriedades"}
+                aria-label={inspectorCollapsed ? "Expandir propriedades" : "Recolher propriedades"}
               >
                 <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-muted-foreground/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                <svg
-                  className="h-3 w-6 text-muted-foreground transition-colors group-hover:text-foreground"
-                  viewBox="0 0 24 12"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M3 4h18M3 8h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </div>
+                {inspectorCollapsed ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+                ) : (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+                )}
+              </button>
 
               {/* Preview area below inspector */}
               <div className="flex-1 overflow-hidden bg-surface-0/50" style={{ minHeight: '100px' }}>
@@ -467,7 +471,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             </div>
           </div>
 
-          <div className="h-[330px] flex-shrink-0 border-t border-border">
+          <div 
+            className="flex-shrink-0 border-t border-border"
+            style={{ 
+              height: inspectorCollapsed ? 'calc(100vh - 64px - 150px)' : '330px',
+              transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}
+          >
             <Timeline
               projectId={id}
               scenes={subScenes}
