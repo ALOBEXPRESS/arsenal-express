@@ -465,7 +465,7 @@ export function VideoPreview({
       {/* Monitor */}
       <div
         ref={monitorRef}
-        className="relative flex-1 cursor-pointer overflow-hidden rounded-xl border border-border bg-black"
+        className="relative flex-1 cursor-pointer overflow-hidden rounded-xl border border-border"
         onClick={togglePlay}
       >
         {/* Stage = the actual output frame (9:16, 16:9…). Clips fill it (cover) and animations
