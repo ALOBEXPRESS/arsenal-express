@@ -388,9 +388,10 @@ async function renderFrame(
   const transform = calculateTransform(scene, sceneTime, width, height, asset.metadata?.width, asset.metadata?.height)
 
   ctx.save()
-  ctx.translate(transform.x, transform.y)
+  ctx.translate(transform.x + (transform.width * transform.scale) / 2, transform.y + (transform.height * transform.scale) / 2)
+  if (transform.rotation) ctx.rotate((transform.rotation * Math.PI) / 180)
   ctx.scale(transform.scale, transform.scale)
-  ctx.drawImage(media, 0, 0, transform.width, transform.height)
+  ctx.drawImage(media, -transform.width / 2, -transform.height / 2, transform.width, transform.height)
   ctx.restore()
 
   // Draw overlays (images, videos, text)
@@ -497,30 +498,41 @@ function calculateTransform(
   canvasH: number,
   srcW = 1920,
   srcH = 1080
-): { x: number; y: number; scale: number; width: number; height: number } {
+): { x: number; y: number; scale: number; width: number; height: number; rotation: number } {
   // Simple zoom animation as an example
   const progress = scene.duration > 0 ? sceneTime / scene.duration : 0
   const baseScale = Math.max(canvasW / srcW, canvasH / srcH)
 
-  let scale = baseScale
-  let x = (canvasW - srcW * scale) / 2
-  let y = (canvasH - srcH * scale) / 2
+  let animScale = 1
+  let animX = 0
 
   // Apply animation type
   switch (scene.scene.animation_type) {
     case 'zoom_suave':
-      scale = baseScale * (1 + progress * 0.1)
+      animScale = 1 + progress * 0.1
       break
     case 'zoom_out':
-      scale = baseScale * (1.1 - progress * 0.1)
+      animScale = 1.1 - progress * 0.1
       break
     case 'pan':
-      x += progress * canvasW * 0.1
+      animX = progress * 0.1 // fraction of half-canvas
       break
     // Add more animation types as needed
   }
 
-  return { x, y, scale, width: srcW, height: srcH }
+  // Read manual transform from scene metadata
+  const meta = (scene.scene.metadata || {}) as Record<string, unknown>
+  const manualScale = typeof meta.scale === 'number' ? meta.scale : 1
+  const manualX = typeof meta.x === 'number' ? meta.x : 0
+  const manualY = typeof meta.y === 'number' ? meta.y : 0
+  const manualRotation = typeof meta.rotation === 'number' ? meta.rotation : 0
+
+  // Merge: manual scale multiplies animation scale, manual X/Y adds to animation X
+  const finalScale = baseScale * manualScale * animScale
+  const x = (canvasW - srcW * finalScale) / 2 + (manualX + animX) * (canvasW / 2)
+  const y = (canvasH - srcH * finalScale) / 2 - manualY * (canvasH / 2)
+
+  return { x, y, scale: finalScale, width: srcW, height: srcH, rotation: manualRotation }
 }
 
 /**

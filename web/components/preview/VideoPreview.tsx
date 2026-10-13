@@ -215,12 +215,19 @@ export function VideoPreview({
         // Clip animation: pose computed from the master clock and written straight to the
         // compositor-friendly transform (no React render, no WAAPI restart at the cut)
         const since = t - item.start
-        const pose = animationPose(item.scene.animation_type, since, item.duration, sceneProps(item.scene).anim)
-        host.style.transform = poseToTransform(pose)
+        const animPose = animationPose(item.scene.animation_type, since, item.duration, sceneProps(item.scene).anim)
+        const props = sceneProps(item.scene)
+        // Merge manual transform (scale/x/y/rotation) with animation pose
+        const finalPose = {
+          scale: (props.scale ?? 1) * animPose.scale,
+          x: (props.x ?? 0) + animPose.x,
+          y: props.y,
+          rotation: props.rotation,
+        }
+        host.style.transform = poseToTransform(finalPose)
 
         const el = host.querySelector('video')
         if (!el) return
-        const props = sceneProps(item.scene)
         el.volume = Math.min(1, props.volume ?? (narrationActive ? CLIP_VOLUME_UNDER_NARRATION : 1))
         const clipDur = item.videoAsset?.duration || (Number.isFinite(el.duration) ? el.duration : 0)
         const visible = t < sceneEnd && (k === idx || (transitioning && k === idx - 1))

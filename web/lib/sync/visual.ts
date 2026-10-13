@@ -13,9 +13,13 @@ export function animationPose(
   return poseWithParams(preset, local, duration, params)
 }
 
-export function poseToTransform(p: { scale: number; x: number }, extraScale = 1) {
+export function poseToTransform(p: { scale: number; x: number; y?: number; rotation?: number }, extraScale = 1) {
   // translate3d + rounded scale → composited on the GPU, no sub-pixel shimmer
-  return `translate3d(${(p.x * 50).toFixed(3)}%, 0, 0) scale(${(p.scale * extraScale).toFixed(4)})`
+  const y = p.y !== undefined ? p.y : 0
+  const rot = p.rotation !== undefined ? p.rotation : 0
+  const translateY = y !== 0 ? `, ${(y * 50).toFixed(3)}%` : ''
+  const rotate = rot !== 0 ? ` rotate(${rot}deg)` : ''
+  return `translate3d(${(p.x * 50).toFixed(3)}%${translateY}, 0) scale(${(p.scale * extraScale).toFixed(4)})${rotate}`
 }
 
 /** Incoming/outgoing layer treatment during a transition (p: 0→1) */
