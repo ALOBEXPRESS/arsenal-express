@@ -38,9 +38,10 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
   const srcHeight = Number(firstAsset?.metadata?.height) || 1080
   const isVertical = srcHeight > srcWidth
 
-  const defaultPreset: PresetKey = isVertical ? 'shorts' : '1080p'
+  // Auto-select output format based on source orientation
+  const autoPreset: PresetKey = isVertical ? 'shorts' : '1080p'
 
-  const [preset, setPreset] = useState<PresetKey>(defaultPreset)
+  const [preset, setPreset] = useState<PresetKey>(autoPreset)
   const [rendering, setRendering] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -112,42 +113,61 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-        <SheetTitle className="flex items-center gap-2">
-          <Video className="h-5 w-5" />
-          Renderizar e Exportar
-        </SheetTitle>
-        <SheetDescription>Gera um arquivo MP4 pronto pra usar, com áudio e efeitos aplicados.</SheetDescription>
+        {/* Header */}
+        <div className="space-y-2">
+          <SheetTitle className="flex items-center gap-2 font-display text-xl">
+            <Video className="h-5 w-5" />
+            Renderizar e Exportar
+          </SheetTitle>
+          <SheetDescription>
+            Gera um arquivo MP4 pronto pra usar, com áudio e efeitos aplicados.
+          </SheetDescription>
+        </div>
 
-        <div className="mt-6 space-y-4">
+        <div className="mt-8 space-y-6">
           {/* Source format indicator */}
-          <div className="rounded-lg border border-border bg-surface-2/50 p-3">
-            <p className="text-xs text-muted-foreground">Formato detectado dos clipes</p>
-            <p className="font-mono text-sm font-semibold">
-              {srcWidth}×{srcHeight} {isVertical ? '(Vertical)' : '(Horizontal)'}
+          <div className="rounded-lg border border-border bg-surface-2/50 p-4">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Formato detectado dos clipes
+            </p>
+            <p className="font-mono text-lg font-semibold text-foreground">
+              {srcWidth}×{srcHeight}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {isVertical ? 'Vertical (9:16)' : 'Horizontal (16:9)'}
             </p>
           </div>
 
-          <div>
-            <Label>Qualidade / Formato de Saída</Label>
+          {/* Output quality selector */}
+          <div className="space-y-2">
+            <Label htmlFor="quality-select" className="text-sm font-medium">
+              Qualidade / Formato de Saída
+            </Label>
             <Select value={preset} onValueChange={(v: string) => setPreset(v as PresetKey)} disabled={rendering}>
-              <SelectTrigger>
+              <SelectTrigger id="quality-select" className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(PRESETS).map(([key, val]) => (
-                  <SelectItem key={key} value={key}>
-                    {val.label} — {val.width}×{val.height} @ {val.fps}fps
+                  <SelectItem key={key} value={key} className="py-3">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium">{val.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {val.width}×{val.height} @ {val.fps}fps
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {isVertical
-                ? 'Recomendado: Shorts/Reels para vídeos verticais'
-                : 'Recomendado: 1080p ou 720p para vídeos horizontais'}
+                ? '✓ Formato automático: Shorts/Reels para vídeos verticais'
+                : '✓ Formato automático: 1080p para vídeos horizontais'}
             </p>
           </div>
 
+          {/* Error alert */}
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -155,22 +175,24 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
             </Alert>
           )}
 
+          {/* Progress indicator */}
           {rendering && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Renderizando...</span>
-                <span>{progress}%</span>
+            <div className="space-y-3 rounded-lg border border-border bg-surface-2/30 p-4">
+              <div className="flex items-center justify-between text-sm font-medium">
+                <span className="text-foreground">Renderizando...</span>
+                <span className="tabular-nums text-primary">{progress}%</span>
               </div>
-              <Progress value={progress} />
+              <Progress value={progress} className="h-2" />
             </div>
           )}
 
+          {/* Success alert */}
           {resultUrl && (
-            <Alert>
-              <Download className="h-4 w-4" />
-              <AlertDescription>
-                Vídeo pronto! O download começou automaticamente.{' '}
-                <a href={resultUrl} download className="underline">
+            <Alert className="border-green-500/50 bg-green-500/10">
+              <Download className="h-4 w-4 text-green-500" />
+              <AlertDescription className="text-foreground">
+                ✓ Vídeo pronto! O download começou automaticamente.{' '}
+                <a href={resultUrl} download className="font-medium underline hover:text-primary">
                   Clique aqui se não iniciou
                 </a>
                 .
@@ -178,9 +200,19 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
             </Alert>
           )}
 
-          <Button onClick={handleRender} disabled={rendering} className="w-full">
-            {rendering ? <Loader2 className="animate-spin" /> : <Video />}
-            {rendering ? 'Renderizando...' : 'Renderizar e Baixar'}
+          {/* Render button */}
+          <Button onClick={handleRender} disabled={rendering} className="h-12 w-full text-base font-medium">
+            {rendering ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Renderizando...
+              </>
+            ) : (
+              <>
+                <Video className="mr-2 h-4 w-4" />
+                Renderizar e Baixar
+              </>
+            )}
           </Button>
         </div>
       </SheetContent>
