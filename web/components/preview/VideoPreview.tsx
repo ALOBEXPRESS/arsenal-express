@@ -674,7 +674,7 @@ export function VideoPreview({
             )
           })}
 
-          {/* Image overlay layers (middle layer - below text overlays) */}
+          {/* Image overlay layers (on top of text bars) */}
           {imageOverlays.map((o, i) => {
             const a = assetById.get(o.asset_id)
             if (!a) return null
@@ -690,7 +690,7 @@ export function VideoPreview({
                 data-overlay={o.id}
                 className={cn('absolute touch-none', onOverlayChange && 'cursor-move')}
                 style={{
-                  zIndex: 5 + i,
+                  zIndex: 20 + i,
                   width: f.w,
                   height: f.h,
                   left: (stage.w - f.w) / 2,
