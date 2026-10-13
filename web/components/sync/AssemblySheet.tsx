@@ -162,10 +162,16 @@ export function AssemblySheet({
 
   const images = useMemo(() => assets.filter((a) => a.type === 'image'), [assets])
   const videos = useMemo(() => {
-    const favorited = assets.filter((a) => a.type === 'video' && a.is_favorite)
+    // Include both type='video' and type='asset' that are actually videos
+    const favorited = assets.filter((a) => {
+      const isVideo = a.type === 'video' || (a.type === 'asset' && a.kind === 'video')
+      return isVideo && a.is_favorite
+    })
     console.log('[AssemblySheet] Favorited videos:', favorited.map(v => ({
       id: v.id,
       filename: v.filename,
+      type: v.type,
+      kind: v.kind,
       is_favorite: v.is_favorite
     })))
     return favorited

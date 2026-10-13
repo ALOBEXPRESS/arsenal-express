@@ -420,10 +420,16 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
                       className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
                     >
                       {(() => {
-                        const favorited = assets.filter(a => a.type === 'video' && a.is_favorite)
+                        // Include both type='video' and type='asset' that are actually videos
+                        const favorited = assets.filter(a => {
+                          const isVideo = a.type === 'video' || (a.type === 'asset' && a.kind === 'video')
+                          return isVideo && a.is_favorite
+                        })
                         console.log('[Inspector] Favorited videos:', favorited.map(v => ({
                           id: v.id,
                           filename: v.filename,
+                          type: v.type,
+                          kind: v.kind,
                           is_favorite: v.is_favorite
                         })))
                         return favorited.map((asset) => (
