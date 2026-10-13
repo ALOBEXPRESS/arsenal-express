@@ -495,7 +495,7 @@ export function VideoPreview({
                 <div ref={hostRefs[slot]} data-scene={k ?? ''} data-anim-host className="absolute inset-0 will-change-transform">
                   {still ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={still.url} alt={still.filename} className="absolute inset-0 h-full w-full object-cover" />
+                    <img src={still.url} alt={still.filename} className="absolute inset-0 h-full w-full object-contain" />
                   ) : (
                     <video
                       src={item?.videoAsset?.url || undefined}
@@ -506,7 +506,7 @@ export function VideoPreview({
                         const v = e.currentTarget
                         if (v.videoWidth && v.videoHeight) setProbedVertical(v.videoHeight > v.videoWidth)
                       }}
-                      className="absolute inset-0 h-full w-full object-cover"
+                      className="absolute inset-0 h-full w-full object-contain"
                     />
                   )}
                 </div>
