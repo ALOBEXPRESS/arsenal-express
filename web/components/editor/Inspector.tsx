@@ -264,11 +264,39 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     if (!o) return null
     const a = assetById.get(o.asset_id)
     const isImageOverlay = tracks.imageOverlays.some((x) => x.id === selection.id)
-    const set = (patch: Partial<typeof o>) => 
-      isImageOverlay ? tracks.updateImageOverlay(o.id, patch) : tracks.updateOverlay(o.id, patch)
+    
+    // Detect grouped overlays (same asset, same duration, same scale, different Y)
+    const targetList = isImageOverlay ? tracks.imageOverlays : tracks.overlays
+    const groupedOverlay = targetList.find(
+      (x) => 
+        x.id !== o.id && 
+        x.asset_id === o.asset_id && 
+        Math.abs(x.duration - o.duration) < 0.01 &&
+        Math.abs(x.scale - o.scale) < 0.01 &&
+        x.start === o.start &&
+        x.x === o.x
+    )
+    
+    const set = (patch: Partial<typeof o>) => {
+      // Update primary overlay
+      if (isImageOverlay) tracks.updateImageOverlay(o.id, patch)
+      else tracks.updateOverlay(o.id, patch)
+      
+      // If grouped, update the sibling overlay (except Y position)
+      if (groupedOverlay && patch.y === undefined) {
+        if (isImageOverlay) tracks.updateImageOverlay(groupedOverlay.id, patch)
+        else tracks.updateOverlay(groupedOverlay.id, patch)
+      }
+    }
+    
     const remove = () => {
-      if (isImageOverlay) tracks.removeImageOverlay(o.id)
-      else tracks.removeOverlay(o.id)
+      if (isImageOverlay) {
+        tracks.removeImageOverlay(o.id)
+        if (groupedOverlay) tracks.removeImageOverlay(groupedOverlay.id)
+      } else {
+        tracks.removeOverlay(o.id)
+        if (groupedOverlay) tracks.removeOverlay(groupedOverlay.id)
+      }
       select(null)
     }
     const maxDur = o.kind === 'video' && a?.duration ? a.duration / (o.speed || 1) : undefined
@@ -276,7 +304,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
       <div className="flex h-full flex-col">
         <Header
           icon={o.kind === 'text' ? <ImageIcon className="h-4 w-4" /> : o.kind === 'video' ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-          eyebrow={`${isImageOverlay ? 'Overlay' : 'Sobrepor'} · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}`}
+          eyebrow={`${isImageOverlay ? 'Overlay' : 'Sobrepor'} · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}${groupedOverlay ? ' · AGRUPADO' : ''}`}
           title={o.kind === 'text' ? 'Barra de texto' : (a?.filename || 'Mídia removida')}
           onDelete={remove}
         />

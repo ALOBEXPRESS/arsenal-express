@@ -578,29 +578,29 @@ export function useAutoAssemble() {
             const totalDuration = durations.reduce((sum, dur) => sum + dur, 0)
             
             // Determine positions based on setting
-            const positions: number[] = []
+            const positions: { y: number, scale: number }[] = []
             
             if (settings.overlay_bars.position === 'top') {
-              positions.push(-1.2) // Topo: 60% (invertido no CapCut)
+              positions.push({ y: -0.75, scale: 1.0 }) // Topo
             } else if (settings.overlay_bars.position === 'bottom') {
-              positions.push(1.2) // Rodapé: -60% (invertido no CapCut)
+              positions.push({ y: 0.75, scale: 1.0 }) // Rodapé
             } else {
               // Ambos: duplicar - uma no topo e outra no rodapé
-              positions.push(-1.2)  // Topo
-              positions.push(1.2) // Rodapé
+              positions.push({ y: -0.75, scale: 1.0 })  // Topo
+              positions.push({ y: 0.75, scale: 1.0 }) // Rodapé
             }
             
             // Create ONE overlay per position that spans all scenes
-            for (const yPos of positions) {
+            for (const pos of positions) {
               overlays.push({
                 id: crypto.randomUUID(),
                 asset_id: overlayAsset.id,
                 kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
                 start: 0,
                 duration: totalDuration,
-                scale: 0.25, // 25% - barra horizontal
+                scale: pos.scale,
                 x: 0, // Centralizado horizontalmente
-                y: yPos,
+                y: pos.y,
                 opacity: 1,
                 speed: 1,
                 volume: 0, // Muted
