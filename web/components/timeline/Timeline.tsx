@@ -1204,12 +1204,12 @@ export function Timeline({
                 <span className="font-medium">Texto</span>
               </div>
               <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
-                <Layers className="h-3.5 w-3.5 text-blue-400" aria-hidden /> 
-                <span className="font-medium">Overlays</span>
-              </div>
-              <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Layers className="h-3.5 w-3.5 text-violet-400" aria-hidden /> 
                 <span className="font-medium">Sobrepor</span>
+              </div>
+              <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+                <Layers className="h-3.5 w-3.5 text-blue-400" aria-hidden /> 
+                <span className="font-medium">Overlays</span>
               </div>
               <div className="flex flex-1 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Clapperboard className="h-3.5 w-3.5 text-blue-500" aria-hidden /> 
@@ -1341,7 +1341,7 @@ export function Timeline({
                   {dropHint?.lane === 'overlay' && <DropMarker x={dropHint.time * scale} />}
                 </div>
 
-                {/* Image/video overlay lane (from assembly - imageOverlays) */}
+                {/* Sobrepor lane (from assembly - imageOverlays) */}
                 <div
                   className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('overlay')}
@@ -1377,7 +1377,7 @@ export function Timeline({
                   {dropHint?.lane === 'overlay' && <DropMarker x={dropHint.time * scale} />}
                 </div>
 
-                {/* Manual overlay lane (Sobrepor - user dragged) */}
+                {/* Overlays lane (manual - user dragged) */}
                 <div
                   className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('overlay')}
@@ -1386,7 +1386,7 @@ export function Timeline({
                 >
                   {overlays.filter(o => o.kind !== 'text').length === 0 && !dragAsset && (
                     <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 italic">
-                      Arraste uma imagem ou vídeo aqui pra sobrepor
+                      Arraste uma imagem ou vídeo aqui pra sobrepor manualmente
                     </span>
                   )}
                   {overlays.filter(o => o.kind !== 'text').map((o) => {
