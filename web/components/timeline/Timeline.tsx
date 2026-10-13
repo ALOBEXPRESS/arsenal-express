@@ -805,6 +805,38 @@ export function Timeline({
     toast.success('Camada de ajuste adicionada', { description: `${look.label} · escolha outro filtro no painel à direita.` })
   }
 
+  const addTextOverlay = () => {
+    const at = Math.min(usePlayhead.getState().time, Math.max(0, total - 0.5))
+    const end = sceneEnd > at + 1 ? sceneEnd : at + 3
+    const clip: OverlayClip = {
+      id: newClipId(),
+      kind: 'text',
+      asset_id: '',
+      start: Math.round(at * 1000) / 1000,
+      duration: Math.round(Math.max(1, end - at) * 1000) / 1000,
+      opacity: 1,
+      x: 0,
+      y: -1.2, // bottom (CapCut units)
+      scale: 1,
+      speed: 1,
+      volume: 1,
+      text_content: 'Novo texto',
+      text_style: {
+        font_family: 'Arial',
+        font_size: 24,
+        font_weight: 'bold',
+        color: '#FFFFFF',
+        alignment: 'center',
+        background_color: '#000000',
+        background_opacity: 0.8,
+        padding: 12,
+      },
+    }
+    tracks.addOverlay(clip)
+    select({ kind: 'overlay', id: clip.id })
+    toast.success('Camada de texto adicionada', { description: 'Edite o texto no painel à direita.' })
+  }
+
   const appendNarration = (asset: Asset) => {
     if (!asset.duration) {
       toast.error('Áudio sem duração', { description: 'Remova e faça upload novamente.' })
@@ -1202,6 +1234,15 @@ export function Timeline({
               <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Type className="h-3.5 w-3.5 text-amber-400" aria-hidden /> 
                 <span className="font-medium">Texto</span>
+                <button
+                  type="button"
+                  onClick={addTextOverlay}
+                  aria-label="Adicionar camada de texto"
+                  title="Adicionar camada de texto no ponto da agulha"
+                  className="ml-auto flex h-5 w-5 cursor-pointer items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-all hover:border-amber-400/60 hover:bg-amber-400/10 hover:text-amber-400"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
               </div>
               <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Layers className="h-3.5 w-3.5 text-violet-400" aria-hidden /> 
