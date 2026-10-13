@@ -145,15 +145,49 @@ interface ClipBlockProps {
   onDelete: () => void
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
+  onTrim: (newDuration: number) => void
 }
 
-function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, onDelete, onDragStart, onDragEnd }: ClipBlockProps) {
+function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, onDelete, onDragStart, onDragEnd, onTrim }: ClipBlockProps) {
   const media: Asset | undefined = item.videoAsset || item.imageAsset
   const thumb = (media?.metadata?.thumbnail as string | undefined) || (item.imageAsset ? item.imageAsset.url : undefined)
   const width = Math.max(item.duration * pps, 6)
   const anim = ANIMATION_BY_ID.get(normalizeAnimation(item.scene.animation_type) as never)
   const name = media?.filename.replace(/\.[^.]+$/, '') || item.scene.narration_text
   const compact = width < 90
+  const [draft, setDraft] = useState<number | null>(null)
+  const d = draft ?? item.duration
+
+  const beginTrim = (e: React.PointerEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const x0 = e.clientX
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture(e.pointerId)
+    let latest = item.duration
+    const move = (ev: PointerEvent) => {
+      const dt = (ev.clientX - x0) / pps
+      let nd = Math.max(0.2, item.duration + dt)
+      // Limit to source duration if video
+      const sourceDur = media?.duration
+      if (sourceDur && media?.type === 'video') {
+        const rate = item.rate || 1
+        nd = Math.min(nd, sourceDur / rate)
+      }
+      latest = Math.round(nd * 1000) / 1000
+      setDraft(latest)
+    }
+    const up = () => {
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+      setDraft(null)
+      if (latest !== item.duration) onTrim(latest)
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+  }
 
   return (
     <div
@@ -183,7 +217,7 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
         selected ? 'z-10 border-brand-cyan ring-1 ring-brand-cyan' : active ? 'z-10 border-primary ring-1 ring-primary' : 'border-white/10 hover:border-white/40',
         dragging && 'opacity-40'
       )}
-      style={{ left: item.start * pps, width: width - 2 }}
+      style={{ left: item.start * pps, width: d * pps - 2 }}
     >
       {/* filmstrip */}
       <div
@@ -251,11 +285,7 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       <span
         className="absolute inset-y-0 right-0 w-3 cursor-ew-resize bg-white/0 transition-colors hover:bg-white/30 active:bg-white/40"
         aria-label="Arraste para cortar"
-        onPointerDown={(e) => {
-          e.stopPropagation()
-          e.preventDefault()
-          // TODO: impl trim logic (needs onCommit prop like LaneClip)
-        }}
+        onPointerDown={beginTrim}
       />
     </div>
   )
@@ -1266,6 +1296,10 @@ export function Timeline({
                       onDragEnd={() => {
                         setDraggedScene(null)
                         setDropHint(null)
+                      }}
+                      onTrim={(newDuration) => {
+                        patchScene(item.scene.id, { audio_duration: newDuration })
+                        toast.success('Cena cortada', { description: `${newDuration.toFixed(2)}s` })
                       }}
                     />
                   ))}
