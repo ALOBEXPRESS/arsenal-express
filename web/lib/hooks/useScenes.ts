@@ -652,18 +652,19 @@ export function useAutoAssemble() {
                   animation_in: 'none',
                   animation_out: 'none',
                   animation_duration: 0,
-                text_content: 'TEXTO DO RODAPÉ',
-                text_style: {
-                  font_family: 'Arial',
-                  font_size: 16, // Even smaller for better fit
-                  font_weight: 'bold',
-                  color: '#FFFFFF',
-                  background_color: '#000000',
-                  background_opacity: 1,
-                  padding: 20, // More breathing room
-                  alignment: 'center',
-                },
-              })
+                  text_content: 'TEXTO DO RODAPÉ',
+                  text_style: {
+                    font_family: 'Arial',
+                    font_size: 16,
+                    font_weight: 'bold',
+                    color: '#FFFFFF',
+                    background_color: '#000000',
+                    background_opacity: 1,
+                    padding: 20,
+                    alignment: 'center',
+                  },
+                })
+              }
             }
             
             sceneStart += sceneDur
