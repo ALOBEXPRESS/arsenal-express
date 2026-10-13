@@ -215,6 +215,138 @@ async function preloadAssets(
 /**
  * Renders a single frame at the given time.
  */
+/**
+ * Maps CSS blend modes to canvas globalCompositeOperation values.
+ */
+function mapBlendModeToComposite(blendMode: string): GlobalCompositeOperation {
+  const map: Record<string, GlobalCompositeOperation> = {
+    normal: 'source-over',
+    multiply: 'multiply',
+    screen: 'screen',
+    overlay: 'overlay',
+    'soft-light': 'soft-light',
+    'hard-light': 'hard-light',
+    darken: 'darken',
+    lighten: 'lighten',
+    'color-dodge': 'color-dodge',
+    'color-burn': 'color-burn',
+    difference: 'difference',
+    exclusion: 'exclusion',
+    hue: 'hue',
+    saturation: 'saturation',
+    color: 'color',
+    luminosity: 'luminosity',
+  }
+  return map[blendMode] || 'source-over'
+}
+
+/**
+ * Applies brightness, contrast, and saturation filters to image data.
+ */
+function applyFiltersToImageData(
+  imageData: ImageData,
+  brightness: number,
+  contrast: number,
+  saturation: number
+): ImageData {
+  const data = imageData.data
+  const brightnessFactor = 1 + brightness / 100
+  const contrastFactor = 1 + contrast / 100
+  const contrastOffset = (1 - contrastFactor) * 128
+  const saturationFactor = 1 + saturation / 100
+
+  for (let i = 0; i < data.length; i += 4) {
+    let r = data[i]
+    let g = data[i + 1]
+    let b = data[i + 2]
+
+    // Apply brightness
+    r = Math.min(255, r * brightnessFactor)
+    g = Math.min(255, g * brightnessFactor)
+    b = Math.min(255, b * brightnessFactor)
+
+    // Apply contrast
+    r = Math.min(255, Math.max(0, r * contrastFactor + contrastOffset))
+    g = Math.min(255, Math.max(0, g * contrastFactor + contrastOffset))
+    b = Math.min(255, Math.max(0, b * contrastFactor + contrastOffset))
+
+    // Apply saturation (convert to HSL, adjust S, convert back to RGB)
+    if (saturationFactor !== 1) {
+      const max = Math.max(r, g, b) / 255
+      const min = Math.min(r, g, b) / 255
+      const l = (max + min) / 2
+      let s = max === min ? 0 : (max - min) / (l > 0.5 ? 2 - max - min : max + min)
+      s = Math.max(0, Math.min(1, s * saturationFactor))
+      const c = (1 - Math.abs(2 * l - 1)) * s
+      const x = c * (1 - (((l * 2) % 2) % 1 === 0 ? 1 : -1))
+      const m = l - c / 2
+      let [rp, gp, bp] = [0, 0, 0]
+      if (l < 0.33) {
+        [rp, gp, bp] = [c, x, 0]
+      } else if (l < 0.66) {
+        [rp, gp, bp] = [x, c, 0]
+      } else {
+        [rp, gp, bp] = [0, c, x]
+      }
+      r = Math.round((rp + m) * 255)
+      g = Math.round((gp + m) * 255)
+      b = Math.round((bp + m) * 255)
+    }
+
+    data[i] = r
+    data[i + 1] = g
+    data[i + 2] = b
+  }
+
+  return imageData
+}
+
+/**
+ * Draws an image with filters applied via canvas.filter or pixel manipulation.
+ */
+async function drawImageWithFilters(
+  ctx: OffscreenCanvasRenderingContext2D,
+  image: HTMLVideoElement | HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  brightness: number,
+  contrast: number,
+  saturation: number
+): Promise<void> {
+  // Try using canvas.filter first
+  if (brightness !== 0 || contrast !== 0 || saturation !== 0) {
+    const filters: string[] = []
+    if (brightness !== 0) filters.push(`brightness(${100 + brightness}%)`)
+    if (contrast !== 0) filters.push(`contrast(${100 + contrast}%)`)
+    if (saturation !== 0) filters.push(`saturate(${100 + saturation}%)`)
+    
+    if (filters.length > 0) {
+      try {
+        ctx.filter = filters.join(' ')
+        ctx.drawImage(image, x, y, width, height)
+        ctx.filter = 'none'
+        return
+      } catch (e) {
+        // Filter not supported, try pixel manipulation fallback
+        console.warn('Canvas filter not supported, using pixel manipulation:', e)
+      }
+    }
+  }
+
+  // Fallback: Draw to temporary canvas and apply filters via pixel manipulation
+  const tempCanvas = new OffscreenCanvas(width, height)
+  const tempCtx = tempCanvas.getContext('2d') as OffscreenCanvasRenderingContext2D
+  
+  tempCtx.drawImage(image, 0, 0, width, height)
+  const imageData = tempCtx.getImageData(0, 0, width, height)
+  const filtered = applyFiltersToImageData(imageData, brightness, contrast, saturation)
+  tempCtx.putImageData(filtered, 0, 0)
+  
+  ctx.drawImage(tempCanvas, x, y, width, height)
+}
+
 async function renderFrame(
   ctx: OffscreenCanvasRenderingContext2D,
   input: RenderInput,
@@ -328,12 +460,27 @@ async function renderFrame(
       const overlayW = (overlayAsset.width || width) * overlay.scale
       const overlayH = (overlayAsset.height || height) * overlay.scale
       
-      ctx.drawImage(
+      // Apply blend mode (must be set before drawing)
+      const blendMode = overlay.blend_mode || 'normal'
+      if (blendMode !== 'normal') {
+        ctx.globalCompositeOperation = mapBlendModeToComposite(blendMode)
+      }
+      
+      // Apply color filters using canvas filter property
+      const brightness = overlay.brightness ?? 0
+      const contrast = overlay.contrast ?? 0
+      const saturation = overlay.saturation ?? 0
+      
+      await drawImageWithFilters(
+        ctx,
         overlayAsset,
         overlayX - overlayW / 2,
         overlayY - overlayH / 2,
         overlayW,
-        overlayH
+        overlayH,
+        brightness,
+        contrast,
+        saturation
       )
       ctx.restore()
     }

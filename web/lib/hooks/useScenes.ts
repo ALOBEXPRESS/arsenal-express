@@ -553,27 +553,19 @@ export function useAutoAssemble() {
         
         // Add overlay from favorite assets if enabled
         if (settings.overlay_bars.enabled) {
-          // Check for favorite assets in priority order: asset > image > video
+          // Check for favorite asset
           const favoriteAsset = settings.overlay_bars.favorite_asset_id 
             ? assets.find(a => a.id === settings.overlay_bars.favorite_asset_id)
             : null
-            
-          const favoriteImage = settings.overlay_bars.favorite_image_id 
-            ? assets.find(a => a.id === settings.overlay_bars.favorite_image_id)
-            : null
-          
-          // Use only asset or image (NOT video)
-          const overlayAsset = favoriteAsset || favoriteImage
           
           console.log('[Overlay Bars]', {
             enabled: settings.overlay_bars.enabled,
             favorite_asset_id: settings.overlay_bars.favorite_asset_id,
-            favorite_image_id: settings.overlay_bars.favorite_image_id,
-            overlayAsset: overlayAsset?.filename,
+            overlayAsset: favoriteAsset?.filename,
             position: settings.overlay_bars.position
           })
           
-          if (overlayAsset) {
+          if (favoriteAsset) {
             // Calculate total duration across all scenes
             const totalDuration = durations.reduce((sum, dur) => sum + dur, 0)
             
@@ -594,8 +586,8 @@ export function useAutoAssemble() {
             for (const pos of positions) {
               overlays.push({
                 id: crypto.randomUUID(),
-                asset_id: overlayAsset.id,
-                kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
+                asset_id: favoriteAsset.id,
+                kind: favoriteAsset.type === 'video' || (favoriteAsset.type === 'asset' && favoriteAsset.kind === 'video') ? 'video' : 'image',
                 start: 0,
                 duration: totalDuration,
                 scale: pos.scale,

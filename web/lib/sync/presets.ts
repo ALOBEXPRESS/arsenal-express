@@ -248,11 +248,7 @@ export interface SyncSettings {
     position: 'top' | 'bottom' | 'both'
     /** Manual height override (0 = auto 8%) */
     height_override: number
-    /** Favorite video asset ID for overlays */
-    favorite_video_id: string | null
-    /** Favorite image asset ID for overlays */
-    favorite_image_id: string | null
-    /** Favorite asset ID for overlays (GIF, sticker, etc) */
+    /** Favorite asset ID for overlays (images, videos, GIFs, stickers, etc) */
     favorite_asset_id: string | null
   }
   animation: {
@@ -297,8 +293,6 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
     enabled: false,
     position: 'both',
     height_override: 0,
-    favorite_video_id: null,
-    favorite_image_id: null,
     favorite_asset_id: null,
   },
   animation: {
@@ -348,8 +342,6 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
       enabled: overlay_bars.enabled ?? DEFAULT_SYNC_SETTINGS.overlay_bars.enabled,
       position: ['top', 'bottom', 'both'].includes(overlay_bars.position as string) ? (overlay_bars.position as 'top' | 'bottom' | 'both') : DEFAULT_SYNC_SETTINGS.overlay_bars.position,
       height_override: Math.max(0, Math.min(200, Number(overlay_bars.height_override) || 0)),
-      favorite_video_id: overlay_bars.favorite_video_id ?? DEFAULT_SYNC_SETTINGS.overlay_bars.favorite_video_id,
-      favorite_image_id: overlay_bars.favorite_image_id ?? DEFAULT_SYNC_SETTINGS.overlay_bars.favorite_image_id,
       favorite_asset_id: overlay_bars.favorite_asset_id ?? DEFAULT_SYNC_SETTINGS.overlay_bars.favorite_asset_id,
     },
     animation: { ...animation, flow: normFlow(animation.flow), params: normalizeParams(animation.params) },
