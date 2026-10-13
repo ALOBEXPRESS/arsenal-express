@@ -21,7 +21,7 @@ import {
   SlidersVertical,
   X,
   Scissors,
-  ImageIcon,
+  Type,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
