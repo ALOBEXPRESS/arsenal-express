@@ -156,6 +156,8 @@ export interface Asset {
   file_size_bytes?: number | null
   /** For audio assets: true = narration track, false/undefined = music/SFX track */
   is_narration?: boolean
+  /** For video/image assets: marks asset as favorite for quick access in overlays */
+  is_favorite?: boolean
   /** For 'asset' type: subtype classification (gif, mov, lottie, sticker-*) */
   subtype?: AssetSubtype
   metadata?: Record<string, any> | null
