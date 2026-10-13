@@ -409,6 +409,33 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
               <Group title="Aparência">
                 <PropSlider label="Opacidade" value={o.opacity} min={0} max={1} step={0.01} format={pct} onChange={(v) => set({ opacity: v })} onReset={o.opacity !== 1 ? () => set({ opacity: 1 }) : undefined} />
               </Group>
+
+              {o.kind === 'video' && (
+                <Group title="Vídeo">
+                  <PropSlider 
+                    label="Volume" 
+                    value={o.volume} 
+                    min={0} 
+                    max={2} 
+                    step={0.05} 
+                    format={pct} 
+                    onChange={(v) => set({ volume: v })} 
+                    onReset={o.volume !== 0 ? () => set({ volume: 0 }) : undefined}
+                    hint={o.volume === 0 ? "Silenciado (padrão para overlays)" : o.volume > 1 ? "Amplificado" : "Normal"}
+                  />
+                  <PropSlider 
+                    label="Velocidade" 
+                    value={o.speed} 
+                    min={0.25} 
+                    max={4} 
+                    step={0.05} 
+                    format={times} 
+                    onChange={(v) => set({ speed: v })} 
+                    onReset={o.speed !== 1 ? () => set({ speed: 1 }) : undefined}
+                    hint={maxDur ? `Duração máxima: ${maxDur.toFixed(1)}s` : undefined}
+                  />
+                </Group>
+              )}
             </>
           )}
 
