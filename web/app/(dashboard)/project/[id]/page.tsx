@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState, useEffect, useMemo, useCallback } from 'react'
+import { use, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, SlidersHorizontal, FolderDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
