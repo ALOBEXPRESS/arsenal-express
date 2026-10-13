@@ -438,6 +438,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         thumbs={thumbs}
         hasScenes={timeline.length > 0}
         audioCount={audioCount}
+        assets={assets || []}
         busy={busy || saveSettings.isPending}
         status={status}
         onSave={async (s) => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split, Film, Volume2, RectangleHorizontal } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { AnimationTile, TransitionTile, ModeSwitch, FlowPicker } from './EffectTiles'
 import { AnimationParamsControls } from '@/components/editor/PropControls'
+import type { Asset } from '@/types/project'
 import {
   ANIMATIONS,
   TRANSITIONS,
@@ -36,6 +37,7 @@ interface AssemblySheetProps {
   audioCount?: number
   busy: boolean
   status?: string
+  assets: Asset[]
   onSave: (s: SyncSettings) => Promise<void>
   onApplyEffects: (s: SyncSettings) => Promise<void>
   onAssemble: (s: SyncSettings) => Promise<void>
@@ -147,6 +149,7 @@ export function AssemblySheet({
   audioCount = 0,
   busy,
   status,
+  assets,
   onSave,
   onApplyEffects,
   onAssemble,
@@ -156,6 +159,9 @@ export function AssemblySheet({
   useEffect(() => {
     if (open) setS(withDefaults(initial))
   }, [open, initial])
+
+  const images = useMemo(() => assets.filter((a) => a.type === 'image'), [assets])
+  const videos = useMemo(() => assets.filter((a) => a.type === 'video'), [assets])
 
   const anim = s.animation
   const tr = s.transition
@@ -340,7 +346,11 @@ export function AssemblySheet({
                       className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
                     >
                       <option value="">Todas as imagens (rodízio)</option>
-                      {/* TODO: populate with available images */}
+                      {images.map((img) => (
+                        <option key={img.id} value={img.id}>
+                          {img.filename}
+                        </option>
+                      ))}
                     </select>
                     <p className="text-[11px] text-muted-foreground">
                       {s.media.favorite_image_id 
@@ -425,7 +435,11 @@ export function AssemblySheet({
                 className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
               >
                 <option value="">Nenhum vídeo overlay</option>
-                {/* TODO: populate with available videos */}
+                {videos.map((vid) => (
+                  <option key={vid.id} value={vid.id}>
+                    {vid.filename}
+                  </option>
+                ))}
               </select>
               <p className="text-[11px] text-muted-foreground">
                 {s.overlay_bars.favorite_video_id 
