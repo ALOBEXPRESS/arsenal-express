@@ -527,6 +527,35 @@ export function AssemblySheet({
               </p>
             </div>
 
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-medium text-foreground/85">Assets Favoritos</label>
+                {s.overlay_bars.favorite_asset_id && (
+                  <span className="rounded border border-primary/50 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary">
+                    Ativa
+                  </span>
+                )}
+              </div>
+              <select
+                value={s.overlay_bars.favorite_asset_id || ''}
+                onChange={(e) => setS((p) => ({ ...p, overlay_bars: { ...p.overlay_bars, favorite_asset_id: e.target.value || null } }))}
+                className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
+              >
+                <option value="">Nenhum asset overlay</option>
+                {assets.filter(a => a.type === 'asset' && a.is_favorite).map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    {asset.filename} {asset.subtype && `(${asset.subtype})`}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                {s.overlay_bars.favorite_asset_id 
+                  ? "Asset (GIF, sticker, etc) aparece como overlay em todas cenas."
+                  : "Selecione um asset favorito (GIF, MOV, Lottie, sticker)."
+                }
+              </p>
+            </div>
+
             <p className="text-[11px] text-muted-foreground">
               As barras aparecem em todas as cenas. Edite o texto no inspector de propriedades.
             </p>
