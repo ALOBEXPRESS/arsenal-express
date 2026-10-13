@@ -317,9 +317,9 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
 
                   <PropSlider 
                     label="Tamanho" 
-                    value={o.text_style?.font_size || 48} 
-                    min={12} 
-                    max={120} 
+                    value={o.text_style?.font_size || 16} 
+                    min={10} 
+                    max={48} 
                     step={1} 
                     format={(v) => `${v}px`}
                     onChange={(v) => set({ text_style: { ...o.text_style, font_size: v } })}
@@ -376,9 +376,9 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
                   <PropSlider 
                     label="Espaçamento interno" 
                     value={o.text_style?.padding || 20} 
-                    min={0} 
+                    min={8} 
                     max={60} 
-                    step={1} 
+                    step={2} 
                     format={(v) => `${v}px`}
                     onChange={(v) => set({ text_style: { ...o.text_style, padding: v } })}
                   />

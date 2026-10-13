@@ -524,8 +524,13 @@ export function VideoPreview({
             // Text overlay bars (no asset needed)
             if (o.kind === 'text') {
               const barHeight = Math.max(40, Math.min(80, stage.h * 0.08)) // 8% of video height, min 40px, max 80px
-              const fontSize = Math.max(14, Math.min(32, barHeight * 0.4)) // 40% of bar height
+              const maxFontSize = Math.max(12, Math.min(24, barHeight * 0.35)) // 35% of bar height, smaller ratio
+              const actualFontSize = o.text_style?.font_size ? Math.min(o.text_style.font_size, maxFontSize) : maxFontSize
               const selected = o.id === selectedOverlayId
+              // Better responsive padding: vertical based on bar height, horizontal based on width
+              const verticalPadding = Math.max(8, barHeight * 0.15)
+              const horizontalPadding = Math.max(20, stage.w * 0.04) // 4% of width, min 20px
+              
               return (
                 <div
                   key={o.id}
@@ -534,7 +539,7 @@ export function VideoPreview({
                     else overlayEls.current.delete(o.id)
                   }}
                   data-overlay={o.id}
-                  className="absolute pointer-events-none"
+                  className="absolute cursor-pointer"
                   style={{
                     zIndex: 10 + i,
                     width: stage.w,
@@ -547,20 +552,23 @@ export function VideoPreview({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: o.text_style?.alignment || 'center',
-                    padding: `${Math.max(8, barHeight * 0.15)}px ${Math.max(12, stage.w * 0.03)}px`,
+                    padding: `${verticalPadding}px ${horizontalPadding}px`,
                     overflow: 'hidden',
                   }}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSelectOverlay?.(o.id)
+                  }}
                 >
                   <span
                     style={{
                       fontFamily: o.text_style?.font_family || 'Arial',
-                      fontSize: `${o.text_style?.font_size ? Math.min(o.text_style.font_size, fontSize) : fontSize}px`,
+                      fontSize: `${actualFontSize}px`,
                       fontWeight: o.text_style?.font_weight || 'bold',
                       color: o.text_style?.color || '#FFFFFF',
                       textAlign: o.text_style?.alignment || 'center',
                       width: '100%',
-                      lineHeight: '1.2',
+                      lineHeight: '1.3',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       display: '-webkit-box',
