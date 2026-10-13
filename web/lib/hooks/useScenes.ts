@@ -555,16 +555,28 @@ export function useAutoAssemble() {
         if (settings.overlay_bars.enabled) {
           let sceneStart = 0
           
-          // Check if there's a favorite video for overlays (search only in favorite video assets)
+          // Check for favorite assets in priority order: video > image > asset
           const favoriteVideo = settings.overlay_bars.favorite_video_id 
-            ? assets.find(a => a.id === settings.overlay_bars.favorite_video_id && a.type === 'video' && a.is_favorite)
+            ? assets.find(a => a.id === settings.overlay_bars.favorite_video_id)
             : null
+          
+          const favoriteImage = settings.overlay_bars.favorite_image_id 
+            ? assets.find(a => a.id === settings.overlay_bars.favorite_image_id)
+            : null
+            
+          const favoriteAsset = settings.overlay_bars.favorite_asset_id 
+            ? assets.find(a => a.id === settings.overlay_bars.favorite_asset_id)
+            : null
+          
+          // Use first available: video > image > asset
+          const overlayAsset = favoriteVideo || favoriteImage || favoriteAsset
           
           console.log('[Overlay Bars]', {
             enabled: settings.overlay_bars.enabled,
             favorite_video_id: settings.overlay_bars.favorite_video_id,
-            favoriteVideo: favoriteVideo?.filename,
-            favoriteAssetsCount: assets.filter(a => a.type === 'video' && a.is_favorite).length,
+            favorite_image_id: settings.overlay_bars.favorite_image_id,
+            favorite_asset_id: settings.overlay_bars.favorite_asset_id,
+            overlayAsset: overlayAsset?.filename,
             position: settings.overlay_bars.position
           })
           
@@ -573,12 +585,12 @@ export function useAutoAssemble() {
             
             // Add top bar if position is 'top' or 'both'
             if (settings.overlay_bars.position === 'top' || settings.overlay_bars.position === 'both') {
-              if (favoriteVideo) {
-                // Use favorite video as overlay
-                overlays.push({
+              if (overlayAsset) {
+                // Use favorite asset as overlay
+                imageOverlays.push({
                   id: crypto.randomUUID(),
-                  asset_id: favoriteVideo.id,
-                  kind: 'video',
+                  asset_id: overlayAsset.id,
+                  kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
                   start: sceneStart,
                   duration: sceneDur,
                   scale: 1.0, // Full width
@@ -591,46 +603,17 @@ export function useAutoAssemble() {
                   animation_out: 'none',
                   animation_duration: 0,
                 })
-              } else {
-                // Create black bar overlay (using text type for now, will be converted to image/video)
-                textOverlays.push({
-                  id: crypto.randomUUID(),
-                  asset_id: 'text-bar-top',
-                  kind: 'text',
-                  start: sceneStart,
-                  duration: sceneDur,
-                  scale: 1,
-                  x: 0,
-                  y: -0.8,
-                  opacity: 1,
-                  speed: settings.speed.enabled ? settings.speed.value : 1,
-                  volume: 1,
-                  animation_in: 'none',
-                  animation_out: 'none',
-                  animation_duration: 0,
-                  text_content: 'TEXTO DO TOPO',
-                  text_style: {
-                    font_family: 'Arial',
-                    font_size: 16,
-                    font_weight: 'bold',
-                    color: '#FFFFFF',
-                    background_color: '#000000',
-                    background_opacity: 1,
-                    padding: 20,
-                    alignment: 'center',
-                  },
-                })
               }
             }
             
             // Add bottom bar if position is 'bottom' or 'both'
             if (settings.overlay_bars.position === 'bottom' || settings.overlay_bars.position === 'both') {
-              if (favoriteVideo) {
-                // Use favorite video as overlay
-                overlays.push({
+              if (overlayAsset) {
+                // Use favorite asset as overlay
+                imageOverlays.push({
                   id: crypto.randomUUID(),
-                  asset_id: favoriteVideo.id,
-                  kind: 'video',
+                  asset_id: overlayAsset.id,
+                  kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
                   start: sceneStart,
                   duration: sceneDur,
                   scale: 1.0, // Full width
@@ -642,35 +625,6 @@ export function useAutoAssemble() {
                   animation_in: 'none',
                   animation_out: 'none',
                   animation_duration: 0,
-                })
-              } else {
-                // Create black bar overlay
-                textOverlays.push({
-                  id: crypto.randomUUID(),
-                  asset_id: 'text-bar-bottom',
-                  kind: 'text',
-                  start: sceneStart,
-                  duration: sceneDur,
-                  scale: 1,
-                  x: 0,
-                  y: 0.8,
-                  opacity: 1,
-                  speed: settings.speed.enabled ? settings.speed.value : 1,
-                  volume: 1,
-                  animation_in: 'none',
-                  animation_out: 'none',
-                  animation_duration: 0,
-                  text_content: 'TEXTO DO RODAPÉ',
-                  text_style: {
-                    font_family: 'Arial',
-                    font_size: 16,
-                    font_weight: 'bold',
-                    color: '#FFFFFF',
-                    background_color: '#000000',
-                    background_opacity: 1,
-                    padding: 20,
-                    alignment: 'center',
-                  },
                 })
               }
             }
