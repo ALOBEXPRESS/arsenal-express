@@ -1174,7 +1174,7 @@ export function Timeline({
       </div>
 
       {/* Lanes */}
-      <div ref={scroller} className="relative min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+      <div ref={scroller} className="relative min-h-0 flex-1 overflow-x-auto overflow-y-auto">
         {isLoading ? (
           <div className="flex gap-2 p-4">
             {[...Array(6)].map((_, i) => (
@@ -1182,7 +1182,7 @@ export function Timeline({
             ))}
           </div>
         ) : (
-          <div className="relative flex h-full min-h-[190px]" style={{ width: contentWidth + GUTTER }}>
+          <div className="relative flex h-full min-h-[400px]" style={{ width: contentWidth + GUTTER }}>
             {/* Sticky lane labels */}
             <div className="sticky left-0 z-40 flex h-full shrink-0 flex-col border-r border-border/80 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black text-[11px] text-muted-foreground shadow-lg" style={{ width: GUTTER }}>
               <div className="h-7 shrink-0 border-b border-border/50 bg-gradient-to-b from-neutral-900 to-neutral-950" />
@@ -1212,7 +1212,7 @@ export function Timeline({
                 <span className="font-medium">Sobrepor</span>
               </div>
               <div className="flex flex-1 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
-                <Clapperboard className="h-4 w-4 text-blue-500" aria-hidden /> 
+                <Clapperboard className="h-3.5 w-3.5 text-blue-500" aria-hidden /> 
                 <span className="font-semibold">Mídia</span>
               </div>
               <div className="flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
