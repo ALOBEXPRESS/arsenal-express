@@ -19,6 +19,7 @@ import {
 } from '@/lib/capcut/package'
 import { formatTime, totalDuration } from '@/lib/timeline'
 import type { TimelineInput } from '@/lib/capcut/draft'
+import type { Asset } from '@/types/project'
 import { normalizeAnimation, normalizeTransition, type SyncSettings } from '@/lib/sync/presets'
 import { CapCutPreviewCard, OpenInCapCut } from './CapCutPreview'
 import { BridgePanel, useBridge } from './BridgePanel'
@@ -33,6 +34,7 @@ interface CapCutExportSheetProps {
   timelines: (TimelineInput & { id: string })[]
   activeSubId: string
   settings: SyncSettings
+  extraAssets?: Asset[]
   defaultFormat?: string
 }
 
@@ -45,6 +47,7 @@ export function CapCutExportSheet({
   timelines: allTimelines,
   activeSubId,
   settings,
+  extraAssets,
   defaultFormat,
 }: CapCutExportSheetProps) {
   const [scope, setScope] = useState<'all' | 'current'>('all')
@@ -118,6 +121,7 @@ export function CapCutExportSheet({
     timelines: chosen,
     settings,
     outputFormat: format,
+    extraAssets,
     onProgress: (done, totalFiles, label) => setProgress({ done, total: totalFiles, label }),
   })
 

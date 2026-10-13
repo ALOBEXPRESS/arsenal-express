@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
-import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic } from 'lucide-react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic, Package } from 'lucide-react'
 import type { Asset } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
 import { confirmDialog } from '@/components/ui/confirm'
@@ -15,7 +15,7 @@ interface AssetCardProps {
   onSelect?: (asset: Asset) => void
 }
 
-const ICONS = { video: Clapperboard, audio: AudioLines, image: ImageIcon }
+const ICONS = { video: Clapperboard, audio: AudioLines, image: ImageIcon, asset: Package }
 
 export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -49,7 +49,7 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
       title={asset.filename}
     >
       <div className="relative aspect-video overflow-hidden bg-surface-0">
-        {thumb || (asset.type === 'image' && asset.url) ? (
+        {thumb || (asset.type === 'image' && asset.url) || (asset.type === 'asset' && asset.url && (asset.subtype === 'gif' || asset.subtype === 'sticker-png' || asset.subtype === 'sticker-svg')) ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumb || asset.url} alt={asset.filename} className="absolute inset-0 h-full w-full object-cover" />
         ) : asset.type === 'audio' ? (
@@ -63,8 +63,13 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
             ))}
           </div>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground">
             <Icon className="h-6 w-6" aria-hidden />
+            {asset.type === 'asset' && asset.subtype && (
+              <span className="text-[9px] font-mono uppercase text-muted-foreground/70">
+                {asset.subtype.replace('sticker-', '')}
+              </span>
+            )}
           </div>
         )}
         {asset.type === 'video' && asset.url && (

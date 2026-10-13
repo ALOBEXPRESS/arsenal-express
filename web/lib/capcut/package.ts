@@ -20,6 +20,8 @@ export interface PackageOptions {
   timelines: TimelineInput[]
   settings: SyncSettings
   outputFormat?: CanvasFormat | string
+  /** Extra assets (GIF, MOV, Lottie, stickers) - included in media folder but not used in timeline */
+  extraAssets?: Asset[]
   onProgress?: (done: number, total: number, label: string) => void
 }
 
@@ -109,6 +111,11 @@ export async function prepareDraft(opts: PackageOptions) {
     tl.narration.forEach((n) => allAssets.set(n.asset.id, n.asset))
     tl.overlays?.forEach((o) => allAssets.set(o.asset.id, o.asset))
     tl.audioClips?.forEach((c) => allAssets.set(c.asset.id, c.asset))
+  }
+  
+  // Add extra assets (GIF, MOV, Lottie, stickers) - not used in timeline but included in export
+  if (opts.extraAssets) {
+    opts.extraAssets.forEach((a) => allAssets.set(a.id, a))
   }
 
   const mediaInfo = new Map<string, MediaInfo>()

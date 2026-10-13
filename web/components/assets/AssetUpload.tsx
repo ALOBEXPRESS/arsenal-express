@@ -12,16 +12,18 @@ interface AssetUploadProps {
   onComplete?: () => void
 }
 
-const ACCEPT_TYPES = {
+const ACCEPT_TYPES: Record<AssetType, string> = {
   video: 'video/mp4,video/webm,video/quicktime',
   audio: 'audio/mpeg,audio/wav,audio/x-m4a',
   image: 'image/jpeg,image/png,image/webp',
+  asset: 'image/gif,video/quicktime,application/json,.lottie,.json,image/png,image/svg+xml',
 }
 
-const MAX_SIZES = {
+const MAX_SIZES: Record<AssetType, number> = {
   video: 500 * 1024 * 1024, // 500MB
   audio: 100 * 1024 * 1024, // 100MB
   image: 10 * 1024 * 1024, // 10MB
+  asset: 50 * 1024 * 1024, // 50MB (GIF, MOV, Lottie, stickers)
 }
 
 export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUploadProps) {

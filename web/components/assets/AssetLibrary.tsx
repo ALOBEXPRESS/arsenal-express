@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AudioLines, Clapperboard, Image as ImageIcon, Upload } from 'lucide-react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Upload, Package } from 'lucide-react'
 import { useAssets, useUploadAsset, useDeleteAsset } from '@/lib/hooks/useAssets'
 import { AssetCard } from './AssetCard'
 import { AssetUpload } from './AssetUpload'
@@ -19,6 +19,7 @@ const UPLOAD_COPY: Record<AssetType, { title: string; text: string }> = {
   video: { title: 'Clipes de vídeo', text: 'Selecione vários de uma vez. A ordem na timeline segue a data de modificação.' },
   audio: { title: 'Áudio', text: 'Um ou mais áudios. Marque como narração se for narração de fato.' },
   image: { title: 'Imagens', text: 'Fotos ou artes pra cenas estáticas (com animação de câmera).' },
+  asset: { title: 'Assets Extras', text: 'GIF, MOV, Lottie, stickers (PNG/SVG/GIF). Vão pro CapCut mas não são usados na montagem automática.' },
 }
 
 export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
@@ -37,12 +38,14 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
     { id: 'video', label: 'Clipes', n: count('video') },
     { id: 'audio', label: 'Áudio', n: count('audio') },
     { id: 'image', label: 'Imagens', n: count('image') },
+    { id: 'asset', label: 'Assets', n: count('asset') },
   ]
 
   const uploads: { type: AssetType; label: string; icon: React.ReactNode }[] = [
     { type: 'video', label: 'Clipes', icon: <Clapperboard className="h-4 w-4" /> },
     { type: 'audio', label: 'Áudio', icon: <AudioLines className="h-4 w-4" /> },
     { type: 'image', label: 'Imagem', icon: <ImageIcon className="h-4 w-4" /> },
+    { type: 'asset', label: 'Assets', icon: <Package className="h-4 w-4" /> },
   ]
 
   return (
@@ -53,7 +56,7 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
           <span className="eyebrow" title="Arraste clipes, imagens e áudios pra timeline">arraste → timeline</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5">
           {uploads.map((u) => (
             <button
               key={u.type}

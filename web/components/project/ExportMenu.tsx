@@ -12,16 +12,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { CapCutExportSheet } from '@/components/sync/CapCutExportSheet'
 import { RenderSheet } from './RenderSheet'
+import type { Asset } from '@/types/project'
 
 interface ExportMenuProps {
   projectTitle: string
   timelines: any[] // TimelineInput with id
   activeSubId: string
   settings: any // SyncSettings
+  extraAssets?: Asset[] // Extra assets (GIF, MOV, Lottie, stickers)
   disabled?: boolean
 }
 
-export function ExportMenu({ projectTitle, timelines, activeSubId, settings, disabled }: ExportMenuProps) {
+export function ExportMenu({ projectTitle, timelines, activeSubId, settings, extraAssets, disabled }: ExportMenuProps) {
   const [capCutOpen, setCapCutOpen] = useState(false)
   const [renderOpen, setRenderOpen] = useState(false)
   const [isExportingAudio, setIsExportingAudio] = useState(false)
@@ -198,6 +200,7 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, dis
         timelines={timelines}
         activeSubId={activeSubId}
         settings={settings}
+        extraAssets={extraAssets}
       />
 
       <RenderSheet

@@ -291,6 +291,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             timelines={exportTimelines}
             activeSubId={subId}
             settings={syncSettings}
+            extraAssets={assets?.filter((a) => a.type === 'asset')}
             disabled={!hasTimeline}
           />
         </div>

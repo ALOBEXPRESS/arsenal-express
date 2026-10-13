@@ -73,6 +73,7 @@ export function useUploadAsset() {
       let duration_seconds: number | undefined
       let thumbnail: string | undefined
       let dims: { width: number; height: number } | null = null
+      let subtype: string | undefined
 
       if (type === 'video') {
         duration_seconds = await getMediaDuration(file)
@@ -82,6 +83,15 @@ export function useUploadAsset() {
         duration_seconds = await getMediaDuration(file)
       } else if (type === 'image') {
         thumbnail = await generateImageThumbnail(file)
+      } else if (type === 'asset') {
+        // Detect subtype for extra assets (GIF, MOV, Lottie, stickers)
+        subtype = detectSubtype(file)
+        if (file.type.startsWith('video/') || file.type === 'image/gif') {
+          duration_seconds = await getMediaDuration(file)
+          thumbnail = await generateVideoThumbnail(file)
+        } else if (file.type.startsWith('image/')) {
+          thumbnail = await generateImageThumbnail(file)
+        }
       }
 
       // Create asset record in database
@@ -96,6 +106,7 @@ export function useUploadAsset() {
             storage_path: filePath,
             duration_seconds,
             file_size_bytes: file.size,
+            subtype,
             metadata: {
               mime_type: file.type,
               thumbnail, // Base64 thumbnail for preview
@@ -284,4 +295,30 @@ export function useUpdateAsset() {
       queryClient.invalidateQueries({ queryKey: ['assets'] })
     },
   })
+}
+
+// Detect asset subtype from file
+function detectSubtype(file: File): string {
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  const mime = file.type.toLowerCase()
+  
+  // GIF
+  if (mime === 'image/gif' || ext === 'gif') return 'gif'
+  
+  // MOV
+  if (mime === 'video/quicktime' || ext === 'mov') return 'mov'
+  
+  // Lottie (JSON-based animation)
+  if ((mime === 'application/json' || ext === 'json' || ext === 'lottie') && file.name.toLowerCase().includes('lottie')) {
+    return 'lottie'
+  }
+  
+  // Stickers (PNG, SVG, GIF)
+  if (mime === 'image/png' || ext === 'png') return 'sticker-png'
+  if (mime === 'image/svg+xml' || ext === 'svg') return 'sticker-svg'
+  if ((mime === 'image/gif' || ext === 'gif') && file.name.toLowerCase().includes('sticker')) {
+    return 'sticker-gif'
+  }
+  
+  return 'unknown'
 }
