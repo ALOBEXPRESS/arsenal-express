@@ -412,6 +412,23 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
 
               {o.kind === 'video' && (
                 <Group title="Vídeo">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-medium text-foreground/85">Asset Favorito</label>
+                    <select
+                      value={o.asset_id}
+                      onChange={(e) => set({ asset_id: e.target.value })}
+                      className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
+                    >
+                      {assets.filter(a => a.type === 'video' && a.is_favorite).map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.filename}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-muted-foreground">
+                      Escolha outro vídeo favorito para esta overlay
+                    </p>
+                  </div>
                   <PropSlider 
                     label="Volume" 
                     value={o.volume} 

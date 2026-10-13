@@ -161,7 +161,7 @@ export function AssemblySheet({
   }, [open, initial])
 
   const images = useMemo(() => assets.filter((a) => a.type === 'image'), [assets])
-  const videos = useMemo(() => assets.filter((a) => a.type === 'video'), [assets])
+  const videos = useMemo(() => assets.filter((a) => a.type === 'video' && a.is_favorite), [assets])
 
   const anim = s.animation
   const tr = s.transition
@@ -457,7 +457,7 @@ export function AssemblySheet({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-medium text-foreground/85">Vídeo favorito (opcional)</label>
+                <label className="text-[11px] font-medium text-foreground/85">Asset's Favoritos</label>
                 {s.overlay_bars.favorite_video_id && (
                   <span className="rounded border border-primary/50 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-primary">
                     Ativa
