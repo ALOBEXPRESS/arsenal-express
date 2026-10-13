@@ -32,12 +32,25 @@ export function useAssets(projectId: string) {
 
       // Map DB columns to frontend fields ('kind' -> 'type', 'duration_seconds' -> 'duration')
       // Restore original_type from metadata if it was 'asset'
-      return rows.map((asset) => ({
+      const mapped = rows.map((asset) => ({
         ...asset,
         type: (asset.metadata as any)?.original_type || asset.kind,
         duration: asset.duration_seconds,
         url: urlByPath.get(asset.storage_path) || '',
       })) as Asset[]
+      
+      // Debug: log favorited assets
+      const favorited = mapped.filter(a => a.is_favorite)
+      if (favorited.length > 0) {
+        console.log('[useAssets] Favorited assets:', favorited.map(a => ({
+          id: a.id,
+          filename: a.filename,
+          type: a.type,
+          is_favorite: a.is_favorite
+        })))
+      }
+      
+      return mapped
     },
     enabled: !!projectId,
     // Refresh before signed URLs expire
@@ -302,6 +315,8 @@ export function useUpdateAsset() {
 
   return useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Asset> }) => {
+      console.log('[useUpdateAsset] Updating asset:', { id, patch })
+      
       const { data, error } = await supabase
         .from('assets')
         .update(patch)
@@ -309,10 +324,16 @@ export function useUpdateAsset() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('[useUpdateAsset] Error:', error)
+        throw error
+      }
+      
+      console.log('[useUpdateAsset] Success, updated data:', data)
       return data
     },
-    onSuccess: (_, { id }) => {
+    onSuccess: (data, { id }) => {
+      console.log('[useUpdateAsset] Invalidating queries for assets')
       // Invalidate all asset queries that might contain this asset
       queryClient.invalidateQueries({ queryKey: ['assets'] })
     },

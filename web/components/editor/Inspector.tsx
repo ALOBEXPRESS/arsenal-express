@@ -419,11 +419,19 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
                       onChange={(e) => set({ asset_id: e.target.value })}
                       className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
                     >
-                      {assets.filter(a => a.type === 'video' && a.is_favorite).map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.filename}
-                        </option>
-                      ))}
+                      {(() => {
+                        const favorited = assets.filter(a => a.type === 'video' && a.is_favorite)
+                        console.log('[Inspector] Favorited videos:', favorited.map(v => ({
+                          id: v.id,
+                          filename: v.filename,
+                          is_favorite: v.is_favorite
+                        })))
+                        return favorited.map((asset) => (
+                          <option key={asset.id} value={asset.id}>
+                            {asset.filename}
+                          </option>
+                        ))
+                      })()}
                     </select>
                     <p className="text-[11px] text-muted-foreground">
                       Escolha outro vídeo favorito para esta overlay
