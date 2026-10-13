@@ -17,6 +17,14 @@ export function useAssets(projectId: string) {
 
       if (error) throw error
       const rows = data || []
+      
+      console.log('[useAssets] Raw rows from DB:', rows.length, 'assets')
+      console.log('[useAssets] First 3 rows:', rows.slice(0, 3).map(r => ({
+        id: r.id,
+        filename: r.filename,
+        kind: r.kind,
+        is_favorite: r.is_favorite
+      })))
 
       // Bucket 'media' is private: generate signed URLs in one batch call
       const urlByPath = new Map<string, string>()
