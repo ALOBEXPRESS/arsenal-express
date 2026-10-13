@@ -182,7 +182,7 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
                 <span className="text-foreground">Renderizando...</span>
                 <span className="tabular-nums text-primary">{progress}%</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} />
             </div>
           )}
 
