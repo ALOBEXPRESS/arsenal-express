@@ -7,7 +7,7 @@ export type OutputFormat = 'auto' | '16:9' | '9:16' | '1:1'
 export type TransitionType = 'cut' | 'dissolve' | 'fade' | 'wipe' | 'slide' | 'fadeblack' | 'fadewhite'
 export type AnimationType = 'none' | 'zoom' | 'pan' | 'ken-burns'
 export type AssetType = 'video' | 'audio' | 'image' | 'asset'
-export type AssetSubtype = 'gif' | 'mov' | 'lottie' | 'sticker-png' | 'sticker-svg' | 'sticker-gif'
+export type AssetSubtype = 'gif' | 'jpg' | 'jpeg' | 'mov' | 'lottie' | 'sticker-png' | 'sticker-svg' | 'sticker-gif'
 
 export interface Project {
   id: string

@@ -19,7 +19,7 @@ const UPLOAD_COPY: Record<AssetType, { title: string; text: string }> = {
   video: { title: 'Clipes de vídeo', text: 'Selecione vários de uma vez. A ordem na timeline segue a data de modificação.' },
   audio: { title: 'Áudio', text: 'Um ou mais áudios. Marque como narração se for narração de fato.' },
   image: { title: 'Imagens', text: 'Fotos ou artes pra cenas estáticas (com animação de câmera).' },
-  asset: { title: 'Assets Extras', text: 'GIF, MOV, Lottie, stickers (PNG/SVG/GIF). Vão pro CapCut mas não são usados na montagem automática.' },
+  asset: { title: 'Assets Extras', text: 'GIF, JPG, MOV, Lottie, stickers (PNG/SVG/GIF). Vão pro CapCut mas não são usados na montagem automática.' },
 }
 
 export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {

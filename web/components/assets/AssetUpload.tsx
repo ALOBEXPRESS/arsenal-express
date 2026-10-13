@@ -16,7 +16,7 @@ const ACCEPT_TYPES: Record<AssetType, string> = {
   video: 'video/mp4,video/webm,video/quicktime',
   audio: 'audio/mpeg,audio/wav,audio/x-m4a',
   image: 'image/jpeg,image/png,image/webp',
-  asset: 'image/gif,video/quicktime,application/json,.lottie,.json,image/png,image/svg+xml',
+  asset: 'image/gif,image/jpeg,image/jpg,video/quicktime,application/json,.lottie,.json,image/png,image/svg+xml',
 }
 
 const MAX_SIZES: Record<AssetType, number> = {

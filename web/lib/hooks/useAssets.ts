@@ -305,6 +305,9 @@ function detectSubtype(file: File): string {
   // GIF
   if (mime === 'image/gif' || ext === 'gif') return 'gif'
   
+  // JPG/JPEG
+  if (mime === 'image/jpeg' || ext === 'jpg' || ext === 'jpeg') return 'jpeg'
+  
   // MOV
   if (mime === 'video/quicktime' || ext === 'mov') return 'mov'
   
