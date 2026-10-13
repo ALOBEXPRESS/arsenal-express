@@ -22,6 +22,12 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "SyncExpress · Arsenal Express",
   description: "Clipes + narração → timeline sincronizada, pronta pro CapCut.",
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32' },
+    ],
+  },
 };
 
 export default function RootLayout({

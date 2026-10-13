@@ -1,0 +1,42 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="32" height="32" rx="6" fill="#0A0A0F"/>
+  
+  <!-- Glow effect -->
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF10F0;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#7B61FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00F5FF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- S letter -->
+  <path d="M 9 10 C 9 8.5 10 7.5 11.5 7.5 L 13.5 7.5 C 15 7.5 16 8.5 16 10 C 16 11 15.5 11.5 14.5 12 L 11 13 C 10 13.5 9 14.5 9 16 C 9 17.5 10 18.5 11.5 18.5 L 13.5 18.5 C 15 18.5 16 17.5 16 16" 
+        stroke="url(#gradient)" 
+        stroke-width="1.8" 
+        stroke-linecap="round" 
+        fill="none" 
+        filter="url(#glow)"/>
+  
+  <!-- E letter -->
+  <path d="M 19 8 L 26 8 M 19 8 L 19 18 M 19 13 L 25 13 M 19 18 L 26 18" 
+        stroke="url(#gradient)" 
+        stroke-width="1.8" 
+        stroke-linecap="round" 
+        fill="none" 
+        filter="url(#glow)"/>
+  
+  <!-- Sync indicator dots -->
+  <circle cx="8" cy="24" r="1.2" fill="#FF10F0" opacity="0.8" filter="url(#glow)"/>
+  <circle cx="13" cy="24" r="1.2" fill="#7B61FF" opacity="0.8" filter="url(#glow)"/>
+  <circle cx="18" cy="24" r="1.2" fill="#00F5FF" opacity="0.8" filter="url(#glow)"/>
+  <circle cx="23" cy="24" r="1.2" fill="#00F5FF" opacity="0.6" filter="url(#glow)"/>
+</svg>

@@ -118,3 +118,8 @@ video_assembler/saida_videos_*/
 
 # connector launcher served from the web app
 !web/public/iniciar-conector-syncexpress.bat
+
+# Test/temporary image files
+Woman_taking_mirror_selfie_*.jpeg
+optimize-image.js
+ui-audit.md
