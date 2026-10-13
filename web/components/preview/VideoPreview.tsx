@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip } from '@/types/project'
-import { Play, Pause, Mic } from 'lucide-react'
+import { Play, Pause, Mic, Clock, Info, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import {
   buildTimeline,
   totalDuration,
@@ -133,6 +133,9 @@ export function VideoPreview({
   const sceneEnd = totalDuration(timeline)
   const [isPlaying, setIsPlaying] = useState(false)
   const [time, setTime] = useState(0)
+  const [showTimecode, setShowTimecode] = useState(true)
+  const [showDetails, setShowDetails] = useState(true)
+  const [zoomLevel, setZoomLevel] = useState(1) // 1 = fit, >1 = zoomed
 
   const hasContent = timeline.length > 0 || overlays.length > 0 || narrationTrack.length > 0
   // Fallback for assets uploaded before width/height were stored: read the loaded <video>
@@ -471,8 +474,12 @@ export function VideoPreview({
         {/* Stage = the actual output frame (9:16, 16:9…). Clips fill it (cover) and animations
             zoom INSIDE it — same framing the CapCut export uses. */}
         <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden bg-surface-0 shadow-[0_0_0_1px_hsl(var(--border))]"
-          style={{ width: stage.w, height: stage.h }}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden bg-surface-0 shadow-[0_0_0_1px_hsl(var(--border))] transition-transform duration-200"
+          style={{ 
+            width: stage.w, 
+            height: stage.h,
+            transform: `translate(-50%, -50%) scale(${zoomLevel})`,
+          }}
           data-stage={`${aspect.w}:${aspect.h}`}
         >
           {/* everything below the adjustment layer (main track + overlays) is filtered */}
