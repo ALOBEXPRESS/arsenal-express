@@ -107,7 +107,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
 
   // Preload all video/image assets
   const assetCache = new Map<string, HTMLVideoElement | HTMLImageElement>()
-  await preloadAssets(input.timeline, assetCache, signal)
+  await preloadAssets(input, assetCache, signal)
 
   // Render frames
   const frameDuration = 1 / frameRate
@@ -143,18 +143,20 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
 }
 
 /**
- * Preloads all video and image assets used in the timeline.
+ * Preloads all video and image assets used in the timeline and overlays.
  */
 async function preloadAssets(
-  timeline: TimedScene[],
+  input: RenderInput,
   cache: Map<string, HTMLVideoElement | HTMLImageElement>,
   signal?: AbortSignal
 ): Promise<void> {
   const promises: Promise<void>[] = []
+  const loadedIds = new Set<string>()
 
-  for (const scene of timeline) {
-    const asset = scene.videoAsset || scene.imageAsset
-    if (!asset || cache.has(asset.id)) continue
+  // Helper to add load promise
+  const addLoadPromise = (asset: { id: string; type: string; url: string; filename: string }) => {
+    if (loadedIds.has(asset.id)) return
+    loadedIds.add(asset.id)
 
     if (asset.type === 'video') {
       promises.push(
@@ -188,6 +190,22 @@ async function preloadAssets(
           if (signal) signal.addEventListener('abort', () => reject(new Error('Aborted')))
         })
       )
+    }
+  }
+
+  // Preload scene assets
+  for (const scene of input.timeline) {
+    const asset = scene.videoAsset || scene.imageAsset
+    if (asset) addLoadPromise(asset)
+  }
+
+  // Preload overlay assets
+  for (const overlay of input.overlays) {
+    if (overlay.kind === 'image' || overlay.kind === 'video') {
+      // Need to find the asset by ID from the scene or somewhere
+      // For now, we'll assume overlays have the asset embedded
+      const overlayAsset = (overlay as any).asset
+      if (overlayAsset) addLoadPromise(overlayAsset)
     }
   }
 
@@ -243,7 +261,83 @@ async function renderFrame(
   ctx.drawImage(media, 0, 0, transform.width, transform.height)
   ctx.restore()
 
-  // TODO: Draw overlays (text, images)
+  // Draw overlays (images, videos, text)
+  for (const overlay of input.overlays) {
+    if (time < overlay.start || time >= overlay.start + overlay.duration) continue
+
+    if (overlay.kind === 'text' && overlay.text_content) {
+      // Draw text overlay
+      const style = overlay.text_style || {}
+      ctx.save()
+      
+      // Convert CapCut units to canvas pixels
+      // CapCut: x,y are fraction of HALF canvas (y up), scale 1 = fit canvas
+      const overlayX = width / 2 + overlay.x * (width / 2)
+      const overlayY = height / 2 - overlay.y * (height / 2)
+      
+      ctx.globalAlpha = overlay.opacity
+      ctx.font = `${style.font_weight || 'normal'} ${style.font_size || 24}px ${style.font_family || 'sans-serif'}`
+      ctx.fillStyle = style.color || '#ffffff'
+      ctx.textAlign = (style.alignment as CanvasTextAlign) || 'center'
+      ctx.textBaseline = 'middle'
+      
+      // Background
+      if (style.background_color) {
+        const metrics = ctx.measureText(overlay.text_content)
+        const textWidth = metrics.width
+        const textHeight = (style.font_size || 24) * 1.2
+        const padding = style.padding || 10
+        
+        ctx.globalAlpha = (style.background_opacity || 1) * overlay.opacity
+        ctx.fillStyle = style.background_color
+        ctx.fillRect(
+          overlayX - textWidth / 2 - padding,
+          overlayY - textHeight / 2 - padding,
+          textWidth + padding * 2,
+          textHeight + padding * 2
+        )
+        ctx.globalAlpha = overlay.opacity
+        ctx.fillStyle = style.color || '#ffffff'
+      }
+      
+      ctx.fillText(overlay.text_content, overlayX, overlayY)
+      ctx.restore()
+    } else if (overlay.kind === 'image' || overlay.kind === 'video') {
+      // Draw image/video overlay
+      const overlayAsset = cache.get(overlay.asset_id)
+      if (!overlayAsset) continue
+      
+      // Seek video if needed
+      if (overlayAsset instanceof HTMLVideoElement) {
+        const overlayTime = (time - overlay.start) * overlay.speed + (overlay.in_point || 0)
+        if (Math.abs(overlayAsset.currentTime - overlayTime) > 0.05) {
+          overlayAsset.currentTime = overlayTime
+          await new Promise((resolve) => {
+            overlayAsset.onseeked = () => resolve(undefined)
+            setTimeout(resolve, 50)
+          })
+        }
+      }
+      
+      ctx.save()
+      ctx.globalAlpha = overlay.opacity
+      
+      // Convert CapCut units to canvas pixels
+      const overlayX = width / 2 + overlay.x * (width / 2)
+      const overlayY = height / 2 - overlay.y * (height / 2)
+      const overlayW = (overlayAsset.width || width) * overlay.scale
+      const overlayH = (overlayAsset.height || height) * overlay.scale
+      
+      ctx.drawImage(
+        overlayAsset,
+        overlayX - overlayW / 2,
+        overlayY - overlayH / 2,
+        overlayW,
+        overlayH
+      )
+      ctx.restore()
+    }
+  }
 }
 
 /**
@@ -295,29 +389,46 @@ async function mixAndAddAudio(
   const duration = Math.ceil(input.duration)
   const audioCtx = new OfflineAudioContext(2, duration * sampleRate, sampleRate)
 
-  // Load narration segments
-  for (const narr of input.narration) {
+  // Load narration segments (áudio das cenas)
+  for (const scene of input.timeline) {
     if (signal?.aborted) throw new Error('Aborted')
-    const buffer = await loadAudioBuffer((narr as any).audio_url || '', audioCtx)
+    if (!scene.audioAsset) continue
+    
+    const buffer = await loadAudioBuffer(scene.audioAsset.url, audioCtx)
     const source = audioCtx.createBufferSource()
     source.buffer = buffer
-    source.connect(audioCtx.destination)
-    source.start(narr.start)
+    
+    // Apply speed/rate
+    source.playbackRate.value = scene.rate || 1
+    
+    // Apply volume (lower for narration under music)
+    const gain = audioCtx.createGain()
+    gain.gain.value = scene.volume ?? 1
+    
+    source.connect(gain)
+    gain.connect(audioCtx.destination)
+    
+    // Start at scene time, from trim point
+    source.start(scene.start, scene.trim || 0, scene.duration)
   }
 
-  // Load audio clips
+  // Load audio clips (música, SFX, narração extra)
   for (const clip of input.audioClips) {
     if (signal?.aborted) throw new Error('Aborted')
-    const asset = (clip as any).audio_asset
+    const asset = (clip as any).asset
     if (!asset) continue
+    
     const buffer = await loadAudioBuffer(asset.url, audioCtx)
     const source = audioCtx.createBufferSource()
     source.buffer = buffer
+    source.playbackRate.value = clip.speed || 1
+    
     const gain = audioCtx.createGain()
-    gain.gain.value = (clip as any).volume ?? 1
+    gain.gain.value = clip.volume ?? 1
+    
     source.connect(gain)
     gain.connect(audioCtx.destination)
-    source.start((clip as any).start, (clip as any).in_point || 0, (clip as any).duration)
+    source.start(clip.start, clip.in_point || 0, clip.duration)
   }
 
   // Render the mixed audio
