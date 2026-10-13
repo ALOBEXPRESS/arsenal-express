@@ -346,6 +346,7 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
       position: ['top', 'bottom', 'both'].includes(overlay_bars.position as string) ? (overlay_bars.position as 'top' | 'bottom' | 'both') : DEFAULT_SYNC_SETTINGS.overlay_bars.position,
       height_override: Math.max(0, Math.min(200, Number(overlay_bars.height_override) || 0)),
       favorite_video_id: overlay_bars.favorite_video_id ?? DEFAULT_SYNC_SETTINGS.overlay_bars.favorite_video_id,
+      favorite_image_id: overlay_bars.favorite_image_id ?? DEFAULT_SYNC_SETTINGS.overlay_bars.favorite_image_id,
     },
     animation: { ...animation, flow: normFlow(animation.flow), params: normalizeParams(animation.params) },
     transition: { ...transition, flow: normFlow(transition.flow) },
