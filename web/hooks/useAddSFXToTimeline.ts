@@ -50,7 +50,7 @@ export function useAddSFXToTimeline() {
       }
 
       // 3. Add to audio_clips array
-      const updatedSubprojects = subprojects.map((sp, i) =>
+      const updatedSubprojects = subprojects.map((sp: any, i: number) =>
         i === 0
           ? { ...sp, audio_clips: [...audioClips, newClip] }
           : sp
