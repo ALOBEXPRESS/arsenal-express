@@ -222,20 +222,32 @@ async function getMediaDuration(file: File): Promise<number | undefined> {
     video.preload = 'metadata'
     lastDims = null
 
+    // Timeout: se metadata não carregar em 10s, desiste (arquivo grande ou codec incompat)
+    const timeoutId = setTimeout(() => {
+      cleanup()
+      resolve(undefined)
+    }, 10000)
+
+    const cleanup = () => {
+      clearTimeout(timeoutId)
+      video.onloadedmetadata = null
+      video.onerror = null
+      video.removeAttribute('src')
+      video.load()
+    }
+
     video.onloadedmetadata = () => {
       const v = video as HTMLVideoElement
       if (v.videoWidth && v.videoHeight) lastDims = { width: v.videoWidth, height: v.videoHeight }
       const d = video.duration
       const src = video.src
-      video.onloadedmetadata = null
-      video.onerror = null
-      video.removeAttribute('src')
-      video.load()
+      cleanup()
       URL.revokeObjectURL(src)
       resolve(Number.isFinite(d) ? Math.round(d * 100) / 100 : undefined)
     }
 
     video.onerror = () => {
+      cleanup()
       resolve(undefined)
     }
 
@@ -251,9 +263,15 @@ async function generateVideoThumbnail(file: File | Blob): Promise<string | undef
     video.preload = 'metadata'
     video.muted = true
 
+    // Timeout: se thumbnail não gerar em 5s, resolve sem ela
+    const timeoutId = setTimeout(() => {
+      finish(undefined)
+    }, 5000)
+
     // Detach the element BEFORE revoking the blob URL, otherwise the browser keeps
     // requesting the revoked blob (ERR_FILE_NOT_FOUND noise in the console)
     const finish = (thumb?: string) => {
+      clearTimeout(timeoutId)
       video.onloadeddata = null
       video.onseeked = null
       video.onerror = null
