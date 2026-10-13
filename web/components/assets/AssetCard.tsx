@@ -1,13 +1,14 @@
 'use client'
 
 import { useRef } from 'react'
-import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic, Package } from 'lucide-react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic, Package, Heart } from 'lucide-react'
 import type { Asset } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
 import { confirmDialog } from '@/components/ui/confirm'
 import { useDragAsset, ASSET_MIME } from '@/lib/stores/drag'
 import { useUpdateAsset } from '@/lib/hooks/useAssets'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface AssetCardProps {
   asset: Asset
@@ -115,6 +116,30 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
           />
           <label htmlFor={`narration-${asset.id}`} className="flex cursor-pointer items-center gap-1 text-[10px] text-muted-foreground">
             <Mic className="h-3 w-3" aria-hidden /> Narração
+          </label>
+        </div>
+      )}
+
+      {(asset.type === 'video' || asset.type === 'image' || asset.type === 'asset') && (
+        <div className="mx-2 mb-2 flex items-center gap-1.5 rounded-md border border-border bg-surface-0 px-2 py-1">
+          <input
+            type="checkbox"
+            checked={asset.is_favorite || false}
+            onChange={(e) => {
+              e.stopPropagation()
+              updateAsset.mutate(
+                { id: asset.id, patch: { is_favorite: e.target.checked } },
+                {
+                  onSuccess: () => toast.success(e.target.checked ? 'Adicionado aos favoritos' : 'Removido dos favoritos'),
+                  onError: (err) => toast.error('Falha ao atualizar', { description: (err as Error).message }),
+                }
+              )
+            }}
+            className="h-3.5 w-3.5 cursor-pointer rounded border-border accent-primary"
+            id={`favorite-${asset.id}`}
+          />
+          <label htmlFor={`favorite-${asset.id}`} className="flex cursor-pointer items-center gap-1 text-[10px] text-muted-foreground">
+            <Heart className={cn('h-3 w-3', asset.is_favorite && 'fill-current text-pink-500')} aria-hidden /> Favorito
           </label>
         </div>
       )}

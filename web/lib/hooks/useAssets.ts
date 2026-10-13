@@ -31,9 +31,10 @@ export function useAssets(projectId: string) {
       }
 
       // Map DB columns to frontend fields ('kind' -> 'type', 'duration_seconds' -> 'duration')
+      // Restore original_type from metadata if it was 'asset'
       return rows.map((asset) => ({
         ...asset,
-        type: asset.kind,
+        type: (asset.metadata as any)?.original_type || asset.kind,
         duration: asset.duration_seconds,
         url: urlByPath.get(asset.storage_path) || '',
       })) as Asset[]
@@ -128,6 +129,8 @@ export function useUploadAsset() {
               thumbnail, // Base64 thumbnail for preview
               last_modified: file.lastModified, // File modification date (used by Auto Assemble ordering)
               ...(dims || {}), // width/height → output frame (9:16 vs 16:9)
+              // Store original type when uploading as 'asset' (since DB only accepts video/audio/image)
+              original_type: type === 'asset' ? 'asset' : undefined,
             },
           },
         ])
