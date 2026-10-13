@@ -223,7 +223,7 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
         )}
       </div>
 
-      <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+      <div className="absolute right-1 bottom-1 flex gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
         <button
           type="button"
           onClick={(e) => {
@@ -247,6 +247,16 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
+      {/* trim handle (right edge) */}
+      <span
+        className="absolute inset-y-0 right-0 w-3 cursor-ew-resize bg-white/0 transition-colors hover:bg-white/30 active:bg-white/40"
+        aria-label="Arraste para cortar"
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          // TODO: impl trim logic (needs onCommit prop like LaneClip)
+        }}
+      />
     </div>
   )
 }
