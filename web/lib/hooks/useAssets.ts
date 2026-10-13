@@ -201,7 +201,7 @@ async function getMediaDuration(file: File): Promise<number | undefined> {
 }
 
 // Helper: Generate video thumbnail
-async function generateVideoThumbnail(file: File): Promise<string | undefined> {
+async function generateVideoThumbnail(file: File | Blob): Promise<string | undefined> {
   return new Promise((resolve) => {
     const video = document.createElement('video')
     const url = URL.createObjectURL(file)
@@ -242,7 +242,7 @@ async function generateVideoThumbnail(file: File): Promise<string | undefined> {
 }
 
 // Helper: Generate image thumbnail
-async function generateImageThumbnail(file: File): Promise<string | undefined> {
+async function generateImageThumbnail(file: File | Blob): Promise<string | undefined> {
   return new Promise((resolve) => {
     const img = new Image()
     
