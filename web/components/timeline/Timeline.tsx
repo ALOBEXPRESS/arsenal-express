@@ -22,6 +22,7 @@ import {
   X,
   Scissors,
   Type,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
@@ -240,10 +241,20 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       style={{ left: item.start * pps, width: d * pps - 2 }}
     >
       {/* filmstrip */}
-      <div
-        className="absolute inset-0 bg-track-video"
-        style={thumb ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' } : undefined}
-      />
+      {thumb ? (
+        <div
+          className="absolute inset-0 bg-track-video"
+          style={{ backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
+        />
+      ) : media ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-track-video/30">
+          {media.type === 'video' ? (
+            <Clapperboard className="h-12 w-12 text-white/30" aria-hidden />
+          ) : (
+            <ImageIcon className="h-12 w-12 text-white/30" aria-hidden />
+          )}
+        </div>
+      ) : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40" />
 
       <div className="relative flex h-full flex-col justify-between p-1.5">
