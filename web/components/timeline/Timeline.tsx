@@ -1223,7 +1223,7 @@ export function Timeline({
                 <Music className="h-3.5 w-3.5 text-emerald-400" aria-hidden /> 
                 <span className="font-medium">Áudio</span>
               </div>
-              <div className="mb-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+              <div className="flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Sparkles className="h-3.5 w-3.5 text-pink-400" aria-hidden /> 
                 <span className="font-medium">SFX</span>
               </div>
