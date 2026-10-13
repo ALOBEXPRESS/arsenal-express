@@ -63,6 +63,9 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
           await onUpload(file)
         } catch (error) {
           console.error(`Upload failed for ${file.name}:`, error)
+          console.error('Error type:', typeof error)
+          console.error('Error keys:', error ? Object.keys(error) : 'null')
+          console.error('Error string:', String(error))
           failed.push(file.name)
         }
       }

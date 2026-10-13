@@ -67,13 +67,16 @@ export function useUploadAsset() {
           upsert: false,
         })
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Upload error details:', uploadError)
+        throw new Error(`Upload failed: ${uploadError.message || JSON.stringify(uploadError)}`)
+      }
 
       // Get file metadata (duration for video/audio, thumbnails)
       let duration_seconds: number | undefined
       let thumbnail: string | undefined
       let dims: { width: number; height: number } | null = null
-      let subtype: string | undefined
+      // let subtype: string | undefined // Temporarily disabled - column doesn't exist
 
       if (type === 'video') {
         duration_seconds = await getMediaDuration(file)
@@ -85,7 +88,7 @@ export function useUploadAsset() {
         thumbnail = await generateImageThumbnail(file)
       } else if (type === 'asset') {
         // Detect subtype for extra assets (GIF, MOV, Lottie, stickers)
-        subtype = detectSubtype(file)
+        // subtype = detectSubtype(file) // Temporarily disabled - column doesn't exist
         if (file.type.startsWith('video/') || file.type === 'image/gif') {
           duration_seconds = await getMediaDuration(file)
           thumbnail = await generateVideoThumbnail(file)
@@ -95,18 +98,31 @@ export function useUploadAsset() {
       }
 
       // Create asset record in database
+      // Map 'asset' type to appropriate database kind (video/audio/image)
+      let dbKind: 'video' | 'audio' | 'image' = type as 'video' | 'audio' | 'image'
+      if (type === 'asset') {
+        // For extra assets, determine kind from file type
+        if (file.type.startsWith('video/') || file.type === 'image/gif') {
+          dbKind = 'video'
+        } else if (file.type.startsWith('audio/')) {
+          dbKind = 'audio'
+        } else {
+          dbKind = 'image' // Default for stickers, images, etc.
+        }
+      }
+
       const { data: asset, error: dbError } = await supabase
         .from('assets')
         .insert([
           {
             project_id,
-            kind: type, // 'kind' no schema, não 'type'
+            kind: dbKind, // Use mapped database kind
             origin: 'upload',
             filename: file.name,
             storage_path: filePath,
             duration_seconds,
             file_size_bytes: file.size,
-            subtype,
+            // subtype, // Temporarily disabled - column doesn't exist
             metadata: {
               mime_type: file.type,
               thumbnail, // Base64 thumbnail for preview
@@ -118,7 +134,10 @@ export function useUploadAsset() {
         .select()
         .single()
 
-      if (dbError) throw dbError
+      if (dbError) {
+        console.error('Database error details:', dbError)
+        throw new Error(`Database insert failed: ${dbError.message || JSON.stringify(dbError)}`)
+      }
       return asset as Asset
     },
     onSuccess: (data) => {
