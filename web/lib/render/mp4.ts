@@ -405,12 +405,8 @@ async function mixAndAddAudio(
       // Apply speed/rate
       source.playbackRate.value = scene.rate || 1
       
-      // Apply volume (lower for narration under music)
-      const gain = audioCtx.createGain()
-      gain.gain.value = scene.volume ?? 1
-      
-      source.connect(gain)
-      gain.connect(audioCtx.destination)
+      // Connect to destination
+      source.connect(audioCtx.destination)
       
       // Start at scene time, from trim point
       source.start(scene.start, scene.trim || 0, scene.duration)
