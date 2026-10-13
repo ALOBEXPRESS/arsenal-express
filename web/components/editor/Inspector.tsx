@@ -276,24 +276,136 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           }}
         />
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
-          <Group title="Transformar">
-            <PropSlider label="Escala" value={o.scale} min={0.05} max={3} step={0.01} format={pct} onChange={(v) => set({ scale: v })} onReset={o.scale !== 1 ? () => set({ scale: 1 }) : undefined} />
-            <PropSlider label="Posição X" value={o.x} min={-1.5} max={1.5} step={0.005} format={(v) => (v * 50).toFixed(1) + '%'} onChange={(v) => set({ x: v })} onReset={o.x ? () => set({ x: 0 }) : undefined} />
-            <PropSlider label="Posição Y" value={o.y} min={-1.5} max={1.5} step={0.005} format={(v) => (v * 50).toFixed(1) + '%'} onChange={(v) => set({ y: v })} onReset={o.y ? () => set({ y: 0 }) : undefined} />
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" onClick={() => set({ x: 0, y: 0 })}>
-                <Crosshair /> Centralizar
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => set({ x: 0, y: 0, scale: 1 })}>
-                <Maximize /> Encaixar
-              </Button>
-            </div>
-            <p className="text-[11px] text-muted-foreground">Dica: arraste a camada direto no monitor pra posicionar.</p>
-          </Group>
+          {o.kind === 'text' ? (
+            <>
+              <Group title="Conteúdo">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-medium text-foreground/85">Texto</label>
+                  <textarea
+                    value={o.text_content || ''}
+                    onChange={(e) => set({ text_content: e.target.value })}
+                    className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none resize-none"
+                    rows={3}
+                    placeholder="Digite o texto aqui..."
+                  />
+                </div>
+              </Group>
 
-          <Group title="Aparência">
-            <PropSlider label="Opacidade" value={o.opacity} min={0} max={1} step={0.01} format={pct} onChange={(v) => set({ opacity: v })} onReset={o.opacity !== 1 ? () => set({ opacity: 1 }) : undefined} />
-          </Group>
+              <Group title="Estilo de texto">
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-foreground/85">Fonte</label>
+                    <select
+                      value={o.text_style?.font_family || 'Arial'}
+                      onChange={(e) => set({ text_style: { ...o.text_style, font_family: e.target.value } })}
+                      className="w-full rounded-md border border-border bg-surface-0 px-2 py-1 text-[12px] text-foreground focus:border-primary focus:outline-none"
+                    >
+                      <option value="Arial">Arial</option>
+                      <option value="Helvetica">Helvetica</option>
+                      <option value="Times New Roman">Times New Roman</option>
+                      <option value="Courier New">Courier New</option>
+                      <option value="Georgia">Georgia</option>
+                      <option value="Verdana">Verdana</option>
+                      <option value="Impact">Impact</option>
+                    </select>
+                  </div>
+
+                  <PropSlider 
+                    label="Tamanho" 
+                    value={o.text_style?.font_size || 48} 
+                    min={12} 
+                    max={120} 
+                    step={1} 
+                    format={(v) => `${v}px`}
+                    onChange={(v) => set({ text_style: { ...o.text_style, font_size: v } })}
+                  />
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-foreground/85">Peso</label>
+                    <select
+                      value={o.text_style?.font_weight || 'bold'}
+                      onChange={(e) => set({ text_style: { ...o.text_style, font_weight: e.target.value as any } })}
+                      className="w-full rounded-md border border-border bg-surface-0 px-2 py-1 text-[12px] text-foreground focus:border-primary focus:outline-none"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="bold">Negrito</option>
+                      <option value="bolder">Extra Negrito</option>
+                      <option value="lighter">Leve</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-foreground/85">Alinhamento</label>
+                    <select
+                      value={o.text_style?.alignment || 'center'}
+                      onChange={(e) => set({ text_style: { ...o.text_style, alignment: e.target.value as any } })}
+                      className="w-full rounded-md border border-border bg-surface-0 px-2 py-1 text-[12px] text-foreground focus:border-primary focus:outline-none"
+                    >
+                      <option value="left">Esquerda</option>
+                      <option value="center">Centro</option>
+                      <option value="right">Direita</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-foreground/85">Cor do texto</label>
+                      <input
+                        type="color"
+                        value={o.text_style?.color || '#FFFFFF'}
+                        onChange={(e) => set({ text_style: { ...o.text_style, color: e.target.value } })}
+                        className="h-8 w-full rounded-md border border-border bg-surface-0 cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-foreground/85">Cor de fundo</label>
+                      <input
+                        type="color"
+                        value={o.text_style?.background_color || '#000000'}
+                        onChange={(e) => set({ text_style: { ...o.text_style, background_color: e.target.value } })}
+                        className="h-8 w-full rounded-md border border-border bg-surface-0 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <PropSlider 
+                    label="Espaçamento interno" 
+                    value={o.text_style?.padding || 20} 
+                    min={0} 
+                    max={60} 
+                    step={1} 
+                    format={(v) => `${v}px`}
+                    onChange={(v) => set({ text_style: { ...o.text_style, padding: v } })}
+                  />
+                </div>
+              </Group>
+
+              <Group title="Aparência">
+                <PropSlider label="Opacidade" value={o.opacity} min={0} max={1} step={0.01} format={pct} onChange={(v) => set({ opacity: v })} onReset={o.opacity !== 1 ? () => set({ opacity: 1 }) : undefined} />
+              </Group>
+            </>
+          ) : (
+            <>
+              <Group title="Transformar">
+                <PropSlider label="Escala" value={o.scale} min={0.05} max={3} step={0.01} format={pct} onChange={(v) => set({ scale: v })} onReset={o.scale !== 1 ? () => set({ scale: 1 }) : undefined} />
+                <PropSlider label="Posição X" value={o.x} min={-1.5} max={1.5} step={0.005} format={(v) => (v * 50).toFixed(1) + '%'} onChange={(v) => set({ x: v })} onReset={o.x ? () => set({ x: 0 }) : undefined} />
+                <PropSlider label="Posição Y" value={o.y} min={-1.5} max={1.5} step={0.005} format={(v) => (v * 50).toFixed(1) + '%'} onChange={(v) => set({ y: v })} onReset={o.y ? () => set({ y: 0 }) : undefined} />
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" onClick={() => set({ x: 0, y: 0 })}>
+                    <Crosshair /> Centralizar
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => set({ x: 0, y: 0, scale: 1 })}>
+                    <Maximize /> Encaixar
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Dica: arraste a camada direto no monitor pra posicionar.</p>
+              </Group>
+
+              <Group title="Aparência">
+                <PropSlider label="Opacidade" value={o.opacity} min={0} max={1} step={0.01} format={pct} onChange={(v) => set({ opacity: v })} onReset={o.opacity !== 1 ? () => set({ opacity: 1 }) : undefined} />
+              </Group>
+            </>
+          )}
 
           <Group title="Animações">
             <div className="space-y-2">
