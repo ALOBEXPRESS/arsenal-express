@@ -257,23 +257,28 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     )
   }
 
-  // ---- Overlay (image / video layer) ---------------------------------------------
+  // ---- Overlay (image / video / text layer) ---------------------------------------------
   if (selection.kind === 'overlay') {
-    const o = tracks.overlays.find((x) => x.id === selection.id)
+    // Check if it's in text overlays or image overlays
+    const o = tracks.overlays.find((x) => x.id === selection.id) || tracks.imageOverlays.find((x) => x.id === selection.id)
     if (!o) return null
     const a = assetById.get(o.asset_id)
-    const set = (patch: Partial<typeof o>) => tracks.updateOverlay(o.id, patch)
+    const isImageOverlay = tracks.imageOverlays.some((x) => x.id === selection.id)
+    const set = (patch: Partial<typeof o>) => 
+      isImageOverlay ? tracks.updateImageOverlay(o.id, patch) : tracks.updateOverlay(o.id, patch)
+    const remove = () => {
+      if (isImageOverlay) tracks.removeImageOverlay(o.id)
+      else tracks.removeOverlay(o.id)
+      select(null)
+    }
     const maxDur = o.kind === 'video' && a?.duration ? a.duration / (o.speed || 1) : undefined
     return (
       <div className="flex h-full flex-col">
         <Header
-          icon={o.kind === 'video' ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-          eyebrow={`Sobrepor · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}`}
-          title={a?.filename || 'Mídia removida'}
-          onDelete={() => {
-            tracks.removeOverlay(o.id)
-            select(null)
-          }}
+          icon={o.kind === 'text' ? <ImageIcon className="h-4 w-4" /> : o.kind === 'video' ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+          eyebrow={`${isImageOverlay ? 'Overlay' : 'Sobrepor'} · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}`}
+          title={o.kind === 'text' ? 'Barra de texto' : (a?.filename || 'Mídia removida')}
+          onDelete={remove}
         />
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
           {o.kind === 'text' ? (
