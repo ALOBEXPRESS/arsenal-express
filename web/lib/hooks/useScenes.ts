@@ -551,85 +551,68 @@ export function useAutoAssemble() {
           }
         }
         
-        // Add video overlay bars if enabled
+        // Add overlay from favorite assets if enabled
         if (settings.overlay_bars.enabled) {
           let sceneStart = 0
           
-          // Check for favorite assets in priority order: video > image > asset
+          // Check for favorite assets in priority order: asset > image > video
+          const favoriteAsset = settings.overlay_bars.favorite_asset_id 
+            ? assets.find(a => a.id === settings.overlay_bars.favorite_asset_id)
+            : null
+            
+          const favoriteImage = settings.overlay_bars.favorite_image_id 
+            ? assets.find(a => a.id === settings.overlay_bars.favorite_image_id)
+            : null
+          
           const favoriteVideo = settings.overlay_bars.favorite_video_id 
             ? assets.find(a => a.id === settings.overlay_bars.favorite_video_id)
             : null
           
-          const favoriteImage = settings.overlay_bars.favorite_image_id 
-            ? assets.find(a => a.id === settings.overlay_bars.favorite_image_id)
-            : null
-            
-          const favoriteAsset = settings.overlay_bars.favorite_asset_id 
-            ? assets.find(a => a.id === settings.overlay_bars.favorite_asset_id)
-            : null
-          
-          // Use first available: video > image > asset
-          const overlayAsset = favoriteVideo || favoriteImage || favoriteAsset
+          // Use first available: asset > image > video
+          const overlayAsset = favoriteAsset || favoriteImage || favoriteVideo
           
           console.log('[Overlay Bars]', {
             enabled: settings.overlay_bars.enabled,
-            favorite_video_id: settings.overlay_bars.favorite_video_id,
-            favorite_image_id: settings.overlay_bars.favorite_image_id,
             favorite_asset_id: settings.overlay_bars.favorite_asset_id,
+            favorite_image_id: settings.overlay_bars.favorite_image_id,
+            favorite_video_id: settings.overlay_bars.favorite_video_id,
             overlayAsset: overlayAsset?.filename,
             position: settings.overlay_bars.position
           })
           
-          for (let i = 0; i < scenes.length; i++) {
-            const sceneDur = durations[i]
-            
-            // Add top bar if position is 'top' or 'both'
-            if (settings.overlay_bars.position === 'top' || settings.overlay_bars.position === 'both') {
-              if (overlayAsset) {
-                // Use favorite asset as overlay (goes to "Overlays" layer)
-                overlays.push({
-                  id: crypto.randomUUID(),
-                  asset_id: overlayAsset.id,
-                  kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
-                  start: sceneStart,
-                  duration: sceneDur,
-                  scale: 0.3, // Smaller scale for logo/watermark
-                  x: 0,
-                  y: 0.8, // Top position
-                  opacity: 1,
-                  speed: 1,
-                  volume: 0, // Muted
-                  animation_in: 'none',
-                  animation_out: 'none',
-                  animation_duration: 0,
-                })
+          if (overlayAsset) {
+            for (let i = 0; i < scenes.length; i++) {
+              const sceneDur = durations[i]
+              
+              // Determine Y position based on setting
+              let yPos = 0 // Center
+              if (settings.overlay_bars.position === 'top') {
+                yPos = 0.85 // Near top
+              } else if (settings.overlay_bars.position === 'bottom') {
+                yPos = -0.85 // Near bottom
               }
+              // If 'both', keep centered (yPos = 0)
+              
+              // Add single overlay per scene
+              overlays.push({
+                id: crypto.randomUUID(),
+                asset_id: overlayAsset.id,
+                kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
+                start: sceneStart,
+                duration: sceneDur,
+                scale: 0.25, // 25% do tamanho
+                x: 0, // Centralizado horizontalmente
+                y: yPos,
+                opacity: 1,
+                speed: 1,
+                volume: 0, // Muted
+                animation_in: 'none',
+                animation_out: 'none',
+                animation_duration: 0,
+              })
+              
+              sceneStart += sceneDur
             }
-            
-            // Add bottom bar if position is 'bottom' or 'both'
-            if (settings.overlay_bars.position === 'bottom' || settings.overlay_bars.position === 'both') {
-              if (overlayAsset) {
-                // Use favorite asset as overlay (goes to "Overlays" layer)
-                overlays.push({
-                  id: crypto.randomUUID(),
-                  asset_id: overlayAsset.id,
-                  kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
-                  start: sceneStart,
-                  duration: sceneDur,
-                  scale: 0.3, // Smaller scale for logo/watermark
-                  x: 0,
-                  y: -0.8, // Bottom position
-                  opacity: 1,
-                  speed: 1,
-                  volume: 0, // Muted
-                  animation_in: 'none',
-                  animation_out: 'none',
-                  animation_duration: 0,
-                })
-              }
-            }
-            
-            sceneStart += sceneDur
           }
         }
         
