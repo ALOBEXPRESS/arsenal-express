@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split, Film, Volume2, RectangleHorizontal } from 'lucide-react'
+import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split, Film, Volume2, RectangleHorizontal, Gauge } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
@@ -229,6 +229,41 @@ export function AssemblySheet({
               </label>
             </div>
           </section>
+
+          <Section
+            icon={<Gauge className="h-4 w-4" />}
+            title="Velocidade"
+            description="Aplica velocidade customizada nas cenas e narração ao montar"
+            checked={s.speed.enabled}
+            onCheckedChange={(v) => setS((p) => ({ ...p, speed: { ...p.speed, enabled: v } }))}
+            id="speed"
+          >
+            <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
+              <div className="mb-2.5 flex items-center justify-between text-[12px]">
+                <label htmlFor="speed-value" className="text-muted-foreground">
+                  Multiplicador de velocidade
+                </label>
+                <span className="font-mono tabular-nums text-primary">{s.speed.value.toFixed(2)}×</span>
+              </div>
+              <Slider
+                id="speed-value"
+                min={0.5}
+                max={2.0}
+                step={0.05}
+                value={[s.speed.value]}
+                onValueChange={([v]) => setS((p) => ({ ...p, speed: { ...p.speed, value: v } }))}
+                aria-label="Velocidade de reprodução"
+              />
+              <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+                <span>0.5× (lento)</span>
+                <span>1.0× (normal)</span>
+                <span>2.0× (rápido)</span>
+              </div>
+              <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
+                Ao montar, todas as cenas e a narração (se "Juntar cenas com áudio" estiver ativo) receberão esta velocidade. Você pode ajustar a velocidade de clipes individuais depois no Inspector.
+              </p>
+            </div>
+          </Section>
 
           <section aria-labelledby="split-title" className="rounded-xl border border-border bg-surface-2/60 p-4">
             <div className="flex items-start gap-3">

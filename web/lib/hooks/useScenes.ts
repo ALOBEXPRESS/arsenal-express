@@ -481,7 +481,7 @@ export function useAutoAssemble() {
           start: 0, // User can reposition in timeline
           duration: audio.duration || 0,
           volume: 0.3, // Lower volume for background music
-          speed: 1,
+          speed: settings.speed.enabled ? settings.speed.value : 1,
         }))
         
         if (settings.media.with_videos && settings.media.with_images && overlayImages.length > 0) {

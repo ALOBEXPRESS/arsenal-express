@@ -215,6 +215,13 @@ export interface SyncSettings {
     /** average scene length used to decide how many clips each subproject gets (seconds) */
     pace: number
   }
+  /** Playback speed for assembled scenes and narration (0.5x to 2x) */
+  speed: {
+    /** Apply speed to video scenes */
+    enabled: boolean
+    /** Speed multiplier: 0.5 = slow motion (50%), 1 = normal, 2 = fast (200%) */
+    value: number
+  }
   /** Media type selection for scene assembly */
   media: {
     /** Use images in scene assembly */
@@ -271,6 +278,7 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   variable_rhythm: true,
   order: { by: 'modified', reverse: false },
   narration: { split: 'per_audio', pace: DEFAULT_SCENE_PACE },
+  speed: { enabled: false, value: 1.0 },
   media: {
     with_images: true,
     with_videos: true,
@@ -305,6 +313,7 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
   const animation = { ...DEFAULT_SYNC_SETTINGS.animation, ...(s?.animation || {}) }
   const transition = { ...DEFAULT_SYNC_SETTINGS.transition, ...(s?.transition || {}) }
   const narration = { ...DEFAULT_SYNC_SETTINGS.narration, ...(s?.narration || {}) }
+  const speed = { ...DEFAULT_SYNC_SETTINGS.speed, ...(s?.speed || {}) }
   const media = { ...DEFAULT_SYNC_SETTINGS.media, ...(s?.media || {}) }
   const sfx = { ...DEFAULT_SYNC_SETTINGS.sfx, ...(s?.sfx || {}) }
   const overlay_bars = { ...DEFAULT_SYNC_SETTINGS.overlay_bars, ...(s?.overlay_bars || {}) }
@@ -314,6 +323,10 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
     narration: {
       split: narration.split === 'continuous' ? 'continuous' : 'per_audio',
       pace: Math.min(20, Math.max(2, Number(narration.pace) || DEFAULT_SCENE_PACE)),
+    },
+    speed: {
+      enabled: speed.enabled ?? DEFAULT_SYNC_SETTINGS.speed.enabled,
+      value: Math.min(2, Math.max(0.5, Number(speed.value) || 1.0)),
     },
     media: {
       with_images: media.with_images ?? DEFAULT_SYNC_SETTINGS.media.with_images,

@@ -415,69 +415,69 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               </div>
             </div>
 
-            {/* Properties with resize handle */}
-            <div className="flex flex-col flex-shrink-0 border-l border-border bg-surface-1"
+            {/* Properties with collapse/expand - overlays timeline when expanded */}
+            <div className="relative flex flex-col flex-shrink-0 border-l border-border bg-surface-1"
               style={{
                 width: sidebarCollapsed ? '34rem' : '18rem',
                 transition: isResizing ? 'none' : 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
+              {/* Inspector panel that overlays downward */}
               <aside
                 ref={inspectorRef}
-                className="overflow-y-auto"
+                className="overflow-y-auto relative z-20 bg-surface-1"
                 style={{ 
-                  height: inspectorCollapsed ? '0px' : `${inspectorHeight}px`,
+                  height: inspectorCollapsed ? '48px' : `${inspectorHeight}px`,
                   transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  opacity: inspectorCollapsed ? 0 : 1
                 }}
                 aria-label="Propriedades do clipe"
-                aria-hidden={inspectorCollapsed}
               >
-                <Inspector
-                  projectId={id}
-                  scenes={subScenes}
-                  assets={assets || []}
-                  narrationTrack={narrationTrack}
-                  tracks={tracks}
-                  onEditScene={(scene) => {
-                    setEditingScene(scene)
-                    setShowSceneEditor(true)
+                <div 
+                  style={{
+                    opacity: inspectorCollapsed ? 0 : 1,
+                    transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    pointerEvents: inspectorCollapsed ? 'none' : 'auto'
                   }}
-                />
+                >
+                  <Inspector
+                    projectId={id}
+                    scenes={subScenes}
+                    assets={assets || []}
+                    narrationTrack={narrationTrack}
+                    tracks={tracks}
+                    onEditScene={(scene) => {
+                      setEditingScene(scene)
+                      setShowSceneEditor(true)
+                    }}
+                  />
+                </div>
               </aside>
               
               {/* Collapse/Expand button */}
               <button
                 onClick={() => setInspectorCollapsed(!inspectorCollapsed)}
                 className={cn(
-                  "group relative flex h-8 w-full items-center justify-center border-t border-border bg-surface-2 transition-colors hover:bg-surface-3",
-                  "cursor-pointer"
+                  "group relative flex h-10 w-full items-center justify-center border-t border-border bg-surface-2 transition-colors hover:bg-surface-3 z-20",
+                  "cursor-pointer shrink-0"
                 )}
                 title={inspectorCollapsed ? "Expandir propriedades" : "Recolher propriedades"}
                 aria-label={inspectorCollapsed ? "Expandir propriedades" : "Recolher propriedades"}
               >
                 <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-muted-foreground/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                 {inspectorCollapsed ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+                  <ChevronDown className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-foreground" />
                 ) : (
-                  <ChevronUp className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+                  <ChevronUp className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-foreground" />
                 )}
               </button>
 
-              {/* Preview area below inspector */}
-              <div className="flex-1 overflow-hidden bg-surface-0/50" style={{ minHeight: '100px' }}>
-                {/* This area will show thumbnails or additional info */}
-              </div>
+              {/* Filler space below button (grows when Inspector collapses) */}
+              <div className="flex-1 bg-surface-0/50"></div>
             </div>
           </div>
 
-          <div 
-            className="flex-shrink-0 border-t border-border"
-            style={{ 
-              height: inspectorCollapsed ? 'calc(100vh - 64px - 150px)' : '330px',
-              transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-            }}
-          >
+          {/* Timeline - fixed height, Inspector overlays it when expanded */}
+          <div className="h-[330px] flex-shrink-0 border-t border-border">
             <Timeline
               projectId={id}
               scenes={subScenes}
