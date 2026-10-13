@@ -119,6 +119,8 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
             ? tracks.audioClips.some((c) => c.id === sel.id)
             : sel.kind === 'adjust'
               ? tracks.adjustments.some((c) => c.id === sel.id)
+            : sel.kind === 'asset'
+              ? assetById.has(sel.id)
               : !!narrationTrack[Number(sel.id)]
     return ok ? sel : null
   })()
@@ -149,6 +151,130 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
               </li>
             </ul>
           </div>
+      </div>
+    )
+  }
+
+  // ---- Asset (bulk edit all scenes using this asset) -------------------------
+  if (selection.kind === 'asset') {
+    const asset = assetById.get(selection.id)
+    if (!asset) return null
+    const affectedScenes = timeline.filter((t) => 
+      t.videoAsset?.id === asset.id || t.imageAsset?.id === asset.id
+    )
+    if (affectedScenes.length === 0) {
+      return (
+        <div className="flex h-full flex-col">
+          <Header 
+            icon={asset.type === 'video' ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />} 
+            eyebrow="Asset" 
+            title={asset.filename} 
+          />
+          <div className="p-4 text-[12.5px] text-muted-foreground">
+            Este asset não é usado em nenhuma cena desta linha do tempo.
+          </div>
+        </div>
+      )
+    }
+    
+    const isVideo = asset.type === 'video'
+    const firstScene = affectedScenes[0].scene
+    const firstProps = sceneProps(firstScene)
+    const defaultVolume = narrationTrack.length ? CLIP_VOLUME_UNDER_NARRATION : 1
+    
+    // Bulk update all affected scenes
+    const setBulk = (patch: Record<string, unknown>) => {
+      affectedScenes.forEach(({ scene }) => {
+        patchScene(scene.id, { metadata: { ...(scene.metadata || {}), ...patch } })
+      })
+    }
+    
+    return (
+      <div className="flex h-full flex-col">
+        <Header
+          icon={isVideo ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+          eyebrow={`Asset · ${affectedScenes.length} cena(s)`}
+          title={asset.filename}
+        />
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
+          <p className="text-[12px] text-muted-foreground">
+            Ajustes aplicados a todas as {affectedScenes.length} cena(s) que usam este asset.
+          </p>
+          
+          {isVideo && (
+            <Group title="Vídeo">
+              <PropSlider
+                label="Velocidade"
+                value={firstProps.speed ?? 1}
+                min={0.25}
+                max={4}
+                step={0.05}
+                format={(v) => `${times(v)}`}
+                onChange={(v) => setBulk({ speed: Math.round(v * 100) / 100 })}
+                onReset={() => setBulk({ speed: null })}
+                hint={`Aplica a todas as ${affectedScenes.length} cenas com este vídeo`}
+              />
+              <PropSlider
+                label="Volume do clipe"
+                value={firstProps.volume ?? defaultVolume}
+                min={0}
+                max={1}
+                step={0.01}
+                format={pct}
+                onChange={(v) => setBulk({ volume: Math.round(v * 100) / 100 })}
+                onReset={() => setBulk({ volume: null })}
+                hint={`Aplica a todas as ${affectedScenes.length} cenas`}
+              />
+            </Group>
+          )}
+
+          <Group title="Transformar">
+            <PropSlider
+              label="Escala (Zoom)"
+              value={firstProps.scale ?? 1}
+              min={0.5}
+              max={3}
+              step={0.01}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => setBulk({ scale: Math.round(v * 100) / 100 })}
+              onReset={() => setBulk({ scale: null })}
+              hint={`Zoom aplicado em todas as ${affectedScenes.length} cenas`}
+            />
+            <PropSlider
+              label="Posição X"
+              value={firstProps.x ?? 0}
+              min={-1}
+              max={1}
+              step={0.01}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => setBulk({ x: Math.round(v * 100) / 100 })}
+              onReset={() => setBulk({ x: null })}
+              hint="Mover horizontal: -100% (esquerda) a +100% (direita)"
+            />
+            <PropSlider
+              label="Posição Y"
+              value={firstProps.y ?? 0}
+              min={-1}
+              max={1}
+              step={0.01}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => setBulk({ y: Math.round(v * 100) / 100 })}
+              onReset={() => setBulk({ y: null })}
+              hint="Mover vertical: -100% (baixo) a +100% (cima)"
+            />
+            <PropSlider
+              label="Rotação"
+              value={firstProps.rotation ?? 0}
+              min={-180}
+              max={180}
+              step={1}
+              format={(v) => `${v}°`}
+              onChange={(v) => setBulk({ rotation: v })}
+              onReset={() => setBulk({ rotation: null })}
+              hint="Girar o vídeo em graus"
+            />
+          </Group>
+        </div>
       </div>
     )
   }

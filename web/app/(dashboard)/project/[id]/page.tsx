@@ -384,7 +384,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           {/* Tab content */}
           <div className="flex-1 overflow-y-auto">
             {sidebarTab === 'assets' ? (
-              <AssetLibrary projectId={id} />
+              <AssetLibrary projectId={id} onSelectAsset={(a) => select({ kind: 'asset', id: a.id })} />
             ) : (
               <SoundEffectsLibrary projectId={id} />
             )}
