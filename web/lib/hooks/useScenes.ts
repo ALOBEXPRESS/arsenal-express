@@ -478,6 +478,7 @@ export function useAutoAssemble() {
         // Add image overlays if both videos and images are enabled
         const imageOverlays: OverlayClip[] = []
         const textOverlays: OverlayClip[] = []
+        const overlays: OverlayClip[] = [] // For video overlays (bars with favorite video)
         const sfxClips: AudioClip[] = []
         
         // Add music/audio clips for non-narration audio (goes to Audio track)
@@ -550,61 +551,107 @@ export function useAutoAssemble() {
           }
         }
         
-        // Add text overlay bars if enabled
+        // Add video overlay bars if enabled
         if (settings.overlay_bars.enabled) {
           let sceneStart = 0
+          
+          // Check if there's a favorite video for overlays
+          const favoriteVideo = settings.overlay_bars.favorite_video_id 
+            ? videos.find(v => v.id === settings.overlay_bars.favorite_video_id)
+            : null
           
           for (let i = 0; i < scenes.length; i++) {
             const sceneDur = durations[i]
             
             // Add top bar if position is 'top' or 'both'
             if (settings.overlay_bars.position === 'top' || settings.overlay_bars.position === 'both') {
-              textOverlays.push({
-                id: crypto.randomUUID(),
-                asset_id: 'text-bar-top',
-                kind: 'text',
-                start: sceneStart,
-                duration: sceneDur,
-                scale: 1,
-                x: 0,
-                y: -0.8, // Top position (normalized -1 to 1)
-                opacity: 1,
-                speed: settings.speed.enabled ? settings.speed.value : 1,
-                volume: 1,
-                animation_in: 'none',
-                animation_out: 'none',
-                animation_duration: 0,
-                text_content: 'TEXTO DO TOPO',
-                text_style: {
-                  font_family: 'Arial',
-                  font_size: 16, // Even smaller for better fit
-                  font_weight: 'bold',
-                  color: '#FFFFFF',
-                  background_color: '#000000',
-                  background_opacity: 1,
-                  padding: 20, // More breathing room
-                  alignment: 'center',
-                },
-              })
+              if (favoriteVideo) {
+                // Use favorite video as overlay
+                overlays.push({
+                  id: crypto.randomUUID(),
+                  asset_id: favoriteVideo.id,
+                  kind: 'video',
+                  start: sceneStart,
+                  duration: sceneDur,
+                  scale: 1.0, // Full width
+                  x: 0,
+                  y: -0.8, // Top position
+                  opacity: 1,
+                  speed: settings.speed.enabled ? settings.speed.value : 1,
+                  volume: 0, // Muted
+                  animation_in: 'none',
+                  animation_out: 'none',
+                  animation_duration: 0,
+                })
+              } else {
+                // Create black bar overlay (using text type for now, will be converted to image/video)
+                textOverlays.push({
+                  id: crypto.randomUUID(),
+                  asset_id: 'text-bar-top',
+                  kind: 'text',
+                  start: sceneStart,
+                  duration: sceneDur,
+                  scale: 1,
+                  x: 0,
+                  y: -0.8,
+                  opacity: 1,
+                  speed: settings.speed.enabled ? settings.speed.value : 1,
+                  volume: 1,
+                  animation_in: 'none',
+                  animation_out: 'none',
+                  animation_duration: 0,
+                  text_content: 'TEXTO DO TOPO',
+                  text_style: {
+                    font_family: 'Arial',
+                    font_size: 16,
+                    font_weight: 'bold',
+                    color: '#FFFFFF',
+                    background_color: '#000000',
+                    background_opacity: 1,
+                    padding: 20,
+                    alignment: 'center',
+                  },
+                })
+              }
             }
             
             // Add bottom bar if position is 'bottom' or 'both'
             if (settings.overlay_bars.position === 'bottom' || settings.overlay_bars.position === 'both') {
-              textOverlays.push({
-                id: crypto.randomUUID(),
-                asset_id: 'text-bar-bottom',
-                kind: 'text',
-                start: sceneStart,
-                duration: sceneDur,
-                scale: 1,
-                x: 0,
-                y: 0.8, // Bottom position (normalized -1 to 1)
-                opacity: 1,
-                speed: settings.speed.enabled ? settings.speed.value : 1,
-                volume: 1,
-                animation_in: 'none',
-                animation_out: 'none',
-                animation_duration: 0,
+              if (favoriteVideo) {
+                // Use favorite video as overlay
+                overlays.push({
+                  id: crypto.randomUUID(),
+                  asset_id: favoriteVideo.id,
+                  kind: 'video',
+                  start: sceneStart,
+                  duration: sceneDur,
+                  scale: 1.0, // Full width
+                  x: 0,
+                  y: 0.8, // Bottom position
+                  opacity: 1,
+                  speed: settings.speed.enabled ? settings.speed.value : 1,
+                  volume: 0, // Muted
+                  animation_in: 'none',
+                  animation_out: 'none',
+                  animation_duration: 0,
+                })
+              } else {
+                // Create black bar overlay
+                textOverlays.push({
+                  id: crypto.randomUUID(),
+                  asset_id: 'text-bar-bottom',
+                  kind: 'text',
+                  start: sceneStart,
+                  duration: sceneDur,
+                  scale: 1,
+                  x: 0,
+                  y: 0.8,
+                  opacity: 1,
+                  speed: settings.speed.enabled ? settings.speed.value : 1,
+                  volume: 1,
+                  animation_in: 'none',
+                  animation_out: 'none',
+                  animation_duration: 0,
                 text_content: 'TEXTO DO RODAPÉ',
                 text_style: {
                   font_family: 'Arial',
@@ -624,8 +671,8 @@ export function useAutoAssemble() {
         }
         
         const sub: Subproject = mode === 'scenes' 
-          ? { ...target.sub, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] } 
-          : { ...target.sub, narration_track: trackWithSpeed, overlays: textOverlays, image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] }
+          ? { ...target.sub, overlays: [...textOverlays, ...overlays], image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] } 
+          : { ...target.sub, narration_track: trackWithSpeed, overlays: [...textOverlays, ...overlays], image_overlays: imageOverlays, audio_clips: [...sfxClips, ...musicClips] }
         built.push({
           sub,
           scenes,
