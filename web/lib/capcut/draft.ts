@@ -525,6 +525,12 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
           scale: { x: clip.scale, y: clip.scale },
           // CapCut units: fraction of half canvas, y up — same as OverlayClip
           transform: { x: clip.x, y: clip.y },
+          // Color adjustments
+          brightness: clip.brightness ? clip.brightness / 100 : 0,
+          contrast: clip.contrast ? clip.contrast / 100 : 0,
+          saturation: clip.saturation ? clip.saturation / 100 : 0,
+          // Blend mode
+          blend_mode: clip.blend_mode || 'normal',
         },
         uniform_scale: { on: true, value: clip.scale },
         hdr_settings: { intensity: 1.0, mode: 1, nits: 1000 },

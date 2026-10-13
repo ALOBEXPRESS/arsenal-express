@@ -94,6 +94,12 @@ export interface OverlayClip {
   animation_out?: 'none' | 'fade' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right' | 'zoom-in' | 'zoom-out'
   /** Animation duration in seconds (default: 0.3) */
   animation_duration?: number
+  /** Color adjustments */
+  brightness?: number // -100 to 100
+  contrast?: number // -100 to 100  
+  saturation?: number // -100 to 100
+  /** Blend mode for compositing */
+  blend_mode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'soft-light' | 'hard-light' | 'darken' | 'lighten'
   /** Text overlay fields */
   text_content?: string
   text_style?: {

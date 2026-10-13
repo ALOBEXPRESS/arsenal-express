@@ -483,6 +483,66 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
 
               <Group title="Aparência">
                 <PropSlider label="Opacidade" value={o.opacity} min={0} max={1} step={0.01} format={pct} onChange={(v) => set({ opacity: v })} onReset={o.opacity !== 1 ? () => set({ opacity: 1 }) : undefined} />
+                
+                <PropSlider 
+                  label="Brilho" 
+                  value={o.brightness ?? 0} 
+                  min={-100} 
+                  max={100} 
+                  step={1} 
+                  format={(v) => `${v > 0 ? '+' : ''}${v}%`}
+                  onChange={(v) => set({ brightness: v })} 
+                  onReset={o.brightness !== undefined ? () => set({ brightness: undefined }) : undefined}
+                  hint="Ajusta o brilho da imagem/vídeo"
+                />
+                
+                <PropSlider 
+                  label="Contraste" 
+                  value={o.contrast ?? 0} 
+                  min={-100} 
+                  max={100} 
+                  step={1} 
+                  format={(v) => `${v > 0 ? '+' : ''}${v}%`}
+                  onChange={(v) => set({ contrast: v })} 
+                  onReset={o.contrast !== undefined ? () => set({ contrast: undefined }) : undefined}
+                  hint="Ajusta o contraste da imagem/vídeo"
+                />
+                
+                <PropSlider 
+                  label="Saturação" 
+                  value={o.saturation ?? 0} 
+                  min={-100} 
+                  max={100} 
+                  step={1} 
+                  format={(v) => `${v > 0 ? '+' : ''}${v}%`}
+                  onChange={(v) => set({ saturation: v })} 
+                  onReset={o.saturation !== undefined ? () => set({ saturation: undefined }) : undefined}
+                  hint="Ajusta a saturação das cores"
+                />
+                
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-foreground/85">Modo de Mesclagem</label>
+                  <select
+                    value={o.blend_mode || 'normal'}
+                    onChange={(e) => set({ blend_mode: e.target.value as any })}
+                    className="w-full rounded-md border border-border bg-surface-0 px-2 py-1 text-[12px] text-foreground focus:border-primary focus:outline-none"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="multiply">Multiply (Escurecer)</option>
+                    <option value="screen">Screen (Clarear)</option>
+                    <option value="overlay">Overlay</option>
+                    <option value="soft-light">Soft Light</option>
+                    <option value="hard-light">Hard Light</option>
+                    <option value="darken">Darken (Mais escuro)</option>
+                    <option value="lighten">Lighten (Mais claro)</option>
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">
+                    {o.blend_mode === 'multiply' && "Escurece o vídeo de fundo"}
+                    {o.blend_mode === 'darken' && "Mantém apenas as partes mais escuras"}
+                    {o.blend_mode === 'screen' && "Clareia o vídeo de fundo"}
+                    {(o.blend_mode === 'normal' || !o.blend_mode) && "Mesclagem padrão"}
+                  </p>
+                </div>
               </Group>
 
               {o.kind === 'video' && (
