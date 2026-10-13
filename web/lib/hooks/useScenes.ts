@@ -586,18 +586,18 @@ export function useAutoAssemble() {
             // Add top bar if position is 'top' or 'both'
             if (settings.overlay_bars.position === 'top' || settings.overlay_bars.position === 'both') {
               if (overlayAsset) {
-                // Use favorite asset as overlay
-                imageOverlays.push({
+                // Use favorite asset as overlay (goes to "Overlays" layer)
+                overlays.push({
                   id: crypto.randomUUID(),
                   asset_id: overlayAsset.id,
                   kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
                   start: sceneStart,
                   duration: sceneDur,
-                  scale: 1.0, // Full width
+                  scale: 0.3, // Smaller scale for logo/watermark
                   x: 0,
-                  y: 1.5, // Top position (+75% = 1.5 in CapCut units)
+                  y: 0.8, // Top position
                   opacity: 1,
-                  speed: settings.speed.enabled ? settings.speed.value : 1,
+                  speed: 1,
                   volume: 0, // Muted
                   animation_in: 'none',
                   animation_out: 'none',
@@ -609,18 +609,18 @@ export function useAutoAssemble() {
             // Add bottom bar if position is 'bottom' or 'both'
             if (settings.overlay_bars.position === 'bottom' || settings.overlay_bars.position === 'both') {
               if (overlayAsset) {
-                // Use favorite asset as overlay
-                imageOverlays.push({
+                // Use favorite asset as overlay (goes to "Overlays" layer)
+                overlays.push({
                   id: crypto.randomUUID(),
                   asset_id: overlayAsset.id,
                   kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
                   start: sceneStart,
                   duration: sceneDur,
-                  scale: 1.0, // Full width
+                  scale: 0.3, // Smaller scale for logo/watermark
                   x: 0,
-                  y: -1.5, // Bottom position (-75% = -1.5 in CapCut units)
+                  y: -0.8, // Bottom position
                   opacity: 1,
-                  speed: settings.speed.enabled ? settings.speed.value : 1,
+                  speed: 1,
                   volume: 0, // Muted
                   animation_in: 'none',
                   animation_out: 'none',
