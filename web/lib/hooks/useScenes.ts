@@ -553,8 +553,6 @@ export function useAutoAssemble() {
         
         // Add overlay from favorite assets if enabled
         if (settings.overlay_bars.enabled) {
-          let sceneStart = 0
-          
           // Check for favorite assets in priority order: asset > image > video
           const favoriteAsset = settings.overlay_bars.favorite_asset_id 
             ? assets.find(a => a.id === settings.overlay_bars.favorite_asset_id)
@@ -576,43 +574,40 @@ export function useAutoAssemble() {
           })
           
           if (overlayAsset) {
-            for (let i = 0; i < scenes.length; i++) {
-              const sceneDur = durations[i]
-              
-              // Determine positions and how many overlays based on setting
-              const positions: number[] = []
-              
-              if (settings.overlay_bars.position === 'top') {
-                positions.push(0.60) // Topo: 60%
-              } else if (settings.overlay_bars.position === 'bottom') {
-                positions.push(-0.60) // Rodapé: -60%
-              } else {
-                // Ambos: duplicar - uma no topo e outra no rodapé
-                positions.push(0.60)  // Topo
-                positions.push(-0.60) // Rodapé
-              }
-              
-              // Add overlay(s) for each position
-              for (const yPos of positions) {
-                overlays.push({
-                  id: crypto.randomUUID(),
-                  asset_id: overlayAsset.id,
-                  kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
-                  start: sceneStart,
-                  duration: sceneDur,
-                  scale: 1.0, // 100% - largura total
-                  x: 0, // Centralizado horizontalmente
-                  y: yPos,
-                  opacity: 1,
-                  speed: 1,
-                  volume: 0, // Muted
-                  animation_in: 'none',
-                  animation_out: 'none',
-                  animation_duration: 0,
-                })
-              }
-              
-              sceneStart += sceneDur
+            // Calculate total duration across all scenes
+            const totalDuration = durations.reduce((sum, dur) => sum + dur, 0)
+            
+            // Determine positions based on setting
+            const positions: number[] = []
+            
+            if (settings.overlay_bars.position === 'top') {
+              positions.push(0.60) // Topo: 60%
+            } else if (settings.overlay_bars.position === 'bottom') {
+              positions.push(-0.60) // Rodapé: -60%
+            } else {
+              // Ambos: duplicar - uma no topo e outra no rodapé
+              positions.push(0.60)  // Topo
+              positions.push(-0.60) // Rodapé
+            }
+            
+            // Create ONE overlay per position that spans all scenes
+            for (const yPos of positions) {
+              overlays.push({
+                id: crypto.randomUUID(),
+                asset_id: overlayAsset.id,
+                kind: overlayAsset.type === 'video' || (overlayAsset.type === 'asset' && overlayAsset.kind === 'video') ? 'video' : 'image',
+                start: 0,
+                duration: totalDuration,
+                scale: 0.25, // 25% - barra horizontal
+                x: 0, // Centralizado horizontalmente
+                y: yPos,
+                opacity: 1,
+                speed: 1,
+                volume: 0, // Muted
+                animation_in: 'none',
+                animation_out: 'none',
+                animation_duration: 0,
+              })
             }
           }
         }
