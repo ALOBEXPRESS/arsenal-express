@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { NewPostDialog } from '@/components/tiktok/new-post-dialog'
+import { AccessGuard } from '@/components/feature-access/AccessGuard'
 import {
   getTikTokAccounts,
   getTikTokPosts,
@@ -20,6 +21,14 @@ import {
 } from '@/lib/tiktok-api'
 
 export default function TikTokSchedulerPage() {
+  return (
+    <AccessGuard feature="tiktok_scheduler" featureLabel="TikTok Scheduler">
+      <TikTokSchedulerContent />
+    </AccessGuard>
+  )
+}
+
+function TikTokSchedulerContent() {
   const [showNewPostModal, setShowNewPostModal] = useState(false)
   const [activeTab, setActiveTab] = useState('accounts')
   const queryClient = useQueryClient()
