@@ -192,11 +192,25 @@ export function NewPostDialog({ open, onOpenChange }: NewPostDialogProps) {
       return
     }
 
+    // Converter scheduledAt para ISO-8601 UTC se fornecido
+    let scheduledAtISO: string | undefined = undefined
+    if (scheduledAt) {
+      const localDate = new Date(scheduledAt)
+      scheduledAtISO = localDate.toISOString()
+      
+      // Validar que está no mínimo 60 segundos no futuro
+      const minTime = Date.now() + 60000
+      if (localDate.getTime() < minTime) {
+        toast.error('Agendamento deve ser no mínimo 1 minuto no futuro')
+        return
+      }
+    }
+
     createMutation.mutate({
       accountId,
       caption,
       videoUrl,
-      scheduledAt: scheduledAt || undefined,
+      scheduledAt: scheduledAtISO,
       privacyLevel,
     })
   }
