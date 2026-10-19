@@ -6,6 +6,7 @@ import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { NewPostDialog } from '@/components/tiktok/new-post-dialog'
 import {
   getTikTokAccounts,
   getTikTokPosts,
@@ -370,18 +371,7 @@ export default function TikTokSchedulerPage() {
         </TabsContent>
       </Tabs>
 
-      {/* TODO: Modal de criar post */}
-      {showNewPostModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="panel max-w-lg w-full p-6">
-            <h2 className="font-display text-2xl font-bold mb-4">Nova Publicação</h2>
-            <p className="text-muted-foreground mb-4">
-              Modal de criar post será implementado em breve
-            </p>
-            <Button onClick={() => setShowNewPostModal(false)}>Fechar</Button>
-          </div>
-        </div>
-      )}
+      <NewPostDialog open={showNewPostModal} onOpenChange={setShowNewPostModal} />
     </div>
   )
 }
