@@ -1,12 +1,115 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+import {
+  getTikTokAccounts,
+  getTikTokPosts,
+  syncTikTokAccounts,
+  openTikTokAuth,
+  removeTikTokAccount,
+  deleteTikTokPost,
+  refreshTikTokPosts,
+  type TikTokAccount,
+  type TikTokPost,
+} from '@/lib/tiktok-api'
 
 export default function TikTokSchedulerPage() {
   const [showNewPostModal, setShowNewPostModal] = useState(false)
+  const [activeTab, setActiveTab] = useState('accounts')
+  const queryClient = useQueryClient()
+
+  // Queries
+  const { data: accounts = [], isLoading: accountsLoading } = useQuery({
+    queryKey: ['tiktok', 'accounts'],
+    queryFn: getTikTokAccounts,
+  })
+
+  const { data: posts = [], isLoading: postsLoading } = useQuery({
+    queryKey: ['tiktok', 'posts'],
+    queryFn: getTikTokPosts,
+  })
+
+  // Mutations
+  const connectMutation = useMutation({
+    mutationFn: async () => {
+      await openTikTokAuth()
+      // Após fechar o popup, sincroniza as contas
+      const result = await syncTikTokAccounts()
+      return result
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['tiktok', 'accounts'] })
+      if (result.synced > 0) {
+        toast.success(`${result.synced} conta(s) sincronizada(s) com sucesso!`)
+      } else {
+        toast.warning('Nenhuma conta encontrada. Verifique se a autorização foi concluída.')
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: syncTikTokAccounts,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['tiktok', 'accounts'] })
+      toast.success(`${result.synced} conta(s) sincronizada(s)`)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: removeTikTokAccount,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tiktok', 'accounts'] })
+      toast.success('Conta removida')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const deletePostMutation = useMutation({
+    mutationFn: deleteTikTokPost,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tiktok', 'posts'] })
+      toast.success('Post removido')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const refreshMutation = useMutation({
+    mutationFn: refreshTikTokPosts,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['tiktok', 'posts'] })
+      toast.success(`${result.updated} post(s) atualizado(s)`)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  // Check URL params for TikTok connection callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('tiktok_connected') === '1') {
+      setActiveTab('accounts')
+      // Remove param from URL
+      window.history.replaceState({}, '', '/tiktok')
+      // Sync accounts after connection
+      syncMutation.mutate()
+    }
+  }, [])
 
   return (
     <div className="animate-rise-in">
@@ -27,60 +130,212 @@ export default function TikTokSchedulerPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="posts" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-6">
-          <TabsTrigger value="accounts">Contas</TabsTrigger>
-          <TabsTrigger value="posts">Publicações</TabsTrigger>
+          <TabsTrigger value="accounts">
+            Contas {accounts.length > 0 && `(${accounts.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="posts">
+            Publicações {posts.length > 0 && `(${posts.length})`}
+          </TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts">
           <div className="panel p-6">
-            <div className="text-center py-12">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-cyan/20">
-                <svg 
-                  className="h-8 w-8 text-brand-cyan" 
-                  viewBox="0 0 24 24" 
-                  fill="currentColor"
-                >
-                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-                </svg>
+            {accountsLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
+                <p className="mt-4 text-sm text-muted-foreground">Carregando contas...</p>
               </div>
-              <h3 className="font-display text-xl font-bold">Nenhuma conta conectada</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Conecte sua conta TikTok para começar a agendar posts.
-              </p>
-              <Button className="mt-6" variant="outline">
-                Conectar conta TikTok
-              </Button>
-            </div>
+            ) : accounts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-cyan/20">
+                  <svg 
+                    className="h-8 w-8 text-brand-cyan" 
+                    viewBox="0 0 24 24" 
+                    fill="currentColor"
+                  >
+                    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                  </svg>
+                </div>
+                <h3 className="font-display text-xl font-bold">Nenhuma conta conectada</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Conecte sua conta TikTok para começar a agendar posts.
+                </p>
+                <Button 
+                  className="mt-6" 
+                  variant="outline"
+                  onClick={() => connectMutation.mutate()}
+                  disabled={connectMutation.isPending}
+                >
+                  {connectMutation.isPending ? 'Conectando...' : 'Conectar conta TikTok'}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-semibold">Suas contas</h3>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => syncMutation.mutate()}
+                      disabled={syncMutation.isPending}
+                    >
+                      <RefreshCw className={syncMutation.isPending ? 'animate-spin' : ''} />
+                      Sincronizar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => connectMutation.mutate()}
+                      disabled={connectMutation.isPending}
+                    >
+                      <Plus /> Adicionar conta
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {accounts.map((account) => (
+                    <div
+                      key={account.id}
+                      className="flex items-center justify-between rounded-lg border border-border bg-surface-2 p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        {account.avatar_url ? (
+                          <img
+                            src={account.avatar_url}
+                            alt={account.username}
+                            className="h-10 w-10 rounded-full"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-cyan/20">
+                            <span className="text-lg">🎵</span>
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-semibold">{account.display_name || account.username}</p>
+                          <p className="text-sm text-muted-foreground">@{account.username}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            account.status === 'active'
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-yellow-500/20 text-yellow-400'
+                          }`}
+                        >
+                          {account.status === 'active' ? 'Ativa' : account.status}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm(`Remover conta @${account.username}?`)) {
+                              removeMutation.mutate(account.id)
+                            }
+                          }}
+                          disabled={removeMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </TabsContent>
 
         <TabsContent value="posts">
           <div className="panel p-6">
-            <div className="text-center py-12">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-3">
-                <Plus className="h-8 w-8 text-muted-foreground" />
+            {postsLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
+                <p className="mt-4 text-sm text-muted-foreground">Carregando posts...</p>
               </div>
-              <h3 className="font-display text-xl font-bold">Nenhum post agendado</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Crie seu primeiro post para agendar no TikTok.
-              </p>
-              <Button className="mt-6 glow-pink" onClick={() => setShowNewPostModal(true)}>
-                <Plus /> Criar primeiro post
-              </Button>
-            </div>
+            ) : posts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-3">
+                  <Plus className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="font-display text-xl font-bold">Nenhum post agendado</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Crie seu primeiro post para agendar no TikTok.
+                </p>
+                <Button className="mt-6 glow-pink" onClick={() => setShowNewPostModal(true)}>
+                  <Plus /> Criar primeiro post
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-semibold">Posts agendados</h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => refreshMutation.mutate()}
+                    disabled={refreshMutation.isPending}
+                  >
+                    <RefreshCw className={refreshMutation.isPending ? 'animate-spin' : ''} />
+                    Atualizar métricas
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {posts.map((post) => (
+                    <div
+                      key={post.id}
+                      className="rounded-lg border border-border bg-surface-2 p-4"
+                    >
+                      <div className="flex justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="font-medium line-clamp-2">{post.caption}</p>
+                          <div className="mt-2 flex gap-4 text-sm text-muted-foreground">
+                            <span>👁️ {post.views}</span>
+                            <span>❤️ {post.likes}</span>
+                            <span>💬 {post.comments}</span>
+                            <span>📤 {post.shares}</span>
+                          </div>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {new Date(post.scheduled_at).toLocaleString('pt-BR')} · {post.status}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm('Deletar este post?')) {
+                              deletePostMutation.mutate(post.id)
+                            }
+                          }}
+                          disabled={deletePostMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </TabsContent>
 
         <TabsContent value="analytics">
           <div className="grid gap-6 md:grid-cols-4">
             {[
-              { label: 'Views totais', value: '0', icon: '👁️' },
-              { label: 'Engajamento médio', value: '0%', icon: '❤️' },
-              { label: 'Posts este mês', value: '0', icon: '📊' },
-              { label: 'Melhor horário', value: '--:--', icon: '⏰' },
+              { label: 'Views totais', value: posts.reduce((sum, p) => sum + p.views, 0).toLocaleString(), icon: '👁️' },
+              { 
+                label: 'Engajamento médio', 
+                value: posts.length > 0 
+                  ? `${Math.round(posts.reduce((sum, p) => sum + p.likes + p.comments, 0) / posts.length)}` 
+                  : '0',
+                icon: '❤️' 
+              },
+              { label: 'Posts este mês', value: posts.length.toString(), icon: '📊' },
+              { label: 'Posts publicados', value: posts.filter(p => p.status === 'published').length.toString(), icon: '✅' },
             ].map((metric) => (
               <div key={metric.label} className="panel p-6">
                 <div className="flex items-center justify-between">
@@ -93,15 +348,40 @@ export default function TikTokSchedulerPage() {
           </div>
 
           <div className="panel mt-6 p-6">
-            <h3 className="font-semibold mb-4">Desempenho (últimos 30 dias)</h3>
-            <div className="flex h-64 items-center justify-center text-muted-foreground">
-              <p className="text-sm">Conecte uma conta para ver analytics</p>
-            </div>
+            <h3 className="font-semibold mb-4">Posts recentes</h3>
+            {posts.length === 0 ? (
+              <div className="flex h-64 items-center justify-center text-muted-foreground">
+                <p className="text-sm">Conecte uma conta e crie posts para ver analytics</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {posts.slice(0, 10).map((post) => (
+                  <div key={post.id} className="flex justify-between items-center py-2 border-b border-border">
+                    <p className="text-sm flex-1 line-clamp-1">{post.caption}</p>
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      <span>👁️ {post.views}</span>
+                      <span>❤️ {post.likes}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
 
       {/* TODO: Modal de criar post */}
+      {showNewPostModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="panel max-w-lg w-full p-6">
+            <h2 className="font-display text-2xl font-bold mb-4">Nova Publicação</h2>
+            <p className="text-muted-foreground mb-4">
+              Modal de criar post será implementado em breve
+            </p>
+            <Button onClick={() => setShowNewPostModal(false)}>Fechar</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
