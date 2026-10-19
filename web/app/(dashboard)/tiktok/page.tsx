@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCw, Trash2, Video, Clock, Calendar } from 'lucide-react'
+import { Plus, RefreshCw, Trash2, Video, Clock, Calendar, Loader2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -322,22 +322,49 @@ function TikTokSchedulerContent() {
                             )}
                             {/* Status Badge Overlay */}
                             <div className="absolute bottom-1 right-1">
-                              {post.status === 'scheduled' && (
-                                <span className="flex items-center gap-1 rounded-full bg-cyan-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-                                  <Clock className="h-3 w-3" />
-                                  Agendado
-                                </span>
-                              )}
-                              {post.status === 'published' && (
-                                <span className="flex items-center gap-1 rounded-full bg-green-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-                                  ✓ Publicado
-                                </span>
-                              )}
-                              {post.status === 'failed' && (
-                                <span className="flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-                                  ✕ Erro
-                                </span>
-                              )}
+                              {(() => {
+                                // Verificar se o horário agendado já passou
+                                const scheduledTime = new Date(post.scheduled_at).getTime()
+                                const now = Date.now()
+                                const isPast = scheduledTime < now
+
+                                // Se está agendado mas o horário já passou, mostrar "Processando"
+                                if (post.status === 'scheduled' && isPast) {
+                                  return (
+                                    <span className="flex items-center gap-1 rounded-full bg-yellow-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      Processando
+                                    </span>
+                                  )
+                                }
+
+                                if (post.status === 'scheduled') {
+                                  return (
+                                    <span className="flex items-center gap-1 rounded-full bg-cyan-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                      <Clock className="h-3 w-3" />
+                                      Agendado
+                                    </span>
+                                  )
+                                }
+                                
+                                if (post.status === 'published') {
+                                  return (
+                                    <span className="flex items-center gap-1 rounded-full bg-green-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                      ✓ Publicado
+                                    </span>
+                                  )
+                                }
+                                
+                                if (post.status === 'failed') {
+                                  return (
+                                    <span className="flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                      ✕ Erro
+                                    </span>
+                                  )
+                                }
+
+                                return null
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -462,9 +489,9 @@ function TikTokSchedulerContent() {
                 textColor: 'text-green-400'
               },
             ].map((metric) => (
-              <div key={metric.label} className="group panel p-6 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                <div className={`absolute inset-0 bg-gradient-to-br ${metric.color} opacity-0 group-hover:opacity-100 transition-opacity rounded-lg`} />
-                <div className="relative">
+              <div key={metric.label} className="relative panel p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 overflow-hidden">
+                <div className={`absolute inset-0 bg-gradient-to-br ${metric.color} opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-lg pointer-events-none`} />
+                <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-3xl" aria-hidden>{metric.icon}</span>
                     <span className={`text-xs font-medium ${metric.textColor}`}>{metric.label}</span>
