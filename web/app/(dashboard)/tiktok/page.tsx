@@ -428,43 +428,218 @@ function TikTokSchedulerContent() {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <div className="grid gap-6 md:grid-cols-4">
+          {/* Métricas Principais */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: 'Views totais', value: posts.reduce((sum, p) => sum + p.views, 0).toLocaleString(), icon: '👁️' },
+              { 
+                label: 'Views totais', 
+                value: posts.reduce((sum, p) => sum + p.views, 0).toLocaleString('pt-BR'),
+                icon: '👁️',
+                color: 'from-blue-500/20 to-cyan-500/20',
+                textColor: 'text-cyan-400'
+              },
               { 
                 label: 'Engajamento médio', 
                 value: posts.length > 0 
-                  ? `${Math.round(posts.reduce((sum, p) => sum + p.likes + p.comments, 0) / posts.length)}` 
+                  ? `${Math.round(posts.reduce((sum, p) => sum + p.likes + p.comments, 0) / posts.length).toLocaleString('pt-BR')}` 
                   : '0',
-                icon: '❤️' 
+                icon: '❤️',
+                color: 'from-pink-500/20 to-red-500/20',
+                textColor: 'text-pink-400'
               },
-              { label: 'Posts este mês', value: posts.length.toString(), icon: '📊' },
-              { label: 'Posts publicados', value: posts.filter(p => p.status === 'published').length.toString(), icon: '✅' },
+              { 
+                label: 'Posts este mês', 
+                value: posts.length.toString(),
+                icon: '📊',
+                color: 'from-purple-500/20 to-indigo-500/20',
+                textColor: 'text-purple-400'
+              },
+              { 
+                label: 'Posts publicados', 
+                value: posts.filter(p => p.status === 'published').length.toString(),
+                icon: '✅',
+                color: 'from-green-500/20 to-emerald-500/20',
+                textColor: 'text-green-400'
+              },
             ].map((metric) => (
-              <div key={metric.label} className="panel p-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl" aria-hidden>{metric.icon}</span>
-                  <span className="text-xs text-muted-foreground">{metric.label}</span>
+              <div key={metric.label} className="group panel p-6 hover:shadow-lg transition-all duration-300 hover:scale-105">
+                <div className={`absolute inset-0 bg-gradient-to-br ${metric.color} opacity-0 group-hover:opacity-100 transition-opacity rounded-lg`} />
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-3xl" aria-hidden>{metric.icon}</span>
+                    <span className={`text-xs font-medium ${metric.textColor}`}>{metric.label}</span>
+                  </div>
+                  <p className={`font-display text-4xl font-bold ${metric.textColor}`}>{metric.value}</p>
                 </div>
-                <p className="mt-4 font-display text-3xl font-bold">{metric.value}</p>
               </div>
             ))}
           </div>
 
+          {/* Métricas Detalhadas */}
+          <div className="mt-6 grid gap-6 md:grid-cols-2">
+            {/* Total de Interações */}
+            <div className="panel p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <span className="text-xl">📈</span>
+                Total de Interações
+              </h3>
+              <div className="space-y-4">
+                {[
+                  { 
+                    label: 'Curtidas', 
+                    value: posts.reduce((sum, p) => sum + p.likes, 0),
+                    icon: '❤️',
+                    color: 'bg-pink-500'
+                  },
+                  { 
+                    label: 'Comentários', 
+                    value: posts.reduce((sum, p) => sum + p.comments, 0),
+                    icon: '💬',
+                    color: 'bg-cyan-500'
+                  },
+                  { 
+                    label: 'Compartilhamentos', 
+                    value: posts.reduce((sum, p) => sum + p.shares, 0),
+                    icon: '📤',
+                    color: 'bg-purple-500'
+                  },
+                ].map((stat) => {
+                  const maxValue = Math.max(
+                    posts.reduce((sum, p) => sum + p.likes, 0),
+                    posts.reduce((sum, p) => sum + p.comments, 0),
+                    posts.reduce((sum, p) => sum + p.shares, 0)
+                  )
+                  const percentage = maxValue > 0 ? (stat.value / maxValue) * 100 : 0
+
+                  return (
+                    <div key={stat.label}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="flex items-center gap-2 text-sm">
+                          <span>{stat.icon}</span>
+                          <span className="font-medium">{stat.label}</span>
+                        </span>
+                        <span className="font-bold">{stat.value.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${stat.color} transition-all duration-500`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Taxa de Engajamento */}
+            <div className="panel p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <span className="text-xl">🎯</span>
+                Taxa de Engajamento
+              </h3>
+              <div className="space-y-4">
+                {posts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum post publicado ainda</p>
+                ) : (
+                  <>
+                    {/* Taxa Geral */}
+                    <div className="p-4 rounded-lg bg-surface-3 border border-border">
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground mb-1">Taxa Geral</p>
+                        <p className="font-display text-3xl font-bold text-brand-pink">
+                          {posts.reduce((sum, p) => sum + p.views, 0) > 0
+                            ? (
+                                (posts.reduce((sum, p) => sum + p.likes + p.comments + p.shares, 0) /
+                                  posts.reduce((sum, p) => sum + p.views, 0)) *
+                                100
+                              ).toFixed(2)
+                            : '0'}%
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          (Interações / Views) × 100
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Melhor Post */}
+                    {posts.length > 0 && (() => {
+                      const bestPost = posts.reduce((best, post) => {
+                        const postEngagement = post.likes + post.comments + post.shares
+                        const bestEngagement = best.likes + best.comments + best.shares
+                        return postEngagement > bestEngagement ? post : best
+                      })
+                      const engagement = bestPost.likes + bestPost.comments + bestPost.shares
+
+                      return (
+                        <div className="p-4 rounded-lg border border-brand-pink/30 bg-brand-pink/5">
+                          <p className="text-xs font-semibold text-brand-pink mb-2">🏆 Melhor Post</p>
+                          <p className="text-sm line-clamp-2 mb-2">{bestPost.caption}</p>
+                          <div className="flex gap-3 text-xs">
+                            <span>👁️ {bestPost.views.toLocaleString('pt-BR')}</span>
+                            <span>❤️ {bestPost.likes.toLocaleString('pt-BR')}</span>
+                            <span>💬 {bestPost.comments.toLocaleString('pt-BR')}</span>
+                            <span>📤 {bestPost.shares.toLocaleString('pt-BR')}</span>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Posts Recentes */}
           <div className="panel mt-6 p-6">
-            <h3 className="font-semibold mb-4">Posts recentes</h3>
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <span className="text-xl">📝</span>
+              Posts Recentes
+            </h3>
             {posts.length === 0 ? (
-              <div className="flex h-64 items-center justify-center text-muted-foreground">
-                <p className="text-sm">Conecte uma conta e crie posts para ver analytics</p>
+              <div className="flex h-64 items-center justify-center">
+                <div className="text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-3">
+                    <span className="text-3xl">📊</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Conecte uma conta e crie posts para ver analytics detalhados
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
                 {posts.slice(0, 10).map((post) => (
-                  <div key={post.id} className="flex justify-between items-center py-2 border-b border-border">
-                    <p className="text-sm flex-1 line-clamp-1">{post.caption}</p>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span>👁️ {post.views}</span>
-                      <span>❤️ {post.likes}</span>
+                  <div 
+                    key={post.id} 
+                    className="group flex justify-between items-center py-3 px-4 rounded-lg border border-border hover:border-brand-pink/30 hover:bg-brand-pink/5 transition-all"
+                  >
+                    <div className="flex-1 min-w-0 mr-4">
+                      <p className="text-sm font-medium line-clamp-1 group-hover:text-brand-pink transition-colors">
+                        {post.caption || 'Sem legenda'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(post.scheduled_at).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex gap-4 text-xs text-muted-foreground shrink-0">
+                      <span className="flex items-center gap-1">
+                        <span>👁️</span>
+                        <span className="font-medium">{post.views.toLocaleString('pt-BR')}</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span>❤️</span>
+                        <span className="font-medium">{post.likes.toLocaleString('pt-BR')}</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span>💬</span>
+                        <span className="font-medium">{post.comments.toLocaleString('pt-BR')}</span>
+                      </span>
                     </div>
                   </div>
                 ))}
