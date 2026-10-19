@@ -111,8 +111,14 @@ export function NewPostDialog({ open, onOpenChange }: NewPostDialogProps) {
         const { createClient } = await import('@/lib/supabase/client')
         const supabase = createClient()
         
+        // Obter user_id para RLS
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          throw new Error('Usuário não autenticado')
+        }
+        
         const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-        const filePath = `videos/${fileName}`
+        const filePath = `${user.id}/${fileName}` // Caminho deve começar com user_id para RLS
 
         // Simular progresso (Supabase client não tem progresso nativo)
         const progressInterval = setInterval(() => {
