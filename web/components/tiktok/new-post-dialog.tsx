@@ -123,12 +123,20 @@ export function NewPostDialog({ open, onOpenChange }: NewPostDialogProps) {
       clearInterval(progressInterval)
       setUploadProgress(100)
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Falha no upload')
+      // Verificar se a resposta é JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Upload error (non-JSON response):', text)
+        throw new Error('Erro no servidor. Verifique se o bucket "tiktok-videos" existe no Supabase Storage.')
       }
 
       const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Falha no upload')
+      }
+
       setVideoUrl(data.url)
       toast.success('Vídeo enviado com sucesso!')
     } catch (error) {
