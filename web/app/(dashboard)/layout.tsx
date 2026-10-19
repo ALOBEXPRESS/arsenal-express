@@ -29,10 +29,13 @@ export default async function DashboardLayout({
     <div className="flex min-h-screen flex-col bg-surface-0">
       <header className="border-b border-border bg-surface-1/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <Link href="/" aria-label="SyncExpress — início">
+          <Link href="/" aria-label="Arsenal Express — início">
             <Logo subtitle={false} />
           </Link>
           <div className="flex items-center gap-4">
+            <Link href="/tiktok" className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
+              TikTok
+            </Link>
             <span className="hidden font-mono text-xs text-muted-foreground sm:inline">{user.email}</span>
             <form action={handleSignOut}>
               <button
