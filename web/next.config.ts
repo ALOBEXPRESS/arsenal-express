@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }],
   },
+  // Aumentar limite de payload para uploads de vídeo (até 4GB)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '4gb',
+    },
+  },
   async headers() {
     return [
       {

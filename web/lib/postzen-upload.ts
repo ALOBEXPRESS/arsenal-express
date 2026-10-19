@@ -32,7 +32,8 @@ export async function requestPresignedUpload(
 }
 
 /**
- * Faz upload do arquivo direto para PostZen usando presigned URL
+ * Faz upload do arquivo via API route (proxy para PostZen)
+ * Necessário por causa de problemas de CORS no Cloudflare R2
  */
 export async function uploadToPostZen(
   file: File,
@@ -68,9 +69,9 @@ export async function uploadToPostZen(
       reject(new Error('Upload cancelado'))
     })
 
-    // PUT direto para a URL presigned
-    xhr.open('PUT', uploadUrl)
-    xhr.setRequestHeader('Content-Type', file.type)
+    // PUT via proxy para evitar CORS
+    const proxyUrl = `/api/tiktok/presign?url=${encodeURIComponent(uploadUrl)}&contentType=${encodeURIComponent(file.type)}`
+    xhr.open('PUT', proxyUrl)
     xhr.send(file)
   })
 }

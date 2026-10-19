@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 const POSTZEN_API_KEY = process.env.POSTZEN_API_KEY!
 const POSTZEN_BASE_URL = 'https://api.postzen.dev'
 
+// POST /api/tiktok/presign - Solicitar presigned URL
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -73,6 +74,73 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('[presign] Error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Erro interno' },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT /api/tiktok/presign - Fazer upload do arquivo via proxy (evita CORS)
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
+    // Pegar a uploadUrl dos query params
+    const { searchParams } = new URL(request.url)
+    const uploadUrl = searchParams.get('url')
+    const contentType = searchParams.get('contentType')
+
+    if (!uploadUrl || !contentType) {
+      return NextResponse.json(
+        { error: 'url e contentType são obrigatórios' },
+        { status: 400 }
+      )
+    }
+
+    // Receber o arquivo como stream
+    const fileBuffer = await request.arrayBuffer()
+
+    console.log('[upload-proxy] Uploading to PostZen:', {
+      uploadUrl: uploadUrl.split('?')[0], // Log sem query params
+      size: fileBuffer.byteLength,
+      contentType,
+    })
+
+    // Fazer PUT para a URL presigned do PostZen
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+      },
+      body: fileBuffer,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[upload-proxy] PostZen upload error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      })
+      return NextResponse.json(
+        { error: `Upload falhou: ${response.status} ${response.statusText}` },
+        { status: response.status }
+      )
+    }
+
+    console.log('[upload-proxy] Upload successful')
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[upload-proxy] Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erro interno' },
       { status: 500 }
