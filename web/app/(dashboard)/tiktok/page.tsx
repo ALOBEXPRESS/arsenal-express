@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tantml:query/react-query'
+import { Plus, RefreshCw, Trash2, Video, Clock, Calendar } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -293,37 +293,131 @@ function TikTokSchedulerContent() {
                     Atualizar métricas
                   </Button>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {posts.map((post) => (
                     <div
                       key={post.id}
-                      className="rounded-lg border border-border bg-surface-2 p-4"
+                      className="group relative overflow-hidden rounded-xl border border-border bg-surface-2 transition-all hover:border-brand-pink/50 hover:shadow-lg hover:shadow-brand-pink/10"
                     >
-                      <div className="flex justify-between gap-4">
-                        <div className="flex-1">
-                          <p className="font-medium line-clamp-2">{post.caption}</p>
-                          <div className="mt-2 flex gap-4 text-sm text-muted-foreground">
-                            <span>👁️ {post.views}</span>
-                            <span>❤️ {post.likes}</span>
-                            <span>💬 {post.comments}</span>
-                            <span>📤 {post.shares}</span>
+                      <div className="flex gap-4 p-4">
+                        {/* Video Thumbnail */}
+                        <div className="relative shrink-0">
+                          <div className="relative h-28 w-20 overflow-hidden rounded-lg bg-surface-3">
+                            {post.video_url ? (
+                              <video
+                                src={post.video_url}
+                                className="h-full w-full object-cover"
+                                muted
+                                playsInline
+                                onMouseEnter={(e) => e.currentTarget.play()}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.pause()
+                                  e.currentTarget.currentTime = 0
+                                }}
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center">
+                                <Video className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            {/* Status Badge Overlay */}
+                            <div className="absolute bottom-1 right-1">
+                              {post.status === 'scheduled' && (
+                                <span className="flex items-center gap-1 rounded-full bg-cyan-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                  <Clock className="h-3 w-3" />
+                                  Agendado
+                                </span>
+                              )}
+                              {post.status === 'published' && (
+                                <span className="flex items-center gap-1 rounded-full bg-green-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                  ✓ Publicado
+                                </span>
+                              )}
+                              {post.status === 'failed' && (
+                                <span className="flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                                  ✕ Erro
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {new Date(post.scheduled_at).toLocaleString('pt-BR')} · {post.status}
-                          </p>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            if (confirm('Deletar este post?')) {
-                              deletePostMutation.mutate(post.id)
-                            }
-                          }}
-                          disabled={deletePostMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium line-clamp-2 text-white group-hover:text-brand-pink transition-colors">
+                                {post.caption || 'Sem legenda'}
+                              </p>
+                              
+                              {/* Metrics */}
+                              <div className="mt-3 flex flex-wrap gap-3 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <span className="text-lg">👁️</span>
+                                  <span className="font-medium">{post.views.toLocaleString()}</span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <span className="text-lg">❤️</span>
+                                  <span className="font-medium">{post.likes.toLocaleString()}</span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <span className="text-lg">💬</span>
+                                  <span className="font-medium">{post.comments.toLocaleString()}</span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <span className="text-lg">📤</span>
+                                  <span className="font-medium">{post.shares.toLocaleString()}</span>
+                                </span>
+                              </div>
+
+                              {/* Date & Time */}
+                              <div className="mt-2 flex items-center gap-2 text-xs">
+                                <span className="flex items-center gap-1 text-brand-cyan">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(post.scheduled_at).toLocaleDateString('pt-BR', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                  })}
+                                </span>
+                                <span className="text-muted-foreground">•</span>
+                                <span className="text-muted-foreground">
+                                  {new Date(post.scheduled_at).toLocaleTimeString('pt-BR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              </div>
+
+                              {/* Error Message */}
+                              {post.error_message && (
+                                <div className="mt-2 rounded-md bg-red-500/10 border border-red-500/20 px-2 py-1">
+                                  <p className="text-xs text-red-400">{post.error_message}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Delete Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => {
+                                if (confirm('Deletar este post?')) {
+                                  deletePostMutation.mutate(post.id)
+                                }
+                              }}
+                              disabled={deletePostMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-400" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hover Glow Effect */}
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <div className="absolute inset-0 bg-gradient-to-r from-brand-pink/5 to-brand-cyan/5" />
                       </div>
                     </div>
                   ))}
