@@ -102,13 +102,57 @@ export function NewPostDialog({ open, onOpenChange }: NewPostDialogProps) {
     setUploadProgress(0)
 
     try {
-      // Upload direto para PostZen (até 5GB, sem passar pela API route)
-      const { publicUrl } = await uploadVideoToPostZen(file, (progress) => {
-        setUploadProgress(progress)
-      })
+      // IMPORTANTE: Vercel tem limite de 4.5MB para API routes via proxy
+      // Para arquivos grandes, usamos Supabase Storage direto do cliente
+      const useSupabase = file.size > 4 * 1024 * 1024 // > 4MB usa Supabase
+      
+      if (useSupabase) {
+        // Upload direto para Supabase Storage (sem limite no cliente)
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
+        
+        const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+        const filePath = `videos/${fileName}`
 
-      setVideoUrl(publicUrl)
-      toast.success('Vídeo enviado com sucesso!')
+        // Simular progresso (Supabase client não tem progresso nativo)
+        const progressInterval = setInterval(() => {
+          setUploadProgress((prev) => {
+            if (prev >= 90) return prev
+            return prev + 10
+          })
+        }, 500)
+
+        const { data, error } = await supabase.storage
+          .from('tiktok-videos')
+          .upload(filePath, file, {
+            contentType: file.type,
+            cacheControl: '3600',
+            upsert: false,
+          })
+
+        clearInterval(progressInterval)
+        setUploadProgress(100)
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        // Obter URL pública
+        const { data: { publicUrl } } = supabase.storage
+          .from('tiktok-videos')
+          .getPublicUrl(data.path)
+
+        setVideoUrl(publicUrl)
+        toast.success('Vídeo enviado com sucesso!')
+      } else {
+        // Arquivos pequenos podem usar PostZen via proxy
+        const { publicUrl } = await uploadVideoToPostZen(file, (progress) => {
+          setUploadProgress(progress)
+        })
+
+        setVideoUrl(publicUrl)
+        toast.success('Vídeo enviado com sucesso!')
+      }
     } catch (error) {
       console.error('[upload] Error:', error)
       toast.error(error instanceof Error ? error.message : 'Erro ao enviar vídeo')
