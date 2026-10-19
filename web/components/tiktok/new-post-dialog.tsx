@@ -28,6 +28,7 @@ import {
   createTikTokPost,
   type TikTokAccount,
 } from '@/lib/tiktok-api'
+import { uploadVideoToPostZen } from '@/lib/postzen-upload'
 
 interface NewPostDialogProps {
   open: boolean
@@ -84,15 +85,15 @@ export function NewPostDialog({ open, onOpenChange }: NewPostDialogProps) {
     if (!file) return
 
     // Validações client-side
-    const maxSize = 500 * 1024 * 1024 // 500MB
+    const maxSize = 4 * 1024 * 1024 * 1024 // 4GB (limite TikTok)
     if (file.size > maxSize) {
-      toast.error('Arquivo muito grande. Máximo 500MB')
+      toast.error('Arquivo muito grande. Máximo 4GB')
       return
     }
 
-    const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm']
+    const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/mpeg', 'video/x-m4v']
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Tipo de arquivo inválido. Use MP4, MOV, AVI ou WEBM')
+      toast.error('Tipo de arquivo inválido. Use MP4, MOV, AVI, WEBM, MPEG ou M4V')
       return
     }
 
@@ -101,45 +102,15 @@ export function NewPostDialog({ open, onOpenChange }: NewPostDialogProps) {
     setUploadProgress(0)
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      // Simular progresso (upload real não tem progresso no fetch padrão)
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval)
-            return prev
-          }
-          return prev + 10
-        })
-      }, 300)
-
-      const response = await fetch('/api/upload/video', {
-        method: 'POST',
-        body: formData,
+      // Upload direto para PostZen (até 5GB, sem passar pela API route)
+      const { publicUrl } = await uploadVideoToPostZen(file, (progress) => {
+        setUploadProgress(progress)
       })
 
-      clearInterval(progressInterval)
-      setUploadProgress(100)
-
-      // Verificar se a resposta é JSON
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text()
-        console.error('Upload error (non-JSON response):', text)
-        throw new Error('Erro no servidor. Verifique se o bucket "tiktok-videos" existe no Supabase Storage.')
-      }
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Falha no upload')
-      }
-
-      setVideoUrl(data.url)
+      setVideoUrl(publicUrl)
       toast.success('Vídeo enviado com sucesso!')
     } catch (error) {
+      console.error('[upload] Error:', error)
       toast.error(error instanceof Error ? error.message : 'Erro ao enviar vídeo')
       setUploadedFile(null)
       setVideoUrl('')
@@ -297,7 +268,7 @@ export function NewPostDialog({ open, onOpenChange }: NewPostDialogProps) {
                     <div>
                       <p className="text-sm font-medium">Clique para fazer upload</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        MP4, MOV, AVI ou WEBM (máx. 500MB)
+                        MP4, MOV, AVI, WEBM, MPEG ou M4V (máx. 4GB)
                       </p>
                     </div>
                   </div>
