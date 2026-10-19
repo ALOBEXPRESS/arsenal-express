@@ -154,11 +154,6 @@ export async function POST(request: NextRequest) {
 
     // Obter URL de autorização do TikTok
     if (action === 'get_connect_url') {
-      const { redirectUrl } = data
-      if (!redirectUrl || !/^https?:\/\//.test(redirectUrl)) {
-        return NextResponse.json({ error: 'URL inválida' }, { status: 400 })
-      }
-
       const profiles = await postzen<{ profiles: any[] }>('/v1/profiles')
       const profile = profiles.profiles?.find((p) => p.isDefault) ?? profiles.profiles?.[0]
 
@@ -166,7 +161,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Nenhum perfil PostZen encontrado' }, { status: 400 })
       }
 
-      const qs = new URLSearchParams({ profileId: profile._id, redirectUrl })
+      // Apenas profileId - PostZen usa seu callback padrão
+      const qs = new URLSearchParams({ profileId: profile._id })
       const res = await postzen<{ authUrl: string }>(`/v1/connect/tiktok?${qs}`)
 
       return NextResponse.json({ authUrl: res.authUrl })

@@ -115,10 +115,8 @@ export async function getTikTokAnalytics(accountId: string) {
 
 // Helper para abrir autorização do TikTok em popup
 export async function openTikTokAuth() {
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-  const redirectUrl = `${baseUrl}/tiktok?tiktok_connected=1`
-  
-  const { authUrl } = await getConnectUrl(redirectUrl)
+  // Não passamos redirect_uri customizado, deixamos a PostZen usar o padrão
+  const { authUrl } = await getConnectUrl('')
   
   const width = 600
   const height = 700
