@@ -91,7 +91,7 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
         </div>
       </div>
 
-      <Dialog open={!!showUpload} onOpenChange={(o) => !o && setShowUpload(null)}>
+      <Dialog open={!!showUpload} onOpenChange={(o: boolean) => !o && setShowUpload(null)}>
         {showUpload && (
           <DialogContent className="w-[min(92vw,460px)]">
             <DialogHeader>
