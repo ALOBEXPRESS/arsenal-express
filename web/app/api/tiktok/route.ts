@@ -75,9 +75,51 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Missing accountId' }, { status: 400 })
       }
 
+      // Primeiro atualiza as métricas dos posts via PostZen API
+      const { data: rows } = await supabase
+        .from('tiktok_posts')
+        .select('id, postzen_post_id, status, scheduled_at')
+        .eq('user_id', user.id)
+        .eq('account_id', accountId)
+        .not('postzen_post_id', 'is', null)
+
+      for (const r of rows ?? []) {
+        try {
+          const res = await postzen<any>(`/v1/posts/${r.postzen_post_id}`)
+          const p = res.post ?? res
+          const plat = (p.platforms ?? []).find((x: any) => x.platform === 'tiktok') ?? {}
+          const a = plat.analytics ?? p.analytics ?? {}
+
+          const patch: any = {
+            views: Number(a.views ?? a.viewCount) || 0,
+            likes: Number(a.likes ?? a.likeCount) || 0,
+            comments: Number(a.comments ?? a.commentCount) || 0,
+            shares: Number(a.shares ?? a.shareCount) || 0,
+          }
+
+          // Atualiza o status baseado no PostZen
+          const st = String(plat.status ?? p.status ?? '').toLowerCase()
+          if (['published', 'posted', 'success', 'completed'].includes(st)) {
+            patch.status = 'published'
+          } else if (['failed', 'error'].includes(st)) {
+            patch.status = 'failed'
+          } else if (['processing', 'publishing', 'pending'].includes(st)) {
+            patch.status = 'processing'
+          }
+
+          const err = plat.errorMessage ?? plat.error ?? p.errorMessage
+          if (err) patch.error_message = String(err)
+
+          await supabase.from('tiktok_posts').update(patch).eq('id', r.id)
+        } catch (e) {
+          console.error('[postzen] analytics fetch failed', r.postzen_post_id, e)
+        }
+      }
+
+      // Agora busca as métricas atualizadas do Supabase
       const { data, error } = await supabase
         .from('tiktok_posts')
-        .select('views, likes, comments, shares')
+        .select('views, likes, comments, shares, status')
         .eq('user_id', user.id)
         .eq('account_id', accountId)
 
@@ -89,11 +131,23 @@ export async function GET(request: NextRequest) {
           likes: acc.likes + (post.likes || 0),
           comments: acc.comments + (post.comments || 0),
           shares: acc.shares + (post.shares || 0),
+          totalPosts: acc.totalPosts + 1,
+          publishedPosts: acc.publishedPosts + (post.status === 'published' ? 1 : 0),
         }),
-        { views: 0, likes: 0, comments: 0, shares: 0 }
+        { views: 0, likes: 0, comments: 0, shares: 0, totalPosts: 0, publishedPosts: 0 }
       )
 
-      return NextResponse.json({ analytics: stats })
+      // Calcula engagement rate
+      const engagementRate = stats.views > 0 
+        ? ((stats.likes + stats.comments + stats.shares) / stats.views) * 100 
+        : 0
+
+      return NextResponse.json({ 
+        analytics: {
+          ...stats,
+          engagementRate: Math.round(engagementRate * 100) / 100,
+        }
+      })
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

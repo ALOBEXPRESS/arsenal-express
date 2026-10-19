@@ -11,6 +11,7 @@ import { AccessGuard } from '@/components/feature-access/AccessGuard'
 import {
   getTikTokAccounts,
   getTikTokPosts,
+  getTikTokAnalytics,
   syncTikTokAccounts,
   openTikTokAuth,
   removeTikTokAccount,
@@ -31,6 +32,7 @@ export default function TikTokSchedulerPage() {
 function TikTokSchedulerContent() {
   const [showNewPostModal, setShowNewPostModal] = useState(false)
   const [activeTab, setActiveTab] = useState('accounts')
+  const [selectedAccountForAnalytics, setSelectedAccountForAnalytics] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   // Queries
@@ -43,6 +45,23 @@ function TikTokSchedulerContent() {
     queryKey: ['tiktok', 'posts'],
     queryFn: getTikTokPosts,
   })
+
+  // Analytics query - busca dados da conta selecionada
+  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+    queryKey: ['tiktok', 'analytics', selectedAccountForAnalytics],
+    queryFn: () => {
+      if (!selectedAccountForAnalytics) return null
+      return getTikTokAnalytics(selectedAccountForAnalytics)
+    },
+    enabled: !!selectedAccountForAnalytics,
+  })
+
+  // Seleciona automaticamente a primeira conta para analytics
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccountForAnalytics) {
+      setSelectedAccountForAnalytics(accounts[0].id)
+    }
+  }, [accounts, selectedAccountForAnalytics])
 
   // Mutations
   const connectMutation = useMutation({
@@ -120,6 +139,17 @@ function TikTokSchedulerContent() {
       syncMutation.mutate()
     }
   }, [])
+
+  // Auto-refresh posts every 30 seconds to update status
+  useEffect(() => {
+    if (posts.length === 0) return
+
+    const interval = setInterval(() => {
+      refreshMutation.mutate()
+    }, 30000) // 30 segundos
+
+    return () => clearInterval(interval)
+  }, [posts.length])
 
   return (
     <div className="animate-rise-in">
@@ -455,133 +485,158 @@ function TikTokSchedulerContent() {
         </TabsContent>
 
         <TabsContent value="analytics">
-          {/* Métricas Principais */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              { 
-                label: 'Views totais', 
-                value: posts.reduce((sum, p) => sum + p.views, 0).toLocaleString('pt-BR'),
-                icon: '👁️',
-                color: 'from-blue-500/20 to-cyan-500/20',
-                textColor: 'text-cyan-400'
-              },
-              { 
-                label: 'Engajamento médio', 
-                value: posts.length > 0 
-                  ? `${Math.round(posts.reduce((sum, p) => sum + p.likes + p.comments, 0) / posts.length).toLocaleString('pt-BR')}` 
-                  : '0',
-                icon: '❤️',
-                color: 'from-pink-500/20 to-red-500/20',
-                textColor: 'text-pink-400'
-              },
-              { 
-                label: 'Posts este mês', 
-                value: posts.length.toString(),
-                icon: '📊',
-                color: 'from-purple-500/20 to-indigo-500/20',
-                textColor: 'text-purple-400'
-              },
-              { 
-                label: 'Posts publicados', 
-                value: posts.filter(p => p.status === 'published').length.toString(),
-                icon: '✅',
-                color: 'from-green-500/20 to-emerald-500/20',
-                textColor: 'text-green-400'
-              },
-            ].map((metric) => (
-              <div key={metric.label} className="relative panel p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 overflow-hidden">
-                <div className={`absolute inset-0 bg-gradient-to-br ${metric.color} opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-lg pointer-events-none`} />
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-3xl" aria-hidden>{metric.icon}</span>
-                    <span className={`text-xs font-medium ${metric.textColor}`}>{metric.label}</span>
-                  </div>
-                  <p className={`font-display text-4xl font-bold ${metric.textColor}`}>{metric.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Seletor de Conta */}
+          {accounts.length > 0 && (
+            <div className="mb-6 flex items-center gap-3">
+              <label htmlFor="account-select" className="text-sm font-medium">
+                Selecionar conta:
+              </label>
+              <select
+                id="account-select"
+                value={selectedAccountForAnalytics || ''}
+                onChange={(e) => setSelectedAccountForAnalytics(e.target.value)}
+                className="rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm focus:border-brand-pink focus:outline-none focus:ring-2 focus:ring-brand-pink/20"
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    @{account.username}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {/* Métricas Detalhadas */}
-          <div className="mt-6 grid gap-6 md:grid-cols-2">
-            {/* Total de Interações */}
-            <div className="panel p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <span className="text-xl">📈</span>
-                Total de Interações
-              </h3>
-              <div className="space-y-4">
+          {analyticsLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
+              <p className="mt-4 text-sm text-muted-foreground">Carregando analytics...</p>
+            </div>
+          ) : !analytics ? (
+            <div className="flex h-64 items-center justify-center">
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-3">
+                  <span className="text-3xl">📊</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {accounts.length === 0 
+                    ? 'Conecte uma conta TikTok para ver analytics'
+                    : 'Nenhum dado de analytics disponível para esta conta'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Métricas Principais */}
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 {[
                   { 
-                    label: 'Curtidas', 
-                    value: posts.reduce((sum, p) => sum + p.likes, 0),
+                    label: 'Views totais', 
+                    value: analytics.views.toLocaleString('pt-BR'),
+                    icon: '👁️',
+                    color: 'from-blue-500/20 to-cyan-500/20',
+                    textColor: 'text-cyan-400'
+                  },
+                  { 
+                    label: 'Curtidas totais', 
+                    value: analytics.likes.toLocaleString('pt-BR'),
                     icon: '❤️',
-                    color: 'bg-pink-500'
+                    color: 'from-pink-500/20 to-red-500/20',
+                    textColor: 'text-pink-400'
                   },
                   { 
                     label: 'Comentários', 
-                    value: posts.reduce((sum, p) => sum + p.comments, 0),
+                    value: analytics.comments.toLocaleString('pt-BR'),
                     icon: '💬',
-                    color: 'bg-cyan-500'
+                    color: 'from-purple-500/20 to-indigo-500/20',
+                    textColor: 'text-purple-400'
                   },
                   { 
                     label: 'Compartilhamentos', 
-                    value: posts.reduce((sum, p) => sum + p.shares, 0),
+                    value: analytics.shares.toLocaleString('pt-BR'),
                     icon: '📤',
-                    color: 'bg-purple-500'
+                    color: 'from-green-500/20 to-emerald-500/20',
+                    textColor: 'text-green-400'
                   },
-                ].map((stat) => {
-                  const maxValue = Math.max(
-                    posts.reduce((sum, p) => sum + p.likes, 0),
-                    posts.reduce((sum, p) => sum + p.comments, 0),
-                    posts.reduce((sum, p) => sum + p.shares, 0)
-                  )
-                  const percentage = maxValue > 0 ? (stat.value / maxValue) * 100 : 0
-
-                  return (
-                    <div key={stat.label}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="flex items-center gap-2 text-sm">
-                          <span>{stat.icon}</span>
-                          <span className="font-medium">{stat.label}</span>
-                        </span>
-                        <span className="font-bold">{stat.value.toLocaleString('pt-BR')}</span>
+                ].map((metric) => (
+                  <div key={metric.label} className="relative panel p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 overflow-hidden">
+                    <div className={`absolute inset-0 bg-gradient-to-br ${metric.color} opacity-0 hover:opacity-100 transition-opacity duration-300 rounded-lg pointer-events-none`} />
+                    <div className="relative z-10">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-3xl" aria-hidden>{metric.icon}</span>
+                        <span className={`text-xs font-medium ${metric.textColor}`}>{metric.label}</span>
                       </div>
-                      <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${stat.color} transition-all duration-500`}
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
+                      <p className={`font-display text-4xl font-bold ${metric.textColor}`}>{metric.value}</p>
                     </div>
-                  )
-                })}
+                  </div>
+                ))}
               </div>
-            </div>
 
-            {/* Taxa de Engajamento */}
-            <div className="panel p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <span className="text-xl">🎯</span>
-                Taxa de Engajamento
-              </h3>
-              <div className="space-y-4">
-                {posts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum post publicado ainda</p>
-                ) : (
-                  <>
+              {/* Métricas Detalhadas */}
+              <div className="mt-6 grid gap-6 md:grid-cols-2">
+                {/* Total de Interações */}
+                <div className="panel p-6">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <span className="text-xl">📈</span>
+                    Total de Interações
+                  </h3>
+                  <div className="space-y-4">
+                    {[
+                      { 
+                        label: 'Curtidas', 
+                        value: analytics.likes,
+                        icon: '❤️',
+                        color: 'bg-pink-500'
+                      },
+                      { 
+                        label: 'Comentários', 
+                        value: analytics.comments,
+                        icon: '💬',
+                        color: 'bg-cyan-500'
+                      },
+                      { 
+                        label: 'Compartilhamentos', 
+                        value: analytics.shares,
+                        icon: '📤',
+                        color: 'bg-purple-500'
+                      },
+                    ].map((stat) => {
+                      const maxValue = Math.max(analytics.likes, analytics.comments, analytics.shares)
+                      const percentage = maxValue > 0 ? (stat.value / maxValue) * 100 : 0
+
+                      return (
+                        <div key={stat.label}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="flex items-center gap-2 text-sm">
+                              <span>{stat.icon}</span>
+                              <span className="font-medium">{stat.label}</span>
+                            </span>
+                            <span className="font-bold">{stat.value.toLocaleString('pt-BR')}</span>
+                          </div>
+                          <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${stat.color} transition-all duration-500`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Taxa de Engajamento */}
+                <div className="panel p-6">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <span className="text-xl">🎯</span>
+                    Taxa de Engajamento
+                  </h3>
+                  <div className="space-y-4">
                     {/* Taxa Geral */}
                     <div className="p-4 rounded-lg bg-surface-3 border border-border">
                       <div className="text-center">
                         <p className="text-sm text-muted-foreground mb-1">Taxa Geral</p>
                         <p className="font-display text-3xl font-bold text-brand-pink">
-                          {posts.reduce((sum, p) => sum + p.views, 0) > 0
-                            ? (
-                                (posts.reduce((sum, p) => sum + p.likes + p.comments + p.shares, 0) /
-                                  posts.reduce((sum, p) => sum + p.views, 0)) *
-                                100
-                              ).toFixed(2)
-                            : '0'}%
+                          {analytics.engagementRate.toFixed(2)}%
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           (Interações / Views) × 100
@@ -589,90 +644,85 @@ function TikTokSchedulerContent() {
                       </div>
                     </div>
 
-                    {/* Melhor Post */}
-                    {posts.length > 0 && (() => {
-                      const bestPost = posts.reduce((best, post) => {
-                        const postEngagement = post.likes + post.comments + post.shares
-                        const bestEngagement = best.likes + best.comments + best.shares
-                        return postEngagement > bestEngagement ? post : best
-                      })
-                      const engagement = bestPost.likes + bestPost.comments + bestPost.shares
-
-                      return (
-                        <div className="p-4 rounded-lg border border-brand-pink/30 bg-brand-pink/5">
-                          <p className="text-xs font-semibold text-brand-pink mb-2">🏆 Melhor Post</p>
-                          <p className="text-sm line-clamp-2 mb-2">{bestPost.caption}</p>
-                          <div className="flex gap-3 text-xs">
-                            <span>👁️ {bestPost.views.toLocaleString('pt-BR')}</span>
-                            <span>❤️ {bestPost.likes.toLocaleString('pt-BR')}</span>
-                            <span>💬 {bestPost.comments.toLocaleString('pt-BR')}</span>
-                            <span>📤 {bestPost.shares.toLocaleString('pt-BR')}</span>
-                          </div>
+                    {/* Estatísticas */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-surface-3">
+                        <span className="text-sm text-muted-foreground">Total de Posts</span>
+                        <span className="font-bold">{analytics.totalPosts}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-lg bg-surface-3">
+                        <span className="text-sm text-muted-foreground">Posts Publicados</span>
+                        <span className="font-bold text-green-400">{analytics.publishedPosts}</span>
+                      </div>
+                      {analytics.publishedPosts > 0 && (
+                        <div className="flex justify-between items-center p-3 rounded-lg bg-surface-3">
+                          <span className="text-sm text-muted-foreground">Média de Views</span>
+                          <span className="font-bold">
+                            {Math.round(analytics.views / analytics.publishedPosts).toLocaleString('pt-BR')}
+                          </span>
                         </div>
-                      )
-                    })()}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Posts Recentes */}
-          <div className="panel mt-6 p-6">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
-              <span className="text-xl">📝</span>
-              Posts Recentes
-            </h3>
-            {posts.length === 0 ? (
-              <div className="flex h-64 items-center justify-center">
-                <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-3">
-                    <span className="text-3xl">📊</span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Conecte uma conta e crie posts para ver analytics detalhados
-                  </p>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {posts.slice(0, 10).map((post) => (
-                  <div 
-                    key={post.id} 
-                    className="group flex justify-between items-center py-3 px-4 rounded-lg border border-border hover:border-brand-pink/30 hover:bg-brand-pink/5 transition-all"
-                  >
-                    <div className="flex-1 min-w-0 mr-4">
-                      <p className="text-sm font-medium line-clamp-1 group-hover:text-brand-pink transition-colors">
-                        {post.caption || 'Sem legenda'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {new Date(post.scheduled_at).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                    <div className="flex gap-4 text-xs text-muted-foreground shrink-0">
-                      <span className="flex items-center gap-1">
-                        <span>👁️</span>
-                        <span className="font-medium">{post.views.toLocaleString('pt-BR')}</span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span>❤️</span>
-                        <span className="font-medium">{post.likes.toLocaleString('pt-BR')}</span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span>💬</span>
-                        <span className="font-medium">{post.comments.toLocaleString('pt-BR')}</span>
-                      </span>
-                    </div>
+
+              {/* Posts Recentes desta Conta */}
+              <div className="panel mt-6 p-6">
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <span className="text-xl">📝</span>
+                  Posts Recentes
+                </h3>
+                {posts.filter(p => p.account_id === selectedAccountForAnalytics).length === 0 ? (
+                  <div className="flex h-32 items-center justify-center">
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum post encontrado para esta conta
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-2">
+                    {posts
+                      .filter(p => p.account_id === selectedAccountForAnalytics)
+                      .slice(0, 10)
+                      .map((post) => (
+                        <div 
+                          key={post.id} 
+                          className="group flex justify-between items-center py-3 px-4 rounded-lg border border-border hover:border-brand-pink/30 hover:bg-brand-pink/5 transition-all"
+                        >
+                          <div className="flex-1 min-w-0 mr-4">
+                            <p className="text-sm font-medium line-clamp-1 group-hover:text-brand-pink transition-colors">
+                              {post.caption || 'Sem legenda'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(post.scheduled_at).toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </div>
+                          <div className="flex gap-4 text-xs text-muted-foreground shrink-0">
+                            <span className="flex items-center gap-1">
+                              <span>👁️</span>
+                              <span className="font-medium">{post.views.toLocaleString('pt-BR')}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span>❤️</span>
+                              <span className="font-medium">{post.likes.toLocaleString('pt-BR')}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span>💬</span>
+                              <span className="font-medium">{post.comments.toLocaleString('pt-BR')}</span>
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
