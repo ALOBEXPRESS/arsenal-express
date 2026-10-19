@@ -405,7 +405,12 @@ export function NewPostDialog({ open, onOpenChange }: NewPostDialogProps) {
                 type="datetime-local"
                 value={scheduledAt}
                 onChange={(e) => setScheduledAt(e.target.value)}
-                min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                min={(() => {
+                  const now = new Date(Date.now() + 60000)
+                  const offset = now.getTimezoneOffset() * 60000
+                  const localTime = new Date(now.getTime() - offset)
+                  return localTime.toISOString().slice(0, 16)
+                })()}
               />
               <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             </div>
