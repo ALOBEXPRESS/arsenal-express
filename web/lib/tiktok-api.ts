@@ -1,78 +1,156 @@
 // Cliente para chamar a API interna do Next.js que faz proxy para PostZen
 // A chave fica segura no servidor
 
-interface TikTokAPIOptions {
-  action: string
-  data?: any
+export type TikTokAccount = {
+  id: string
+  postzen_account_id: string | null
+  username: string
+  display_name: string | null
+  avatar_url: string | null
+  status: string
+  created_at: string
 }
 
-export async function callTikTokAPI({ action, data }: TikTokAPIOptions) {
-  const response = await fetch('/api/tiktok', {
-    method: 'POST',
+export type TikTokPost = {
+  id: string
+  account_id: string
+  caption: string
+  video_url: string
+  scheduled_at: string
+  status: string
+  postzen_post_id: string | null
+  error_message: string | null
+  views: number
+  likes: number
+  comments: number
+  shares: number
+  created_at: string
+}
+
+async function apiCall(method: 'GET' | 'POST', url: string, data?: any) {
+  const options: RequestInit = {
+    method,
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ action, ...data }),
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to call TikTok API')
   }
 
-  return response.json()
-}
-
-export async function getTikTokData(endpoint: string) {
-  const response = await fetch(`/api/tiktok?endpoint=${encodeURIComponent(endpoint)}`)
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch TikTok data')
+  if (method === 'POST' && data) {
+    options.body = JSON.stringify(data)
   }
 
-  return response.json()
+  const response = await fetch(url, options)
+  const result = await response.json()
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Request failed')
+  }
+
+  return result
 }
 
-// Funções específicas para cada operação
+// Contas
 
-export async function connectTikTokAccount(authCode: string) {
-  return callTikTokAPI({
-    action: 'accounts/connect',
-    data: { authCode },
+export async function getTikTokAccounts(): Promise<TikTokAccount[]> {
+  const result = await apiCall('GET', '/api/tiktok?action=accounts')
+  return result.accounts
+}
+
+export async function syncTikTokAccounts(): Promise<{ synced: number }> {
+  return apiCall('POST', '/api/tiktok', { action: 'sync_accounts' })
+}
+
+export async function getConnectUrl(redirectUrl: string): Promise<{ authUrl: string }> {
+  return apiCall('POST', '/api/tiktok', {
+    action: 'get_connect_url',
+    redirectUrl,
   })
 }
 
-export async function createTikTokPost({
-  accountId,
-  videoUrl,
-  caption,
-  scheduledAt,
-}: {
+export async function removeTikTokAccount(id: string): Promise<{ ok: boolean }> {
+  return apiCall('POST', '/api/tiktok', {
+    action: 'remove_account',
+    id,
+  })
+}
+
+// Posts
+
+export async function getTikTokPosts(): Promise<TikTokPost[]> {
+  const result = await apiCall('GET', '/api/tiktok?action=posts')
+  return result.posts
+}
+
+export async function createTikTokPost(params: {
   accountId: string
-  videoUrl: string
   caption: string
+  videoUrl: string
   scheduledAt?: string
-}) {
-  return callTikTokAPI({
-    action: 'posts/create',
-    data: {
-      accountId,
-      videoUrl,
-      caption,
-      scheduledAt,
-    },
+  privacyLevel?: string
+}): Promise<TikTokPost> {
+  const result = await apiCall('POST', '/api/tiktok', {
+    action: 'create_post',
+    ...params,
+  })
+  return result.post
+}
+
+export async function deleteTikTokPost(id: string): Promise<{ ok: boolean }> {
+  return apiCall('POST', '/api/tiktok', {
+    action: 'delete_post',
+    id,
   })
 }
 
-export async function getTikTokAccounts() {
-  return getTikTokData('accounts')
+export async function refreshTikTokPosts(): Promise<{ updated: number }> {
+  return apiCall('POST', '/api/tiktok', { action: 'refresh_posts' })
 }
 
-export async function getTikTokPosts() {
-  return getTikTokData('posts')
-}
+// Analytics
 
 export async function getTikTokAnalytics(accountId: string) {
-  return getTikTokData(`analytics/${accountId}`)
+  const result = await apiCall('GET', `/api/tiktok?action=analytics&accountId=${accountId}`)
+  return result.analytics
+}
+
+// Helper para abrir autorização do TikTok em popup
+export async function openTikTokAuth() {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const redirectUrl = `${baseUrl}/tiktok?tiktok_connected=1`
+  
+  const { authUrl } = await getConnectUrl(redirectUrl)
+  
+  const width = 600
+  const height = 700
+  const left = window.screen.width / 2 - width / 2
+  const top = window.screen.height / 2 - height / 2
+  
+  const popup = window.open(
+    authUrl,
+    'TikTokAuth',
+    `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+  )
+  
+  if (!popup) {
+    throw new Error('Popup bloqueado. Permita popups para conectar sua conta TikTok.')
+  }
+  
+  // Retorna promise que resolve quando o popup fechar
+  return new Promise<void>((resolve, reject) => {
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkClosed)
+        resolve()
+      }
+    }, 500)
+    
+    // Timeout de 5 minutos
+    setTimeout(() => {
+      clearInterval(checkClosed)
+      if (!popup.closed) {
+        popup.close()
+      }
+      reject(new Error('Timeout na autorização'))
+    }, 5 * 60 * 1000)
+  })
 }
