@@ -8,7 +8,7 @@ import { sortByModificationDate, sortAssets, clipRate, DEFAULT_SCENE_DURATION, S
 import { allocateClips, canCover } from '@/lib/sync/assemble'
 import { emptySub, getSubprojects, globalInsertIndex, mergeSubOrder, narrationEnd, relayNarration, sceneSub, MAIN_SUB } from '@/lib/subprojects'
 import { withDefaults, pickAnimation, pickTransition, type SyncSettings } from '@/lib/sync/presets'
-import { decodeAudio, detectPauses, planVariableRhythm, type Pause } from '@/lib/sync/rhythm'
+import { decodeAudio, detectPauses, edgeSilenceBounds, planVariableRhythm, type Pause } from '@/lib/sync/rhythm'
 
 const supabase = createClient()
 
@@ -360,6 +360,21 @@ export function useAutoAssemble() {
         return blob
       }
 
+      // Analyze only the edges of each video. Preserve a small margin around audible sound.
+      const clipBounds = new Map<string, { start: number; end: number }>()
+      if (settings.trim_silence.start || settings.trim_silence.end) {
+        for (const video of videos.filter(v => v.type === 'video')) {
+          onStatus?.(`Analisando áudio de ${video.filename}...`)
+          try {
+            const buffer = await decodeAudio(await download(video))
+            const bounds = edgeSilenceBounds(buffer, video.duration || buffer.duration, settings.trim_silence)
+            clipBounds.set(video.id, bounds)
+          } catch {
+            throw new Error(`Não foi possível analisar o áudio de ${video.filename}. Desative a remoção de silêncio ou use um vídeo com áudio compatível com o navegador.`)
+          }
+        }
+      }
+
       // Narration: ordered by modification date. Only byte-identical files are duplicates
       // (two parts of the same narration often have the same length and size).
       const skippedDuplicateAudios: string[] = []
@@ -419,8 +434,8 @@ export function useAutoAssemble() {
         }))
         const narrationDuration = narrationEnd(track)
         // image = no length of its own: unlimited when it must fill a phrase, STILL_DURATION alone
-        const clipDurs = clips.map((v) => (v.type === 'image' ? Number.POSITIVE_INFINITY : v.duration || DEFAULT_SCENE_DURATION))
-        const ownDurs = clips.map((v) => (v.type === 'image' ? STILL_DURATION : v.duration || DEFAULT_SCENE_DURATION))
+        const clipDurs = clips.map((v) => (v.type === 'image' ? Number.POSITIVE_INFINITY : (clipBounds.get(v.id) ? clipBounds.get(v.id)!.end - clipBounds.get(v.id)!.start : v.duration || DEFAULT_SCENE_DURATION)))
+        const ownDurs = clips.map((v) => (v.type === 'image' ? STILL_DURATION : (clipBounds.get(v.id) ? clipBounds.get(v.id)!.end - clipBounds.get(v.id)!.start : v.duration || DEFAULT_SCENE_DURATION)))
 
         // Scene durations
         let durations: number[] = []
@@ -445,7 +460,8 @@ export function useAutoAssemble() {
         const scenes = clips.map((video, index) => {
           const duration = durations[index]
           const isImage = video.type === 'image'
-          const rate = isImage ? 1 : clipRate(video.duration, duration)
+          const bounds = clipBounds.get(video.id)
+          const rate = isImage ? 1 : clipRate(bounds ? bounds.end - bounds.start : video.duration, duration)
           if (!isImage && video.duration && video.duration * rate < duration - 0.05) heldFrameScenes++
           const seg = track.find((s) => cursor >= s.start && cursor < s.start + s.duration)
           const animation = pickAnimation(settings, index)
@@ -463,6 +479,7 @@ export function useAutoAssemble() {
             metadata: {
               sub: target.sub.id,
               video_filename: video.filename,
+              ...(bounds ? { trim: bounds.start, trim_end: bounds.end } : {}),
               timeline_start: Math.round(cursor * 1000) / 1000,
               playback_rate: rate,
               clip_duration: isImage ? null : video.duration,

@@ -112,7 +112,9 @@ export function buildTimeline(scenes: Scene[], assets: Asset[]): TimedScene[] {
     const props = sceneProps(scene)
     const manual = props.speed
     const trim = props.trim ?? 0
-    const available = videoAsset?.duration ? Math.max(0.05, videoAsset.duration - trim) : videoAsset?.duration
+    const trimEnd = Number(scene.metadata?.trim_end)
+    const sourceEnd = Number.isFinite(trimEnd) && trimEnd > trim ? Math.min(trimEnd, videoAsset?.duration || trimEnd) : videoAsset?.duration
+    const available = sourceEnd ? Math.max(0.05, sourceEnd - trim) : sourceEnd
     const timed: TimedScene = {
       scene,
       index,

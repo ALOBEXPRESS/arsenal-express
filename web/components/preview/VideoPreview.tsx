@@ -137,6 +137,46 @@ export function VideoPreview({
   const [showDetails, setShowDetails] = useState(true)
   const [zoomLevel, setZoomLevel] = useState(1) // 1 = fit, >1 = zoomed
 
+  const [previewQuality, setPreviewQuality] = useState<'original' | '360' | '720'>('original')
+  const [proxyUrls, setProxyUrls] = useState<Record<string, string>>({})
+  const [proxyStatus, setProxyStatus] = useState('')
+  useEffect(() => {
+    if (previewQuality === 'original') { setProxyUrls({}); return }
+    let cancelled = false
+    let conversion: { cancel: () => Promise<void> } | undefined
+    const urls: string[] = []
+    setProxyUrls({})
+    const videos = Array.from(new Map(timeline.filter(t => t.videoAsset?.url).map(t => [t.videoAsset!.id, t.videoAsset!])).values())
+    const run = async () => {
+      try {
+        const { Input, UrlSource, ALL_FORMATS, Output, Mp4OutputFormat, BufferTarget, Conversion } = await import('mediabunny')
+        for (let i = 0; i < videos.length && !cancelled; i++) {
+          const asset = videos[i]
+          setProxyStatus(`Preparando preview ${i + 1}/${videos.length}`)
+          const input = new Input({ source: new UrlSource(asset.url!), formats: ALL_FORMATS })
+          try {
+            const target = new BufferTarget()
+            const output = new Output({ format: new Mp4OutputFormat(), target })
+            const task = await Conversion.init({ input, output, tracks: 'primary', video: { height: Number(previewQuality), codec: 'avc', forceTranscode: true }, showWarnings: false })
+            conversion = task
+            if (!task.isValid || task.discardedTracks.length) throw new Error('Formato de mídia não suportado')
+            await task.execute()
+            if (cancelled) break
+            if (!target.buffer) throw new Error('Conversão sem resultado')
+            const url = URL.createObjectURL(new Blob([target.buffer], { type: 'video/mp4' }))
+            urls.push(url)
+            setProxyUrls(prev => ({ ...prev, [asset.id]: url }))
+          } finally { input.dispose(); conversion = undefined }
+        }
+        if (!cancelled) setProxyStatus('')
+      } catch {
+        if (!cancelled) { setProxyStatus('Não foi possível gerar o preview. Usando original.'); setPreviewQuality('original') }
+      }
+    }
+    void run()
+    return () => { cancelled = true; if (conversion) void conversion.cancel(); urls.forEach(url => URL.revokeObjectURL(url)) }
+  }, [previewQuality, timeline])
+
   const hasContent = timeline.length > 0 || overlays.length > 0 || narrationTrack.length > 0
   // Fallback for assets uploaded before width/height were stored: read the loaded <video>
   const [probedVertical, setProbedVertical] = useState(false)
@@ -232,7 +272,7 @@ export function VideoPreview({
         const clipDur = item.videoAsset?.duration || (Number.isFinite(el.duration) ? el.duration : 0)
         const visible = t < sceneEnd && (k === idx || (transitioning && k === idx - 1))
         // item.trim = part of the clip removed by the cut tool (source starts later)
-        syncMedia(el, item.trim + since * item.rate, item.rate, playing, visible, clipDur > 0 ? clipDur - 0.05 : Infinity)
+        syncMedia(el, item.trim + since * item.rate, item.rate, playing, visible, Math.min(clipDur > 0 ? clipDur : Infinity, Number(item.scene.metadata?.trim_end) || Infinity) - 0.05)
       })
 
       // Overlays: visibility per frame + video sync (text bars)
@@ -531,7 +571,7 @@ export function VideoPreview({
                     <img src={still.url} alt={still.filename} className="absolute inset-0 h-full w-full object-contain" />
                   ) : (
                     <video
-                      src={item?.videoAsset?.url || undefined}
+                      src={(item?.videoAsset && proxyUrls[item.videoAsset.id]) || item?.videoAsset?.url || undefined}
                       poster={item?.videoAsset?.metadata?.thumbnail as string | undefined}
                       preload="auto"
                       playsInline
@@ -920,6 +960,15 @@ export function VideoPreview({
         >
           {isPlaying ? <Pause className="h-5 w-5" fill="currentColor" /> : <Play className="ml-0.5 h-5 w-5" fill="currentColor" />}
         </button>
+      </div>
+
+      <div className="mt-2 flex items-center justify-end gap-1" role="group" aria-label="Controles do monitor">
+        {proxyStatus && <span className="text-xs text-muted-foreground" role="status">{proxyStatus}</span>}
+        <label className="text-xs text-muted-foreground">Qualidade <select aria-label="Qualidade do preview" className="ml-1 rounded bg-surface-2 p-1" value={previewQuality} onChange={e => { setProxyStatus(''); setPreviewQuality(e.target.value as 'original' | '360' | '720') }}><option value="original">Original</option><option value="360">360p</option><option value="720">720p</option></select></label>
+        <button type="button" aria-label="Diminuir zoom do monitor" title="Diminuir zoom" className="rounded p-1.5 hover:bg-white/10" onClick={() => setZoomLevel((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}><ZoomOut className="h-4 w-4" /></button>
+        <button type="button" title="Ajustar zoom" className="min-w-12 rounded px-1 text-xs hover:bg-white/10" onClick={() => setZoomLevel(1)}>{Math.round(zoomLevel * 100)}%</button>
+        <button type="button" aria-label="Aumentar zoom do monitor" title="Aumentar zoom" className="rounded p-1.5 hover:bg-white/10" onClick={() => setZoomLevel((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))}><ZoomIn className="h-4 w-4" /></button>
+        <button type="button" aria-label="Tela cheia" title="Tela cheia" className="rounded p-1.5 hover:bg-white/10" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void monitorRef.current?.requestFullscreen() }}><Maximize2 className="h-4 w-4" /></button>
       </div>
 
       {/* Scrubber with scene markers (click or drag) */}

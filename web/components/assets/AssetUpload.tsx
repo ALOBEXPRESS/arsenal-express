@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
+import { extractVideoArchive } from '@/lib/archive'
 import type { AssetType } from '@/types/project'
 
 interface AssetUploadProps {
@@ -36,12 +37,20 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
       const acceptTypes = ACCEPT_TYPES[type].split(',')
       const maxMB = MAX_SIZES[type] / (1024 * 1024)
       
+      setUploading(true)
+      const expanded: File[] = []
+      for (const file of Array.from(files)) {
+        if (type === 'video' && /\.(zip|rar)$/i.test(file.name)) {
+          try { expanded.push(...await extractVideoArchive(file)) }
+          catch (error) { toast.error(`Não foi possível abrir ${file.name}`, { description: error instanceof Error ? error.message : String(error) }) }
+        } else expanded.push(file)
+      }
       // Validate all files first
       const validFiles: File[] = []
       const badType: string[] = []
       const tooBig: string[] = []
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
+      for (let i = 0; i < expanded.length; i++) {
+        const file = expanded[i]
         if (!acceptTypes.some((t) => file.type.match(t))) badType.push(file.name)
         else if (file.size > MAX_SIZES[type]) tooBig.push(file.name)
         else validFiles.push(file)
@@ -49,7 +58,7 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
       if (badType.length) toast.error(`${badType.length} arquivo(s) com formato não suportado`, { description: badType.join('\n') })
       if (tooBig.length) toast.error(`${tooBig.length} arquivo(s) acima de ${maxMB}MB`, { description: tooBig.join('\n') })
 
-      if (validFiles.length === 0) return
+      if (validFiles.length === 0) { setUploading(false); return }
 
       setUploading(true)
       setUploadCount({ current: 0, total: validFiles.length })
@@ -133,7 +142,7 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
         type="file"
         id={`upload-${type}-${projectId}`}
         className="hidden"
-        accept={ACCEPT_TYPES[type]}
+        accept={type === 'video' ? `${ACCEPT_TYPES[type]},.zip,.rar` : ACCEPT_TYPES[type]}
         onChange={handleChange}
         disabled={uploading}
         multiple
@@ -169,7 +178,7 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
               Arraste aqui ou clique pra escolher
             </p>
             <p className="text-xs text-muted-foreground">
-              Vários arquivos de uma vez · até {MAX_SIZES[type] / (1024 * 1024)}MB cada
+              {type === 'video' ? 'Vídeos ou arquivo ZIP/RAR · ' : 'Vários arquivos · '}até {MAX_SIZES[type] / (1024 * 1024)}MB por arquivo
             </p>
           </div>
         )}

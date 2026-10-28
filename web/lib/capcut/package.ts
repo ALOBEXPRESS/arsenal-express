@@ -66,7 +66,7 @@ function probe(asset: Asset): Promise<MediaInfo> {
   return new Promise((resolve) => {
     const fallback = { width: 0, height: 0, duration: asset.duration || 0 }
     if (!asset.url) return resolve(fallback)
-    if (asset.type === 'image') {
+    if (asset.type === 'image' || (asset.type === 'asset' && /\.(png|jpe?g|webp|bmp|svg)$/i.test(asset.filename))) {
       const img = new Image()
       img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight, duration: 0 })
       img.onerror = () => resolve(fallback)

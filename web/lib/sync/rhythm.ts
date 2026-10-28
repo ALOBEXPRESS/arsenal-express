@@ -45,6 +45,18 @@ export function detectPauses(buffer: AudioBuffer, thresholdDb = SILENCE_DB, minD
   return pauses
 }
 
+/** Detect quiet edges while keeping a short margin; wholly silent clips stay unchanged. */
+export function edgeSilenceBounds(buffer: AudioBuffer, duration: number, options: { start: boolean; end: boolean }) {
+  const pauses = detectPauses(buffer)
+  const total = Math.min(duration || buffer.duration, buffer.duration)
+  const first = pauses.find(p => p.start <= 0.02)
+  const last = pauses.find(p => p.end >= buffer.duration - 0.02)
+  if (first && first.end >= buffer.duration - 0.02) return { start: 0, end: total }
+  const start = options.start && first ? Math.max(0, first.end - 0.1) : 0
+  const end = options.end && last ? Math.min(total, last.start + 0.1) : total
+  return end - start >= 0.1 ? { start, end } : { start: 0, end: total }
+}
+
 export async function decodeAudio(blob: Blob): Promise<AudioBuffer> {
   const ctx = new AudioContext()
   try {

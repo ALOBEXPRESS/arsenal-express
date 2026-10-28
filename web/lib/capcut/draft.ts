@@ -306,7 +306,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
   const registerVideo = (asset: Asset) => {
     if (materialIdByAsset.has(asset.id)) return materialIdByAsset.get(asset.id)!
     const info = input.mediaInfo.get(asset.id)
-    const isPhoto = asset.type === 'image'
+    const isPhoto = asset.type === 'image' || (asset.type === 'asset' && /\.(png|jpe?g|webp|bmp|svg)$/i.test(asset.filename))
     const fileName = input.fileNames.get(asset.id)!
     const id = hex()
     materialIdByAsset.set(asset.id, id)
@@ -393,7 +393,10 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
     // Speed: user speed (inspector) or 1x. If the clip runs out before the scene ends, slow it
     // down further so CapCut has no gap (the preview holds the last frame instead).
     const trimS = isPhoto ? 0 : item.trim
-    const clipS = Math.max(0.05, (input.mediaInfo.get(media.id)?.duration || media.duration || durS) - trimS)
+    const actualEnd = input.mediaInfo.get(media.id)?.duration || media.duration || durS
+    const trimEnd = Number(item.scene.metadata?.trim_end)
+    const sourceEnd = Number.isFinite(trimEnd) && trimEnd > trimS ? Math.min(trimEnd, actualEnd) : actualEnd
+    const clipS = Math.max(0.05, sourceEnd - trimS)
     let speed = item.manualSpeed ? item.rate : 1
     if (!isPhoto && clipS < durS * speed) speed = Math.max(0.1, Math.floor((clipS / durS) * 1000) / 1000)
     const sourceUs = isPhoto ? durUs : Math.min(Math.round(durUs * speed), toUs(clipS))
@@ -486,7 +489,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
   const overlayTracks = packRows(input.overlays || [], (o) => o.clip).map((row, r) => {
     const layer = r + 1
     const segments = row.map(({ clip, asset }) => {
-      const isPhoto = asset.type === 'image'
+      const isPhoto = asset.type === 'image' || (asset.type === 'asset' && /\.(png|jpe?g|webp|bmp|svg)$/i.test(asset.filename))
       const durUs = toUs(clip.duration)
       const inPoint = isPhoto ? 0 : clip.in_point || 0
       const clipS = Math.max(0.05, (input.mediaInfo.get(asset.id)?.duration || asset.duration || clip.duration) - inPoint)

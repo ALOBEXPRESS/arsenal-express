@@ -207,6 +207,12 @@ export function AssemblySheet({
         </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5">
+          <section className="rounded-xl border border-border bg-surface-2/60 p-4 space-y-3">
+            <h3 className="font-display text-[15px] font-bold">Remover silêncio dos clipes</h3>
+            <p className="text-[12px] text-muted-foreground">Detecta trechos de áudio com volume baixo nas extremidades de cada vídeo. Música e ruído podem impedir a detecção.</p>
+            <label className="flex items-center justify-between gap-3 text-[13px]"><span>No início dos vídeos</span><Switch checked={s.trim_silence.start} onCheckedChange={(start: boolean) => setS(p => ({ ...p, trim_silence: { ...p.trim_silence, start } }))} aria-label="Remover silêncio no início" /></label>
+            <label className="flex items-center justify-between gap-3 text-[13px]"><span>No final dos vídeos</span><Switch checked={s.trim_silence.end} onCheckedChange={(end: boolean) => setS(p => ({ ...p, trim_silence: { ...p.trim_silence, end } }))} aria-label="Remover silêncio no final" /></label>
+          </section>
           <section aria-labelledby="order-title" className="rounded-xl border border-border bg-surface-2/60 p-4">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-3 text-muted-foreground" aria-hidden>

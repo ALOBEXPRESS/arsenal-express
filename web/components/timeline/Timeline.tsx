@@ -267,9 +267,10 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       {thumb ? (
         <>
           <div
-            className="absolute inset-0 bg-cover bg-center"
+            className="absolute inset-0 bg-left bg-repeat-x"
             style={{ 
               backgroundImage: `url(${thumb})`,
+              backgroundSize: 'auto 100%',
               filter: 'brightness(0.85) contrast(1.1)'
             }}
           />
@@ -515,8 +516,8 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, lab
       {thumb ? (
         <>
           <div
-            className="absolute inset-0 opacity-60 bg-cover bg-center"
-            style={{ backgroundImage: `url(${thumb})`, filter: 'brightness(0.8)' }}
+            className="absolute inset-0 opacity-60 bg-left bg-repeat-x"
+            style={{ backgroundImage: `url(${thumb})`, backgroundSize: 'auto 100%', filter: 'brightness(0.8)' }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40" />
         </>
@@ -1252,7 +1253,7 @@ export function Timeline({
                 <Layers className="h-3.5 w-3.5 text-blue-400" aria-hidden /> 
                 <span className="font-medium">Overlays</span>
               </div>
-              <div className="flex flex-1 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+              <div className="my-2 flex min-h-[100px] flex-1 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Clapperboard className="h-3.5 w-3.5 text-blue-500" aria-hidden /> 
                 <span className="font-semibold">Mídia</span>
               </div>
@@ -1260,11 +1261,11 @@ export function Timeline({
                 <Mic className="h-3.5 w-3.5 text-violet-400" aria-hidden /> 
                 <span className="font-medium">Narração</span>
               </div>
-              <div className="flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+              <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Music className="h-3.5 w-3.5 text-emerald-400" aria-hidden /> 
                 <span className="font-medium">Áudio</span>
               </div>
-              <div className="flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+              <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Sparkles className="h-3.5 w-3.5 text-pink-400" aria-hidden /> 
                 <span className="font-medium">SFX</span>
               </div>
