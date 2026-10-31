@@ -677,10 +677,10 @@ export function VideoPreview({
                 className={cn('absolute touch-none', onOverlayChange && 'cursor-move')}
                 style={{
                   zIndex: 10 + i,
-                  width: f.w,
-                  height: f.h,
-                  left: (stage.w - f.w) / 2,
-                  top: (stage.h - f.h) / 2,
+                  width: o.assembly_bar && o.assembly_bar_height ? stage.w : f.w,
+                  height: o.assembly_bar && o.assembly_bar_height ? stage.h * o.assembly_bar_height : f.h,
+                  left: o.assembly_bar && o.assembly_bar_height ? 0 : (stage.w - f.w) / 2,
+                  top: o.assembly_bar && o.assembly_bar_height ? (stage.h - stage.h * o.assembly_bar_height) / 2 : (stage.h - f.h) / 2,
                   opacity: o.opacity,
                   transform: overlayTransform(o),
                   visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
@@ -722,7 +722,7 @@ export function VideoPreview({
                       const v = e.currentTarget
                       if (v.videoWidth) setNatural((p) => ({ ...p, [o.id]: { w: v.videoWidth, h: v.videoHeight } }))
                     }}
-                    className="pointer-events-none h-full w-full object-contain"
+                    className={cn('pointer-events-none h-full w-full', o.assembly_bar ? 'object-fill' : 'object-contain')}
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -734,7 +734,7 @@ export function VideoPreview({
                       const img = e.currentTarget
                       if (img.naturalWidth) setNatural((p) => ({ ...p, [o.id]: { w: img.naturalWidth, h: img.naturalHeight } }))
                     }}
-                    className="pointer-events-none h-full w-full select-none object-contain"
+                    className={cn('pointer-events-none h-full w-full select-none', o.assembly_bar ? 'object-fill' : 'object-contain')}
                   />
                 )}
                 {selected && <span className="pointer-events-none absolute inset-0 outline outline-2 outline-offset-0 outline-brand-cyan" aria-hidden />}

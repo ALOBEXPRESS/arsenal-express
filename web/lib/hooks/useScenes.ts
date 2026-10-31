@@ -607,15 +607,20 @@ export function useAutoAssemble() {
             
             // Create ONE overlay per position that spans all scenes
             for (const pos of positions) {
+              const outputFormat = projectRow?.config?.output_format
+              const barHeight = settings.overlay_bars.height_override ? settings.overlay_bars.height_override / (outputFormat === '16:9' || outputFormat === '1:1' ? 1080 : 1920) : 0.08
+              const barPosition = pos.y > 0 ? 'top' : 'bottom'
               overlays.push({
                 id: crypto.randomUUID(),
+                assembly_bar: barPosition,
+                assembly_bar_height: barHeight,
                 asset_id: favoriteAsset.id,
                 kind: favoriteAsset.type === 'video' || (favoriteAsset.type === 'asset' && favoriteAsset.kind === 'video') ? 'video' : 'image',
                 start: 0,
                 duration: totalDuration,
                 scale: pos.scale,
                 x: 0, // Centralizado horizontalmente
-                y: pos.y,
+                y: barPosition === 'top' ? 1 - barHeight : -1 + barHeight,
                 opacity: 1,
                 speed: 1,
                 volume: 0, // Muted

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AudioLines, Clapperboard, Image as ImageIcon, Upload, Package } from 'lucide-react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Upload, Package, X } from 'lucide-react'
 import { useAssets, useUploadAsset, useDeleteAsset } from '@/lib/hooks/useAssets'
 import { AssetCard } from './AssetCard'
 import { AssetUpload } from './AssetUpload'
@@ -28,6 +28,8 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
   const deleteAsset = useDeleteAsset()
   const [activeTab, setActiveTab] = useState<AssetType | 'all'>('all')
   const [showUpload, setShowUpload] = useState<AssetType | null>(null)
+  const [previewId, setPreviewId] = useState<string | null>(null)
+  const previewAsset = assets?.find((asset) => asset.id === previewId && asset.type === 'video')
 
   const sorted = sortByModificationDate(assets || [])
   const filtered = activeTab === 'all' ? sorted : sorted.filter((a) => a.type === activeTab)
@@ -115,6 +117,21 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
         )}
       </Dialog>
 
+      {previewAsset && (
+        <section className="shrink-0 border-b border-border bg-surface-1 p-3" aria-label="Prévia da mídia">
+          <div className="mb-2 flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="eyebrow">Prévia da mídia</p>
+              <p className="truncate text-xs text-foreground" title={previewAsset.filename}>{previewAsset.filename}</p>
+            </div>
+            <button type="button" onClick={() => setPreviewId(null)} className="rounded p-1 text-muted-foreground hover:bg-white/10 hover:text-foreground" aria-label="Fechar prévia da mídia"><X className="h-4 w-4" /></button>
+          </div>
+          <video key={previewAsset.id} src={previewAsset.url} controls autoPlay playsInline preload="metadata" className="max-h-48 w-full rounded-md bg-black" aria-label={`Prévia de ${previewAsset.filename}`}>
+            Seu navegador não consegue reproduzir este vídeo.
+          </video>
+        </section>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {isLoading ? (
           <div className="grid grid-cols-2 gap-2">
@@ -131,7 +148,7 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {filtered.map((asset) => (
-              <AssetCard key={asset.id} asset={asset} onDelete={(a) => deleteAsset.mutate(a)} onSelect={onSelectAsset} />
+              <AssetCard key={asset.id} asset={asset} onDelete={(a) => { if (a.id === previewId) setPreviewId(null); deleteAsset.mutate(a) }} onSelect={(a) => { if (a.type === 'video') setPreviewId(a.id); onSelectAsset?.(a) }} />
             ))}
           </div>
         )}

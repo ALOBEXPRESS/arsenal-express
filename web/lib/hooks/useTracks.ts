@@ -86,16 +86,21 @@ export function useTracks(projectId: string, subId: string) {
     const id = list.some(s => s.id === subId) ? subId : list[0].id
     const target = list.find(s => s.id === id)!
     const positions: ('top' | 'bottom')[] = settings.overlay_bars.position === 'both' ? ['top', 'bottom'] : [settings.overlay_bars.position]
-    const added: OverlayClip[] = positions.filter(position => !target.overlays.some(o => o.assembly_bar === position)).map(position => ({
+    const config = queryClient.getQueryData<Project>(['project', projectId])?.settings
+    const oldFavorite = config?.sync?.overlay_bars?.favorite_asset_id
+    const isAssemblyBar = (o: OverlayClip) => !!o.assembly_bar || (!!oldFavorite && o.asset_id === oldFavorite && o.start === 0 && o.x === 0 && Math.abs(o.y) === 1.2 && o.volume === 0)
+    const canvasHeight = config?.output_format === '16:9' || config?.output_format === '1:1' ? 1080 : 1920
+    const barHeight = settings.overlay_bars.height_override ? settings.overlay_bars.height_override / canvasHeight : 0.08
+    const added: OverlayClip[] = positions.map(position => ({
       id: crypto.randomUUID(), assembly_bar: position,
+      assembly_bar_height: barHeight,
       asset_id: favorite.id,
       kind: /\.(mp4|mov|webm|gif)$/i.test(favorite.filename) ? 'video' : 'image',
       start: 0, duration, scale: 1, x: 0,
-      y: position === 'top' ? 1.2 : -1.2,
+      y: position === 'top' ? 1 - barHeight : -1 + barHeight,
       opacity: 1, speed: 1, volume: 0,
     }))
-    if (!added.length) return
-    const next = list.map(s => s.id === id ? { ...s, overlays: [...s.overlays, ...added] } : s)
+    const next = list.map(s => s.id === id ? { ...s, overlays: [...s.overlays.filter(o => !isAssemblyBar(o)), ...added] } : s)
     await patchProjectConfig(projectId, { subprojects: next })
     queryClient.setQueryData<Project>(['project', projectId], old => old ? { ...old, settings: { ...old.settings, subprojects: next } } : old)
   }, [flush, read, subId, projectId, queryClient])

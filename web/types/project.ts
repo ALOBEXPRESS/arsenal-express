@@ -74,6 +74,8 @@ export interface OverlayClip {
   id: string
   /** Identifies overlays added by the assembly options. */
   assembly_bar?: 'top' | 'bottom'
+  /** Bar height as a fraction of the output canvas; used by generated bars. */
+  assembly_bar_height?: number
   asset_id: string
   kind: 'image' | 'video' | 'text'
   /** timeline seconds */

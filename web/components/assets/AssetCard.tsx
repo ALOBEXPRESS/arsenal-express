@@ -81,6 +81,15 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
   return (
     <div
       draggable
+      role="button"
+      tabIndex={0}
+      aria-label={asset.type === 'video' ? `Pré-visualizar ${asset.filename}` : `Selecionar ${asset.filename}`}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onSelect?.(asset)
+        }
+      }}
       onDragStart={(e) => {
         e.dataTransfer.setData(ASSET_MIME, asset.id)
         e.dataTransfer.setData('text/plain', asset.filename)
@@ -91,7 +100,10 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
       }}
       onDragEnd={() => setDragAsset(null)}
       className="group relative cursor-grab overflow-hidden rounded-lg border border-border bg-surface-2 transition-all duration-200 hover:border-primary/50 hover:shadow-[0_0_20px_-5px_rgba(123,97,255,0.3)] active:cursor-grabbing"
-      onClick={() => onSelect?.(asset)}
+      onClick={() => {
+        videoRef.current?.pause()
+        onSelect?.(asset)
+      }}
       onMouseEnter={() => videoRef.current?.play().catch(() => {})}
       onMouseLeave={() => {
         const v = videoRef.current

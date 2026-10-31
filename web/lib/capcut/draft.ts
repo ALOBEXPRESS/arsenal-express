@@ -525,7 +525,13 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
           alpha: Math.round(clip.opacity * 1000) / 1000,
           flip: { horizontal: false, vertical: false },
           rotation: 0.0,
-          scale: { x: clip.scale, y: clip.scale },
+          scale: clip.assembly_bar && clip.assembly_bar_height ? (() => {
+            const info = input.mediaInfo.get(asset.id)
+            const w = info?.width || input.canvas.width
+            const h = info?.height || input.canvas.height
+            const fit = Math.min(input.canvas.width / w, input.canvas.height / h)
+            return { x: clip.scale * input.canvas.width / (w * fit), y: clip.scale * (input.canvas.height * clip.assembly_bar_height) / (h * fit) }
+          })() : { x: clip.scale, y: clip.scale },
           // CapCut units: fraction of half canvas, y up — same as OverlayClip
           transform: { x: clip.x, y: clip.y },
           // Color adjustments
@@ -535,7 +541,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
           // Blend mode
           blend_mode: clip.blend_mode || 'normal',
         },
-        uniform_scale: { on: true, value: clip.scale },
+        uniform_scale: { on: !clip.assembly_bar, value: clip.scale },
         hdr_settings: { intensity: 1.0, mode: 1, nits: 1000 },
         render_index: layer,
       }
@@ -922,7 +928,7 @@ function metaEntry(asset: Asset, path: string, metetype: 'video' | 'photo' | 'mu
   return {
     ai_group_type: '',
     create_time: -1,
-    duration: metetype === 'photo' ? 0 : toUs(info?.duration || asset.duration || 5),
+    duration: metetype === 'photo' ? 10_800_000_000 : toUs(info?.duration || asset.duration || 5),
     enter_from: 0,
     extra_info: path.split('/').pop(),
     file_Path: path,
