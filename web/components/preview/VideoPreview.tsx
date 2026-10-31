@@ -725,7 +725,7 @@ export function VideoPreview({
                       const v = e.currentTarget
                       if (v.videoWidth) setNatural((p) => ({ ...p, [o.id]: { w: v.videoWidth, h: v.videoHeight } }))
                     }}
-                    className={cn("pointer-events-none h-full w-full", bar ? (o.assembly_bar === "top" ? "object-cover object-bottom" : "object-cover object-top") : "object-contain")}
+                    className={cn("pointer-events-none h-full w-full", bar ? "object-cover object-top" : "object-contain")}
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -737,7 +737,7 @@ export function VideoPreview({
                       const img = e.currentTarget
                       if (img.naturalWidth) setNatural((p) => ({ ...p, [o.id]: { w: img.naturalWidth, h: img.naturalHeight } }))
                     }}
-                    className={cn("pointer-events-none h-full w-full select-none", bar ? (o.assembly_bar === "top" ? "object-cover object-bottom" : "object-cover object-top") : "object-contain")}
+                    className={cn("pointer-events-none h-full w-full select-none", bar ? "object-cover object-top" : "object-contain")}
                   />
                 )}
                 {selected && <span className="pointer-events-none absolute inset-0 outline outline-2 outline-offset-0 outline-brand-cyan" aria-hidden />}
