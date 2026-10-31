@@ -499,7 +499,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       const speedMat = speedMaterial(speed)
       mat.speeds.push(speedMat)
       const info = input.mediaInfo.get(asset.id)
-      const bar = clip.assembly_bar && clip.assembly_bar_height && info?.width && info?.height ? barLayout({ canvasWidth: input.canvas.width, canvasHeight: input.canvas.height, mediaWidth: info.width, mediaHeight: info.height, position: clip.assembly_bar, storedHeight: clip.assembly_bar_height, storedY: clip.y, auto: input.settings.overlay_bars.height_override === 0 }) : null
+      const bar = clip.assembly_bar && clip.assembly_bar_height && info?.width && info?.height ? barLayout({ canvasWidth: input.canvas.width, canvasHeight: input.canvas.height, mediaWidth: info.width, mediaHeight: info.height, position: clip.assembly_bar, customHeight: clip.assembly_bar_custom_height, storedHeight: clip.assembly_bar_height, storedY: clip.y, auto: input.settings.overlay_bars.height_override === 0 }) : null
       
       // Generate entrance/exit animation keyframes
       const animKeyframes = overlayAnimationKeyframes(

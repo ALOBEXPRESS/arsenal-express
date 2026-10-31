@@ -105,23 +105,25 @@ export function useTracks(projectId: string, subId: string) {
     queryClient.setQueryData<Project>(['project', projectId], old => old ? { ...old, settings: { ...old.settings, subprojects: next } } : old)
   }, [flush, read, subId, projectId, queryClient])
 
+  const updateOverlay = useCallback((id: string, patch: Partial<OverlayClip>, image: boolean) => {
+    const sub = read().find(s => s.id === subId)
+    const current = (image ? sub?.image_overlays : sub?.overlays)?.find(o => o.id === id)
+    const keys: (keyof OverlayClip)[] = ['crop_position_y', 'assembly_bar_custom_height', 'x', 'y', 'scale', 'opacity', 'brightness', 'contrast', 'saturation', 'blend_mode', 'animation_in', 'animation_out', 'animation_duration']
+    if (current) {
+      const before: Partial<OverlayClip> = {}, after: Partial<OverlayClip> = {}
+      for (const key of keys) if (Object.prototype.hasOwnProperty.call(patch, key) && patch[key] !== current[key]) { Object.assign(before, { [key]: current[key] }); Object.assign(after, { [key]: patch[key] }) }
+      if (Object.keys(after).length) window.dispatchEvent(new CustomEvent('overlay-crop-edit', { detail: { projectId, subId, id, before, after } }))
+    }
+    commit(s => image ? { image_overlays: s.image_overlays.map(o => o.id === id ? { ...o, ...patch } : o) } : { overlays: s.overlays.map(o => o.id === id ? { ...o, ...patch } : o) })
+  }, [read, subId, projectId, commit])
+
   const api = useMemo(
     () => ({
-      updateOverlay: (id: string, patch: Partial<OverlayClip>) => {
-        const current = read().find(s => s.id === subId)?.overlays.find(o => o.id === id)
-        const keys = ['crop_position_y', 'x', 'y', 'scale'] as const
-        if (current) {
-          const before: Partial<OverlayClip> = {}, after: Partial<OverlayClip> = {}
-          for (const key of keys) if (patch[key] !== undefined && patch[key] !== current[key]) { before[key] = current[key] ?? (key === 'scale' ? 1 : 0); after[key] = patch[key] }
-          if (Object.keys(after).length) window.dispatchEvent(new CustomEvent('overlay-crop-edit', { detail: { projectId, subId, id, before, after } }))
-        }
-        commit((s) => ({ overlays: s.overlays.map((o) => (o.id === id ? { ...o, ...patch } : o)) }))
-      },
-      restoreCrop: (id: string, patch: Partial<OverlayClip>) => commit((s) => ({ overlays: s.overlays.map(o => o.id === id ? { ...o, ...patch } : o) })),
+      updateOverlay: (id: string, patch: Partial<OverlayClip>) => updateOverlay(id, patch, false),
+      restoreCrop: (id: string, patch: Partial<OverlayClip>) => commit((s) => ({ overlays: s.overlays.map(o => o.id === id ? { ...o, ...patch } : o), image_overlays: s.image_overlays.map(o => o.id === id ? { ...o, ...patch } : o) })),
       addOverlay: (clip: OverlayClip) => commit((s) => ({ overlays: [...s.overlays, clip] })),
       removeOverlay: (id: string) => commit((s) => ({ overlays: s.overlays.filter((o) => o.id !== id) })),
-      updateImageOverlay: (id: string, patch: Partial<OverlayClip>) =>
-        commit((s) => ({ image_overlays: s.image_overlays.map((o) => (o.id === id ? { ...o, ...patch } : o)) })),
+      updateImageOverlay: (id: string, patch: Partial<OverlayClip>) => updateOverlay(id, patch, true),
       addImageOverlay: (clip: OverlayClip) => commit((s) => ({ image_overlays: [...s.image_overlays, clip] })),
       removeImageOverlay: (id: string) => commit((s) => ({ image_overlays: s.image_overlays.filter((o) => o.id !== id) })),
       updateAudio: (id: string, patch: Partial<AudioClip>) =>
@@ -141,7 +143,7 @@ export function useTracks(projectId: string, subId: string) {
       removeNarration: (index: number) =>
         commit((s) => ({ narration_track: relayNarration(s.narration_track.filter((_, i) => i !== index)) })),
     }),
-    [commit, read, subId, projectId]
+    [commit, updateOverlay]
   )
 
   // ---- Subproject management ------------------------------------------------------

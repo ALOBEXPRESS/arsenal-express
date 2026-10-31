@@ -461,6 +461,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
       if (groupedOverlay) {
         const siblingPatch = { ...patch }
         delete siblingPatch.y  // Never sync Y position between grouped overlays
+        delete siblingPatch.assembly_bar_custom_height
         
         if (Object.keys(siblingPatch).length > 0) {
           if (isImageOverlay) tracks.updateImageOverlay(groupedOverlay.id, siblingPatch)
@@ -600,6 +601,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           ) : (
             <>
               <Group title="Transformar">
+                {o.assembly_bar && <PropSlider label="Altura da faixa" value={o.assembly_bar_custom_height ?? o.assembly_bar_height ?? 0.08} min={0.01} max={0.5} step={0.005} format={pct} onChange={(v) => set({ assembly_bar_custom_height: v })} onReset={() => set({ assembly_bar_custom_height: undefined })} />}
                 {o.assembly_bar && <PropSlider label="Enquadramento da imagem" value={o.crop_position_y ?? 0} min={0} max={1} step={0.01} format={pct} onChange={(v) => set({ crop_position_y: v })} onReset={() => set({ crop_position_y: 0 })} />}
                 <PropSlider label="Escala" value={o.scale} min={0.05} max={3} step={0.01} format={pct} onChange={(v) => set({ scale: v })} onReset={o.scale !== 1 ? () => set({ scale: 1 }) : undefined} />
                 <PropSlider label="Posição X" value={o.x} min={-1.5} max={1.5} step={0.005} format={(v) => (v * 50).toFixed(1) + '%'} onChange={(v) => set({ x: v })} onReset={o.x ? () => set({ x: 0 }) : undefined} />

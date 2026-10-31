@@ -667,7 +667,7 @@ export function VideoPreview({
             if (!a) return null
             const f = fitted(o)
             const dimensions = natural[o.id]
-            const bar = o.assembly_bar && o.assembly_bar_height ? barLayout({ canvasWidth: stage.w, canvasHeight: stage.h, mediaWidth: dimensions?.w || Number(a.metadata?.width) || 1, mediaHeight: dimensions?.h || Number(a.metadata?.height) || 1, position: o.assembly_bar, storedHeight: o.assembly_bar_height, storedY: o.y, auto: overlayBarHeight === 0 }) : null
+            const bar = o.assembly_bar && o.assembly_bar_height ? barLayout({ canvasWidth: stage.w, canvasHeight: stage.h, mediaWidth: dimensions?.w || Number(a.metadata?.width) || 1, mediaHeight: dimensions?.h || Number(a.metadata?.height) || 1, position: o.assembly_bar, customHeight: o.assembly_bar_custom_height, storedHeight: o.assembly_bar_height, storedY: o.y, auto: overlayBarHeight === 0 }) : null
             const selected = o.id === selectedOverlayId
             return (
               <div
