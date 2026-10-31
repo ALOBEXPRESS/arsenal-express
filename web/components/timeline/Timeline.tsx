@@ -1015,6 +1015,13 @@ export function Timeline({
       return
     }
     
+    if (selection?.kind === 'overlay') {
+      const selected = overlays.find(o => o.id === selection.id)
+      if (!selected || activeSceneIndex <= selected.start + 0.05 || activeSceneIndex >= selected.start + selected.duration - 0.05) { toast.info('Posicione a agulha dentro da overlay para dividir.'); return }
+      const pair = selected.assembly_bar && overlays.find(o => o.id !== selected.id && o.assembly_bar && o.assembly_bar !== selected.assembly_bar && o.asset_id === selected.asset_id && Math.abs(o.start - selected.start) < 0.001 && Math.abs(o.duration - selected.duration) < 0.001)
+      tracks.splitOverlays([selected.id, ...(pair ? [pair.id] : [])], activeSceneIndex)
+      return
+    }
     const scene = selectedSceneAtPlayhead
     console.log('[Cut] Selected scene:', scene)
     
@@ -1059,7 +1066,7 @@ export function Timeline({
       console.error('[Cut] Failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
     }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene, cutHistory, cutHistoryIndex])
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene, cutHistory, cutHistoryIndex, selection, overlays, tracks])
 
   // Undo last cut
   const handleUndo = useCallback(async () => {
@@ -1347,7 +1354,7 @@ export function Timeline({
             size="sm" 
             variant="outline" 
             onClick={handleSplitAtPlayhead} 
-            disabled={busy || splitScene.isPending || !selectedSceneAtPlayhead}
+            disabled={busy || splitScene.isPending || (!selectedSceneAtPlayhead && selection?.kind !== 'overlay')}
             title="Cortar cena na posição atual (Ctrl+B)"
           >
             <Scissors /> Cortar
@@ -1600,7 +1607,11 @@ export function Timeline({
                         maxDuration={o.kind === 'video' ? sourceMax(o.asset_id, o.speed) : undefined}
                         snapTo={snapWithPlayhead()}
                         onSelect={() => select({ kind: 'overlay', id: o.id })}
-                        onCommit={(p) => tracks.updateOverlay(o.id, p)}
+                        onCommit={(p) => {
+                          const pair = o.assembly_bar && overlays.find(x => x.id !== o.id && x.assembly_bar && x.assembly_bar !== o.assembly_bar && x.asset_id === o.asset_id && Math.abs(x.start - o.start) < 0.001 && Math.abs(x.duration - o.duration) < 0.001)
+                          tracks.updateOverlay(o.id, p)
+                          if (pair) tracks.updateOverlay(pair.id, p)
+                        }}
                       />
                     )
                   })}

@@ -121,6 +121,11 @@ export function useTracks(projectId: string, subId: string) {
     () => ({
       updateOverlay: (id: string, patch: Partial<OverlayClip>) => updateOverlay(id, patch, false),
       restoreCrop: (id: string, patch: Partial<OverlayClip>) => commit((s) => ({ overlays: s.overlays.map(o => o.id === id ? { ...o, ...patch } : o), image_overlays: s.image_overlays.map(o => o.id === id ? { ...o, ...patch } : o) })),
+      splitOverlays: (ids: string[], time: number) => commit(s => ({ overlays: s.overlays.flatMap(o => {
+        if (!ids.includes(o.id) || time <= o.start + 0.05 || time >= o.start + o.duration - 0.05) return [o]
+        const elapsed = time - o.start
+        return [{ ...o, duration: elapsed }, { ...o, id: crypto.randomUUID(), start: time, duration: o.duration - elapsed, ...(o.kind === 'video' ? { in_point: (o.in_point || 0) + elapsed * (o.speed || 1) } : {}) }]
+      }) })),
       addOverlay: (clip: OverlayClip) => commit((s) => ({ overlays: [...s.overlays, clip] })),
       removeOverlay: (id: string) => commit((s) => ({ overlays: s.overlays.filter((o) => o.id !== id) })),
       updateImageOverlay: (id: string, patch: Partial<OverlayClip>) => updateOverlay(id, patch, true),
