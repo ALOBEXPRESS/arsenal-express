@@ -208,8 +208,8 @@ export function AssemblySheet({
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5">
           <section className="rounded-xl border border-border bg-surface-2/60 p-4 space-y-3">
-            <h3 className="font-display text-[15px] font-bold">Remover silêncio dos clipes</h3>
-            <p className="text-[12px] text-muted-foreground">Detecta trechos de áudio com volume baixo nas extremidades de cada vídeo. Música e ruído podem impedir a detecção.</p>
+            <h3 className="font-display text-[15px] font-bold">Cortar antes e depois da fala</h3>
+            <p className="text-[12px] text-muted-foreground">Detecta a fala mesmo com sons ambientes e mantém uma pequena margem em cada ponta. Confira os cortes na timeline.</p>
             <label className="flex items-center justify-between gap-3 text-[13px]"><span>No início dos vídeos</span><Switch checked={s.trim_silence.start} onCheckedChange={(start: boolean) => setS(p => ({ ...p, trim_silence: { ...p.trim_silence, start } }))} aria-label="Remover silêncio no início" /></label>
             <label className="flex items-center justify-between gap-3 text-[13px]"><span>No final dos vídeos</span><Switch checked={s.trim_silence.end} onCheckedChange={(end: boolean) => setS(p => ({ ...p, trim_silence: { ...p.trim_silence, end } }))} aria-label="Remover silêncio no final" /></label>
           </section>
@@ -620,6 +620,7 @@ export function AssemblySheet({
 
         <div className="space-y-2 border-t border-border bg-surface-0/60 px-6 py-4">
           {invalid && <p className="text-[12px] text-destructive">Marque pelo menos uma opção no modo variado.</p>}
+          {!s.media.with_images && !s.media.with_videos && <p className="text-[12px] text-muted-foreground">Sem remontar: adiciona barras e aplica animações e transições ativadas. Ordem, ritmo, velocidade, cortes e SFX da montagem não são refeitos.</p>}
           {busy && status && (
             <p className="flex items-center gap-2 font-mono text-[12px] text-primary" role="status">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> {status}
@@ -641,7 +642,7 @@ export function AssemblySheet({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" disabled={busy || invalid || !hasScenes} onClick={() => onApplyEffects(s)}>
-              Só aplicar efeitos
+              Aplicar sem remontar
             </Button>
             <Button variant="ghost" disabled={busy || invalid} onClick={() => onSave(s)}>
               Salvar preferências

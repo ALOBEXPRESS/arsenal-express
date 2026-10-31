@@ -10,6 +10,7 @@ import { useProject } from './useProjects'
 import { patchProjectConfig } from './useScenes'
 import { emptySub, getSubprojects, relayNarration, MAIN_SUB, sceneSub } from '@/lib/subprojects'
 import type { AdjustClip, AudioClip, Asset, OverlayClip, Project, Scene, Subproject } from '@/types/project'
+import type { SyncSettings } from '@/lib/sync/presets'
 
 const supabase = createClient()
 
@@ -72,6 +73,32 @@ export function useTracks(projectId: string, subId: string) {
     },
     [read, commitList, subId]
   )
+
+  /** Add requested bars without replacing scenes or existing timeline layers. */
+  const applyAssemblyBars = useCallback(async (settings: SyncSettings, assets: Asset[], duration: number) => {
+    await flush()
+    if (!settings.overlay_bars.enabled) return
+    const favoriteId = settings.overlay_bars.favorite_asset_id
+    const favorite = favoriteId ? assets.find(a => a.id === favoriteId) : undefined
+    if (favoriteId && !favorite) throw new Error('O asset selecionado não foi encontrado na biblioteca.')
+    if (!favorite) throw new Error('Selecione um asset favorito para adicionar as barras sem remontar.')
+    const list = read()
+    const id = list.some(s => s.id === subId) ? subId : list[0].id
+    const target = list.find(s => s.id === id)!
+    const positions: ('top' | 'bottom')[] = settings.overlay_bars.position === 'both' ? ['top', 'bottom'] : [settings.overlay_bars.position]
+    const added: OverlayClip[] = positions.filter(position => !target.overlays.some(o => o.assembly_bar === position)).map(position => ({
+      id: crypto.randomUUID(), assembly_bar: position,
+      asset_id: favorite.id,
+      kind: /\.(mp4|mov|webm|gif)$/i.test(favorite.filename) ? 'video' : 'image',
+      start: 0, duration, scale: 1, x: 0,
+      y: position === 'top' ? 1.2 : -1.2,
+      opacity: 1, speed: 1, volume: 0,
+    }))
+    if (!added.length) return
+    const next = list.map(s => s.id === id ? { ...s, overlays: [...s.overlays, ...added] } : s)
+    await patchProjectConfig(projectId, { subprojects: next })
+    queryClient.setQueryData<Project>(['project', projectId], old => old ? { ...old, settings: { ...old.settings, subprojects: next } } : old)
+  }, [flush, read, subId, projectId, queryClient])
 
   const api = useMemo(
     () => ({
@@ -145,6 +172,8 @@ export function useTracks(projectId: string, subId: string) {
   )
 
   return {
+    flush,
+    applyAssemblyBars,
     subprojects,
     sub,
     overlays: sub.overlays,

@@ -72,6 +72,8 @@ export interface AdjustClip {
 /** Overlay layer. x/y/scale use CapCut units: x,y = fraction of HALF canvas (y up), scale 1 = fit canvas */
 export interface OverlayClip {
   id: string
+  /** Identifies overlays added by the assembly options. */
+  assembly_bar?: 'top' | 'bottom'
   asset_id: string
   kind: 'image' | 'video' | 'text'
   /** timeline seconds */

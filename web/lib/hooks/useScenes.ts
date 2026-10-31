@@ -8,7 +8,7 @@ import { sortByModificationDate, sortAssets, clipRate, DEFAULT_SCENE_DURATION, S
 import { allocateClips, canCover } from '@/lib/sync/assemble'
 import { emptySub, getSubprojects, globalInsertIndex, mergeSubOrder, narrationEnd, relayNarration, sceneSub, MAIN_SUB } from '@/lib/subprojects'
 import { withDefaults, pickAnimation, pickTransition, type SyncSettings } from '@/lib/sync/presets'
-import { decodeAudio, detectPauses, edgeSilenceBounds, planVariableRhythm, type Pause } from '@/lib/sync/rhythm'
+import { decodeAudio, detectPauses, planVariableRhythm, type Pause } from '@/lib/sync/rhythm'
 
 const supabase = createClient()
 
@@ -360,19 +360,25 @@ export function useAutoAssemble() {
         return blob
       }
 
-      // Analyze only the edges of each video. Preserve a small margin around audible sound.
+      // Analyze speech before writing scenes, keeping the originals intact if no speech is found.
       const clipBounds = new Map<string, { start: number; end: number }>()
       if (settings.trim_silence.start || settings.trim_silence.end) {
+        onStatus?.('Carregando detector de voz...')
+        const { createSpeechDetector } = await import('@/lib/sync/speech')
+        const detectSpeech = await createSpeechDetector()
+        const noSpeech: string[] = []
         for (const video of videos.filter(v => v.type === 'video')) {
-          onStatus?.(`Analisando áudio de ${video.filename}...`)
+          onStatus?.(`Detectando fala em ${video.filename}...`)
           try {
             const buffer = await decodeAudio(await download(video))
-            const bounds = edgeSilenceBounds(buffer, video.duration || buffer.duration, settings.trim_silence)
-            clipBounds.set(video.id, bounds)
+            const bounds = await detectSpeech(buffer, video.duration || buffer.duration, settings.trim_silence)
+            if (bounds) clipBounds.set(video.id, bounds)
+            else noSpeech.push(video.filename)
           } catch {
-            throw new Error(`Não foi possível analisar o áudio de ${video.filename}. Desative a remoção de silêncio ou use um vídeo com áudio compatível com o navegador.`)
+            throw new Error(`Não foi possível analisar a fala de ${video.filename}. Nenhuma cena foi alterada; confira o áudio ou desative essa opção.`)
           }
         }
+        if (noSpeech.length) toast.warning('Fala não detectada em alguns clipes; eles foram mantidos inteiros.', { description: noSpeech.join(', ') })
       }
 
       // Narration: ordered by modification date. Only byte-identical files are duplicates
@@ -724,14 +730,14 @@ export function useApplyEffects() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ projectId, scenes, settings }: { projectId: string; scenes: Scene[]; settings: SyncSettings }) => {
+      if (!settings.animation.enabled && !settings.transition.enabled) return
       const results = await Promise.all(
         scenes.map((scene, index) =>
           supabase
             .from('scenes')
             .update({
-              animation_type: pickAnimation(settings, index),
-              transition_in: pickTransition(settings, index),
-              metadata: { ...(scene.metadata || {}), anim: settings.animation.params },
+              ...(settings.animation.enabled ? { animation_type: pickAnimation(settings, index), metadata: { ...(scene.metadata || {}), anim: settings.animation.params } } : {}),
+              ...(settings.transition.enabled ? { transition_in: pickTransition(settings, index) } : {}),
             })
             .eq('id', scene.id)
         )

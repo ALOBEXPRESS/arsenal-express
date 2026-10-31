@@ -191,8 +191,28 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   const seek = usePlayhead((s) => s.requestSeek)
 
+  const applyExisting = async (s: SyncSettings) => {
+    if (!subScenes.length) {
+      toast.error('Não há cenas neste subprojeto para receber os efeitos.')
+      return
+    }
+    try {
+      await tracks.applyAssemblyBars(s, assets || [], timeline.reduce((end, item) => Math.max(end, item.start + item.duration), 0))
+      await applyEffects.mutateAsync({ projectId: id, scenes: subScenes, settings: s })
+      await saveSettings.mutateAsync({ projectId: id, settings: s })
+      toast.success('Opções aplicadas às cenas existentes', { description: 'Barras, animações e transições ativadas foram aplicadas. Cortes e outras camadas foram preservados; ordem, ritmo, velocidade e SFX não foram refeitos.' })
+      setShowAssembly(false)
+    } catch (e) {
+      toast.error('Falha ao aplicar opções', { description: e instanceof Error ? e.message : undefined })
+    }
+  }
+
   const runAssemble = async (mode: AutoAssembleMode, settings: SyncSettings = syncSettings) => {
     const s = withDefaults(settings)
+    if (!s.media.with_images && !s.media.with_videos) {
+      await applyExisting(s)
+      return
+    }
     const perAudio = mode === 'scenes_with_audio' && s.narration.split === 'per_audio' && audioCount > 1
     const affected = perAudio ? (scenes || []).length : subScenes.length
     if (affected > 0) {
@@ -544,16 +564,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           toast.success('Preferências de montagem salvas')
           setShowAssembly(false)
         }}
-        onApplyEffects={async (s) => {
-          try {
-            await saveSettings.mutateAsync({ projectId: id, settings: s })
-            await applyEffects.mutateAsync({ projectId: id, scenes: subScenes, settings: s })
-            toast.success('Efeitos aplicados', { description: `Animações e transições atualizadas em ${tracks.sub.name} (tempos mantidos).` })
-            setShowAssembly(false)
-          } catch (e) {
-            toast.error('Falha ao aplicar efeitos', { description: e instanceof Error ? e.message : undefined })
-          }
-        }}
+        onApplyEffects={applyExisting}
         onAssemble={(s) => runAssemble('scenes_with_audio', s)}
         onAssembleScenes={(s) => runAssemble('scenes', s)}
       />
