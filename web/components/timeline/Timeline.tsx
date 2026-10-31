@@ -242,7 +242,8 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       onDragEnd={onDragEnd}
       title={`${media?.filename ?? ''} · ${item.duration.toFixed(2)}s · arraste pra reordenar · duplo clique pra editar`}
       className={cn(
-        'group relative cursor-pointer overflow-hidden rounded-lg shadow-lg transition-all duration-200',
+        'group relative cursor-pointer overflow-hidden rounded-lg shadow-lg',
+        draft ? 'transition-none' : 'transition-all duration-200',
         selected 
           ? 'z-10 ring-2 ring-brand-cyan ring-offset-2 ring-offset-neutral-900 scale-[1.02]' 
           : active 
@@ -254,7 +255,9 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
         position: 'absolute',
         bottom: 4,
         top: 4,
-        left: item.start * pps + 2, 
+        // During a left-edge drag, move the left edge with the pointer while
+        // leaving the right edge in place. The timeline closes the gap on commit.
+        left: (item.start + (draft ? (draft.trim - item.trim) / (item.rate || 1) : 0)) * pps + 2,
         width: d * pps - 4,
         minWidth: 32
       }}
