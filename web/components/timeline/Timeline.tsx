@@ -120,15 +120,6 @@ function Playhead({
       >
         <div className="h-2 w-2 rounded-sm bg-white/90" />
       </span>
-      {/* Wide invisible grab area */}
-      <div
-        role="slider"
-        aria-label="Agulha da timeline (arraste)"
-        aria-valuenow={Math.round(time)}
-        tabIndex={-1}
-        onPointerDown={onGrab}
-        className="absolute -left-[10px] bottom-0 top-0 w-[20px] cursor-ew-resize touch-none pointer-events-auto"
-      />
     </div>
   )
 }
