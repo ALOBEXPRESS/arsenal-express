@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip } from '@/types/project'
+import { barLayout } from '@/lib/sync/barLayout'
 import { Play, Pause, Mic, Clock, Info, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff } from 'lucide-react'
 import {
   buildTimeline,
@@ -665,6 +666,8 @@ export function VideoPreview({
             const a = assetById.get(o.asset_id)
             if (!a) return null
             const f = fitted(o)
+            const dimensions = natural[o.id]
+            const bar = o.assembly_bar && o.assembly_bar_height ? barLayout({ canvasWidth: stage.w, canvasHeight: stage.h, mediaWidth: dimensions?.w || Number(a.metadata?.width) || 1, mediaHeight: dimensions?.h || Number(a.metadata?.height) || 1, position: o.assembly_bar, storedHeight: o.assembly_bar_height, storedY: o.y, auto: overlayBarHeight === 0 }) : null
             const selected = o.id === selectedOverlayId
             return (
               <div
@@ -678,11 +681,11 @@ export function VideoPreview({
                 style={{
                   zIndex: 10 + i,
                   width: o.assembly_bar && o.assembly_bar_height ? stage.w : f.w,
-                  height: o.assembly_bar && o.assembly_bar_height ? stage.h * o.assembly_bar_height : f.h,
+                  height: bar ? stage.h * bar.height : f.h,
                   left: o.assembly_bar && o.assembly_bar_height ? 0 : (stage.w - f.w) / 2,
-                  top: o.assembly_bar && o.assembly_bar_height ? (stage.h - stage.h * o.assembly_bar_height) / 2 : (stage.h - f.h) / 2,
+                  top: bar ? (stage.h - stage.h * bar.height) / 2 : (stage.h - f.h) / 2,
                   opacity: o.opacity,
-                  transform: overlayTransform(o),
+                  transform: overlayTransform({ ...o, y: bar?.y ?? o.y }),
                   visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
                   filter: overlayFilter(o),
                   mixBlendMode: overlayMixBlendMode(o),
@@ -701,7 +704,7 @@ export function VideoPreview({
                   const nx = d.x + ((e.clientX - d.px) * 2) / stage.w
                   const ny = d.y - ((e.clientY - d.py) * 2) / stage.h
                   d.moved = true
-                  e.currentTarget.style.transform = overlayTransform({ x: nx, y: ny, scale: o.scale })
+                  e.currentTarget.style.transform = overlayTransform({ x: nx, y: ny + (bar ? bar.y - o.y : 0), scale: o.scale })
                   e.currentTarget.dataset.nx = String(nx)
                   e.currentTarget.dataset.ny = String(ny)
                 }}
@@ -722,7 +725,7 @@ export function VideoPreview({
                       const v = e.currentTarget
                       if (v.videoWidth) setNatural((p) => ({ ...p, [o.id]: { w: v.videoWidth, h: v.videoHeight } }))
                     }}
-                    className={cn('pointer-events-none h-full w-full', o.assembly_bar ? 'object-fill' : 'object-contain')}
+                    className="pointer-events-none h-full w-full object-contain"
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -734,7 +737,7 @@ export function VideoPreview({
                       const img = e.currentTarget
                       if (img.naturalWidth) setNatural((p) => ({ ...p, [o.id]: { w: img.naturalWidth, h: img.naturalHeight } }))
                     }}
-                    className={cn('pointer-events-none h-full w-full select-none', o.assembly_bar ? 'object-fill' : 'object-contain')}
+                    className="pointer-events-none h-full w-full select-none object-contain"
                   />
                 )}
                 {selected && <span className="pointer-events-none absolute inset-0 outline outline-2 outline-offset-0 outline-brand-cyan" aria-hidden />}

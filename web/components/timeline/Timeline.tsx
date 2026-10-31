@@ -345,8 +345,8 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       </div>
 
       {/* Action buttons */}
-      <div className="absolute right-2 bottom-2 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-        <button
+      <div className={cn('absolute z-20 bottom-2 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100', compact ? 'right-0.5' : 'right-2')}>
+        {!compact && <button
           type="button"
           onClick={(e) => {
             e.stopPropagation()
@@ -356,7 +356,7 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
           aria-label={`Editar cena ${item.index + 1}`}
         >
           <Pencil className="h-3.5 w-3.5" />
-        </button>
+        </button>}
         <button
           type="button"
           onClick={(e) => {
@@ -601,7 +601,7 @@ export function Timeline({
   const [viewport, setViewport] = useState(800)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number } }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
   useEffect(() => {
     setCutHistory([])
@@ -711,10 +711,18 @@ export function Timeline({
         tone: 'danger',
       })
       if (!ok) return
-      deleteScene.mutate(scene, { onError: (e) => toast.error('Falha ao excluir a cena', { description: e.message }) })
-      if (selection?.id === scene.id) select(null)
+      try {
+        await patchScene.flush(true)
+        await deleteScene.mutateAsync(scene)
+        const next = cutHistory.slice(0, cutHistoryIndex + 1)
+        next.push({ sceneId: scene.id, beforeDuration: scene.audio_duration || 0, afterDuration: 0, beforeTrim: 0, afterTrim: 0, deletion: { scene, index, previousId: scenes[index - 1]?.id, nextId: scenes[index + 1]?.id } })
+        setCutHistory(next)
+        setCutHistoryIndex(next.length - 1)
+        if (selection?.id === scene.id) select(null)
+        toast.success('Cena excluída', { description: 'Ctrl+Z para restaurar' })
+      } catch (e) { toast.error('Falha ao excluir a cena', { description: e instanceof Error ? e.message : undefined }) }
     },
-    [deleteScene, selection, select]
+    [deleteScene, selection, select, scenes, cutHistory, cutHistoryIndex, patchScene]
   )
 
   const removeSelected = useCallback(() => {
@@ -1024,13 +1032,39 @@ export function Timeline({
 
   // Undo last cut
   const handleUndo = useCallback(async () => {
-    if (splitScene.isPending || undoSplit.isPending) return
+    if (splitScene.isPending || undoSplit.isPending || deleteScene.isPending || insertScene.isPending) return
     if (cutHistoryIndex < 0) {
       toast.info('Nada para desfazer')
       return
     }
 
     const entry = cutHistory[cutHistoryIndex]
+    if (entry.deletion) {
+      const { scene: saved, previousId, nextId, index } = entry.deletion
+      if (scenes.some(s => s.id === saved.id)) { toast.error('A cena já existe na timeline.'); return }
+      const before = nextId ? scenes.findIndex(s => s.id === nextId) : -1
+      const after = previousId ? scenes.findIndex(s => s.id === previousId) : -1
+      const insertAt = before >= 0 ? before : after >= 0 ? after + 1 : Math.min(index, scenes.length)
+      try {
+        await insertScene.mutateAsync({ projectId, scenes, index: insertAt, input: {
+          id: saved.id, narration_text: saved.narration_text, media_type: saved.media_type,
+          ...(saved.section_index != null ? { section_index: saved.section_index } : {}),
+          ...(saved.image_prompt != null ? { image_prompt: saved.image_prompt } : {}),
+          ...(saved.video_prompt != null ? { video_prompt: saved.video_prompt } : {}),
+          ...(saved.image_asset_id ? { image_asset_id: saved.image_asset_id } : {}),
+          ...(saved.video_asset_id ? { video_asset_id: saved.video_asset_id } : {}),
+          ...(saved.audio_asset_id ? { audio_asset_id: saved.audio_asset_id } : {}),
+          ...(saved.audio_start != null ? { audio_start: saved.audio_start } : {}),
+          ...(saved.audio_duration != null ? { audio_duration: saved.audio_duration } : {}),
+          ...(saved.animation_type ? { animation_type: saved.animation_type } : {}),
+          ...(saved.transition_in ? { transition_in: saved.transition_in } : {}),
+          generated_in_flow: saved.generated_in_flow, metadata: saved.metadata,
+        } })
+        setCutHistoryIndex(cutHistoryIndex - 1)
+        toast.success('Cena restaurada')
+      } catch (error) { toast.error('Falha ao restaurar cena', { description: error instanceof Error ? error.message : undefined }) }
+      return
+    }
     if (entry.split) {
       try {
         const tail = scenes.find(s => s.id === entry.split!.right.id)
@@ -1067,11 +1101,11 @@ export function Timeline({
 
     setCutHistoryIndex(cutHistoryIndex - 1)
     toast.success('Corte desfeito', { description: 'Ctrl+Y para refazer' })
-  }, [cutHistory, cutHistoryIndex, scenes, patchScene, undoSplit, splitScene.isPending, projectId, select])
+  }, [cutHistory, cutHistoryIndex, scenes, patchScene, undoSplit, splitScene.isPending, projectId, select, insertScene, deleteScene.isPending])
 
   // Redo last undone cut
   const handleRedo = useCallback(async () => {
-    if (splitScene.isPending || undoSplit.isPending) return
+    if (splitScene.isPending || undoSplit.isPending || deleteScene.isPending || insertScene.isPending) return
     if (cutHistoryIndex >= cutHistory.length - 1) {
       toast.info('Nada para refazer')
       return
@@ -1079,6 +1113,21 @@ export function Timeline({
 
     const nextIndex = cutHistoryIndex + 1
     const entry = cutHistory[nextIndex]
+    if (entry.deletion) {
+      const current = scenes.find(s => s.id === entry.sceneId)
+      if (!current) { toast.error('Cena não encontrada'); return }
+      const saved = entry.deletion.scene
+      const normalize = (value: unknown) => JSON.stringify(value, (_, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v)
+      if (current.audio_duration !== saved.audio_duration || current.video_asset_id !== saved.video_asset_id || normalize(current.metadata) !== normalize(saved.metadata)) { toast.error('A cena foi alterada após a restauração; exclua-a novamente se desejar.'); return }
+      try {
+        await patchScene.flush(true)
+        await deleteScene.mutateAsync(current)
+        setCutHistoryIndex(nextIndex)
+        if (selection?.kind === 'scene' && selection.id === current.id) select(null)
+        toast.success('Exclusão refeita')
+      } catch (error) { toast.error('Falha ao refazer exclusão', { description: error instanceof Error ? error.message : undefined }) }
+      return
+    }
     if (entry.split) {
       const index = scenes.findIndex(s => s.id === entry.sceneId)
       if (index < 0) { toast.error('Cena não encontrada'); return }
@@ -1106,7 +1155,7 @@ export function Timeline({
 
     setCutHistoryIndex(nextIndex)
     toast.success('Corte refeito', { description: 'Ctrl+Z para desfazer' })
-  }, [cutHistory, cutHistoryIndex, scenes, patchScene, splitScene, undoSplit.isPending, projectId, select])
+  }, [cutHistory, cutHistoryIndex, scenes, patchScene, splitScene, undoSplit.isPending, projectId, select, deleteScene, selection, insertScene.isPending])
 
   // Keyboard shortcuts for undo/redo and split
   useEffect(() => {
@@ -1219,8 +1268,8 @@ export function Timeline({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="flex items-center rounded-md border border-border" role="group" aria-label="Histórico de cortes">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUndo} disabled={busy || splitScene.isPending || undoSplit.isPending || cutHistoryIndex < 0} aria-label="Desfazer corte" title="Desfazer corte (Ctrl+Z)"><Undo2 /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRedo} disabled={busy || splitScene.isPending || undoSplit.isPending || cutHistoryIndex >= cutHistory.length - 1} aria-label="Refazer corte" title="Refazer corte (Ctrl+Y ou Ctrl+Shift+Z)"><Redo2 /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUndo} disabled={busy || splitScene.isPending || undoSplit.isPending || deleteScene.isPending || insertScene.isPending || cutHistoryIndex < 0} aria-label="Desfazer edição" title="Desfazer edição (Ctrl+Z)"><Undo2 /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRedo} disabled={busy || splitScene.isPending || undoSplit.isPending || deleteScene.isPending || insertScene.isPending || cutHistoryIndex >= cutHistory.length - 1} aria-label="Refazer edição" title="Refazer edição (Ctrl+Y ou Ctrl+Shift+Z)"><Redo2 /></Button>
           </div>
           <div className="mr-1 flex items-center rounded-md border border-border" role="group" aria-label="Zoom da timeline">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => zoom(1 / 1.5)} aria-label="Diminuir zoom">

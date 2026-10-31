@@ -8,6 +8,7 @@
 import contentTemplate from './draft_content_template.json'
 import metaTemplate from './draft_meta_template.json'
 import { sceneProps, packRows, type TimedScene } from '@/lib/timeline'
+import { barLayout } from '@/lib/sync/barLayout'
 import type { AdjustClip, Asset, AudioClip, OverlayClip } from '@/types/project'
 import { CAPCUT_ADJUST_RESOURCE, CAPCUT_ADJUST_TYPES, LOOK_BY_ID, adjustValues, matchesLook, type AdjustKey } from '@/lib/sync/adjust'
 import {
@@ -496,6 +497,8 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       const speed = isPhoto ? 1 : clip.speed || 1
       const speedMat = speedMaterial(speed)
       mat.speeds.push(speedMat)
+      const info = input.mediaInfo.get(asset.id)
+      const bar = clip.assembly_bar && clip.assembly_bar_height && info?.width && info?.height ? barLayout({ canvasWidth: input.canvas.width, canvasHeight: input.canvas.height, mediaWidth: info.width, mediaHeight: info.height, position: clip.assembly_bar, storedHeight: clip.assembly_bar_height, storedY: clip.y, auto: input.settings.overlay_bars.height_override === 0 }) : null
       
       // Generate entrance/exit animation keyframes
       const animKeyframes = overlayAnimationKeyframes(
@@ -525,15 +528,9 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
           alpha: Math.round(clip.opacity * 1000) / 1000,
           flip: { horizontal: false, vertical: false },
           rotation: 0.0,
-          scale: clip.assembly_bar && clip.assembly_bar_height ? (() => {
-            const info = input.mediaInfo.get(asset.id)
-            const w = info?.width || input.canvas.width
-            const h = info?.height || input.canvas.height
-            const fit = Math.min(input.canvas.width / w, input.canvas.height / h)
-            return { x: clip.scale * input.canvas.width / (w * fit), y: clip.scale * (input.canvas.height * clip.assembly_bar_height) / (h * fit) }
-          })() : { x: clip.scale, y: clip.scale },
+          scale: { x: clip.scale * (bar?.scale ?? 1), y: clip.scale * (bar?.scale ?? 1) },
           // CapCut units: fraction of half canvas, y up — same as OverlayClip
-          transform: { x: clip.x, y: clip.y },
+          transform: { x: clip.x, y: bar?.y ?? clip.y },
           // Color adjustments
           brightness: clip.brightness ? clip.brightness / 100 : 0,
           contrast: clip.contrast ? clip.contrast / 100 : 0,
@@ -541,7 +538,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
           // Blend mode
           blend_mode: clip.blend_mode || 'normal',
         },
-        uniform_scale: { on: !clip.assembly_bar, value: clip.scale },
+        uniform_scale: { on: true, value: clip.scale * (bar?.scale ?? 1) },
         hdr_settings: { intensity: 1.0, mode: 1, nits: 1000 },
         render_index: layer,
       }

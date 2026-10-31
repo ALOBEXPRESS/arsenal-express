@@ -86,7 +86,7 @@ export function useDeleteScene() {
 
   return useMutation({
     mutationFn: async (scene: Scene) => {
-      const { error } = await supabase.from('scenes').delete().eq('id', scene.id)
+      const { error } = await supabase.from('scenes').delete().eq('project_id', scene.project_id).eq('id', scene.id).select('id').single()
 
       if (error) throw error
       return scene
@@ -155,7 +155,7 @@ export function useInsertScene() {
       /** scenes of the target subproject */
       scenes: Scene[]
       index: number
-      input: Omit<CreateSceneInput, 'project_id' | 'order_index'>
+      input: Omit<CreateSceneInput, 'project_id' | 'order_index'> & { id?: string }
     }) => {
       const all = [...(queryClient.getQueryData<Scene[]>(['scenes', projectId]) || scenes)].sort((a, b) => a.order_index - b.order_index)
       const nextOrder = all.reduce((m, s) => Math.max(m, s.order_index), -1) + 1

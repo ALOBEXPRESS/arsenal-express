@@ -455,7 +455,7 @@ export function AssemblySheet({
             <div className="rounded-lg border border-border bg-surface-0 px-3 py-3">
               <div className="mb-2.5 flex items-center justify-between text-[12px]">
                 <label htmlFor="bar-height" className="text-muted-foreground">
-                  Altura da barra (0 = auto 8%)
+                  Altura da barra (0 = automática)
                 </label>
                 <span className="font-mono tabular-nums text-primary">
                   {s.overlay_bars.height_override === 0 ? 'Auto' : `${s.overlay_bars.height_override}px`}
@@ -471,7 +471,7 @@ export function AssemblySheet({
                 aria-label="Altura manual da barra de texto"
               />
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Auto ajusta 8% da altura do vídeo (ideal 16:9). Manual força altura fixa.
+                Auto preserva a proporção da imagem; no modo manual, ela cabe dentro da altura escolhida.
               </p>
             </div>
 
