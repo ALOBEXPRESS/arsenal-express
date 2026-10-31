@@ -1190,8 +1190,9 @@ export function Timeline({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
-      if (target?.closest('input:not([type=range]), textarea, select, [contenteditable="true"], [role="textbox"]')) return
       const key = e.key.toLowerCase()
+      const historyShortcut = (e.ctrlKey || e.metaKey) && (key === "z" || key === "y")
+      if (!historyShortcut && target?.closest('input:not([type=range]), textarea, select, [contenteditable="true"], [role="textbox"]')) return
       // Undo: Ctrl+Z
       if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault()

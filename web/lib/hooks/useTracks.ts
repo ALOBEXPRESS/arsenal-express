@@ -108,7 +108,7 @@ export function useTracks(projectId: string, subId: string) {
   const updateOverlay = useCallback((id: string, patch: Partial<OverlayClip>, image: boolean) => {
     const sub = read().find(s => s.id === subId)
     const current = (image ? sub?.image_overlays : sub?.overlays)?.find(o => o.id === id)
-    const keys: (keyof OverlayClip)[] = ['crop_position_y', 'assembly_bar_custom_height', 'x', 'y', 'scale', 'opacity', 'brightness', 'contrast', 'saturation', 'blend_mode', 'animation_in', 'animation_out', 'animation_duration']
+    const keys: (keyof OverlayClip)[] = ['crop_position_y', 'assembly_bar_custom_height', 'x', 'y', 'scale', 'opacity', 'brightness', 'contrast', 'saturation', 'blend_mode', 'animation_loop', 'animation_in', 'animation_out', 'animation_duration']
     if (current) {
       const before: Partial<OverlayClip> = {}, after: Partial<OverlayClip> = {}
       for (const key of keys) if (Object.prototype.hasOwnProperty.call(patch, key) && patch[key] !== current[key]) { Object.assign(before, { [key]: current[key] }); Object.assign(after, { [key]: patch[key] }) }

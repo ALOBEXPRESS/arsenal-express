@@ -487,6 +487,12 @@ export function VideoPreview({
   const overlayTransform = (o: { x: number; y: number; scale: number }) =>
     `translate3d(${((o.x * stage.w) / 2).toFixed(2)}px, ${((-o.y * stage.h) / 2).toFixed(2)}px, 0) scale(${o.scale.toFixed(4)})`
   
+  const loopPose = (o: OverlayClip) => {
+    const cycle = Math.max(0.5, o.animation_duration ?? 2)
+    const phase = ((Math.max(0, time - o.start) % cycle) / cycle)
+    const wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2
+    return { x: o.x + (o.animation_loop === 'horizontal' ? 0.08 * wave : 0), y: o.y + (o.animation_loop === 'vertical' ? 0.08 * wave : 0), scale: o.scale * (o.animation_loop === 'pulse' ? 1 + 0.1 * wave : 1) }
+  }
   const overlayFilter = (o: OverlayClip) => {
     const filters: string[] = []
     if (o.brightness && o.brightness !== 0) filters.push(`brightness(${100 + o.brightness}%)`)
@@ -685,7 +691,7 @@ export function VideoPreview({
                   left: o.assembly_bar && o.assembly_bar_height ? 0 : (stage.w - f.w) / 2,
                   top: bar ? (stage.h - stage.h * bar.height) / 2 : (stage.h - f.h) / 2,
                   opacity: o.opacity,
-                  transform: overlayTransform({ ...o, y: bar?.y ?? o.y }),
+                  transform: overlayTransform({ ...loopPose(o), y: (bar?.y ?? o.y) + (loopPose(o).y - o.y) }),
                   visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
                   filter: overlayFilter(o),
                   mixBlendMode: overlayMixBlendMode(o),
@@ -769,7 +775,7 @@ export function VideoPreview({
                   left: (stage.w - f.w) / 2,
                   top: (stage.h - f.h) / 2,
                   opacity: o.opacity,
-                  transform: overlayTransform(o),
+                  transform: overlayTransform(loopPose(o)),
                   visibility: time >= o.start && time < o.start + o.duration ? 'visible' : 'hidden',
                   filter: overlayFilter(o),
                   mixBlendMode: overlayMixBlendMode(o),

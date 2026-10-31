@@ -502,7 +502,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       const bar = clip.assembly_bar && clip.assembly_bar_height && info?.width && info?.height ? barLayout({ canvasWidth: input.canvas.width, canvasHeight: input.canvas.height, mediaWidth: info.width, mediaHeight: info.height, position: clip.assembly_bar, customHeight: clip.assembly_bar_custom_height, storedHeight: clip.assembly_bar_height, storedY: clip.y, auto: input.settings.overlay_bars.height_override === 0 }) : null
       
       // Generate entrance/exit animation keyframes
-      const animKeyframes = overlayAnimationKeyframes(
+      const legacyKeyframes = overlayAnimationKeyframes(
         clip.animation_in,
         clip.animation_out,
         clip.duration,
@@ -512,6 +512,17 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
         clip.y
       )
       
+      const animKeyframes = clip.animation_loop && clip.animation_loop !== 'none' ? (() => {
+        const cycle = Math.max(0.5, clip.animation_duration ?? 2)
+        const half = cycle / 2
+        const count = Math.ceil(clip.duration / half)
+        const property = clip.animation_loop === 'pulse' ? 'KFTypeScaleX' : clip.animation_loop === 'horizontal' ? 'KFTypePositionX' : 'KFTypePositionY'
+        const base = clip.animation_loop === 'pulse' ? clip.scale : clip.animation_loop === 'horizontal' ? clip.x : (bar?.y ?? clip.y)
+        const amplitude = clip.animation_loop === 'pulse' ? clip.scale * 0.1 : 0.08
+        const frames = Array.from({ length: count + 1 }, (_, i) => { const t = Math.min(clip.duration, i * half); const phase = (t % cycle) / cycle; const wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2; return keyframe(toUs(t), base + amplitude * wave) })
+        return [{ id: hex(), keyframe_list: frames, material_id: '', property_type: property }]
+      })() : legacyKeyframes
+
       return {
         ...SEGMENT_COMMON,
         track_render_index: layer,
