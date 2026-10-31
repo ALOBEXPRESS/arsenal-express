@@ -9,6 +9,7 @@ import { allocateClips, canCover } from '@/lib/sync/assemble'
 import { emptySub, getSubprojects, globalInsertIndex, mergeSubOrder, narrationEnd, relayNarration, sceneSub, MAIN_SUB } from '@/lib/subprojects'
 import { withDefaults, pickAnimation, pickTransition, type SyncSettings } from '@/lib/sync/presets'
 import { decodeAudio, detectPauses, planVariableRhythm, type Pause } from '@/lib/sync/rhythm'
+import { splitSceneData } from '@/lib/sync/splitScene'
 
 const supabase = createClient()
 
@@ -169,13 +170,42 @@ export function useInsertScene() {
       if (at < all.length) {
         const ordered = [...all]
         ordered.splice(at, 0, created)
-        await persistOrder(projectId, ordered)
+        try {
+          await persistOrder(projectId, ordered)
+        } catch (error) {
+          const { error: rollbackError } = await supabase.from('scenes').delete().eq('project_id', projectId).eq('id', created.id)
+          if (rollbackError) throw new Error('Falha ao ordenar e remover a cena recém-criada. Confira a timeline antes de continuar.')
+          throw error
+        }
       }
       return created
     },
     onSettled: (_, __, { projectId }) => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] })
     },
+  })
+}
+
+/** Split without replacing other rows: insert the tail first, then shorten the original. */
+export function useSplitScene() {
+  const queryClient = useQueryClient()
+  const insert = useInsertScene()
+  return useMutation({
+    mutationFn: async ({ projectId, scenes, scene, index, point, duration, trim, rate }: {
+      projectId: string; scenes: Scene[]; scene: Scene; index: number
+      point: number; duration: number; trim: number; rate: number
+    }) => {
+      const pieces = splitSceneData(scene, point, duration, trim, rate)
+      const right = await insert.mutateAsync({ projectId, scenes, index: index + 1, input: pieces.right })
+      const { error } = await supabase.from('scenes').update(pieces.left).eq('project_id', projectId).eq('id', scene.id).select('id').single()
+      if (error) {
+        const { error: rollback } = await supabase.from('scenes').delete().eq('project_id', projectId).eq('id', right.id)
+        if (rollback) throw new Error('Não foi possível concluir a divisão nem remover a cópia criada. A cena original foi mantida; confira a timeline.')
+        throw error
+      }
+      return right
+    },
+    onSettled: (_, __, { projectId }) => queryClient.invalidateQueries({ queryKey: ['scenes', projectId] }),
   })
 }
 
@@ -192,7 +222,7 @@ export function usePatchScene(projectId: string) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const writeQueue = useRef<Promise<void>>(Promise.resolve())
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async (strict = false) => {
     const batch = [...pending.current.entries()]
     pending.current.clear()
     const write = async () => {
@@ -201,6 +231,7 @@ export function usePatchScene(projectId: string) {
       if (failed?.error) {
         toast.error('Não foi possível salvar a alteração da cena', { description: failed.error.message })
         queryClient.invalidateQueries({ queryKey: ['scenes', projectId] })
+        if (strict) throw new Error(failed.error.message)
       }
     }
     writeQueue.current = writeQueue.current.catch(() => {}).then(write)
@@ -215,7 +246,7 @@ export function usePatchScene(projectId: string) {
     [flush]
   )
 
-  return useCallback(
+  const patch = useCallback(
     (sceneId: string, updates: Partial<Scene>) => {
       queryClient.setQueryData<Scene[]>(['scenes', projectId], (old) =>
         old?.map((s) => (s.id === sceneId ? { ...s, ...updates } : s))
@@ -226,6 +257,7 @@ export function usePatchScene(projectId: string) {
     },
     [projectId, queryClient, flush]
   )
+  return Object.assign(patch, { flush })
 }
 
 

@@ -27,7 +27,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useDeleteScene, useReorderScenes, useInsertScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
+import { useDeleteScene, useReorderScenes, useInsertScene, useSplitScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
 import { newClipId, type Tracks } from '@/lib/hooks/useTracks'
 import { useSFXManifest } from '@/hooks/useSFXManifest'
 import { Button } from '@/components/ui/button'
@@ -585,6 +585,7 @@ export function Timeline({
   const deleteScene = useDeleteScene()
   const reorderScenes = useReorderScenes()
   const insertScene = useInsertScene()
+  const splitScene = useSplitScene()
   const patchScene = usePatchScene(projectId)
   const dragAsset = useDragAsset((s) => s.asset)
   const { selection, select } = useSelection()
@@ -960,6 +961,7 @@ export function Timeline({
   }, [timeline, activeSceneIndex])
 
   const handleSplitAtPlayhead = useCallback(async () => {
+    if (splitScene.isPending) return
     console.log('[Cut] Starting cut at playhead:', activeSceneIndex)
     
     if (activeSceneIndex === undefined) {
@@ -994,33 +996,22 @@ export function Timeline({
     try {
       console.log('[Cut] Cutting scene', scene.id, 'at', splitPoint, 'seconds')
       
-      // Save to history before cutting (for undo)
-      const newHistory = cutHistory.slice(0, cutHistoryIndex + 1)
-      newHistory.push({
-        sceneId: scene.id,
-        beforeDuration: timedScene.duration, // Original duration before cut
-        afterDuration: splitPoint, // New duration after cut
-        beforeTrim: timedScene.trim,
-        afterTrim: timedScene.trim,
-      })
-      setCutHistory(newHistory)
-      setCutHistoryIndex(newHistory.length - 1)
-      
-      // Update the scene: reduce the audio_duration
-      // This makes the scene shorter and following scenes move up
-      patchScene(scene.id, {
-        audio_duration: splitPoint,
-      })
-
-      const removed = timedScene.duration - splitPoint
-      console.log('[Cut] Success! Removed', removed, 'seconds')
-      toast.success('Cena cortada', { description: `${removed.toFixed(1)}s removidos · Ctrl+Z para desfazer` })
-      select(null)
+      const sourceEnd = Math.min(timedScene.videoAsset?.duration || Infinity, Number(scene.metadata?.trim_end) || Infinity)
+      if (timedScene.trim + splitPoint * timedScene.rate >= sourceEnd) {
+        toast.info('Não é possível dividir após o fim do vídeo original.')
+        return
+      }
+      await patchScene.flush(true)
+      const right = await splitScene.mutateAsync({ projectId, scenes, scene, index: timedScene.index, point: splitPoint, duration: timedScene.duration, trim: timedScene.trim, rate: timedScene.rate })
+      setCutHistory([])
+      setCutHistoryIndex(-1)
+      toast.success('Cena dividida', { description: 'As duas partes foram mantidas. Selecione a fatia que deseja excluir.' })
+      select({ kind: 'scene', id: right.id })
     } catch (err) {
       console.error('[Cut] Failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
     }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, select, patchScene, cutHistory, cutHistoryIndex])
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene])
 
   // Undo last cut
   const handleUndo = useCallback(() => {
@@ -1209,7 +1200,7 @@ export function Timeline({
             size="sm" 
             variant="outline" 
             onClick={handleSplitAtPlayhead} 
-            disabled={busy || !selectedSceneAtPlayhead}
+            disabled={busy || splitScene.isPending || !selectedSceneAtPlayhead}
             title="Cortar cena na posição atual (Ctrl+B)"
           >
             <Scissors /> Cortar
