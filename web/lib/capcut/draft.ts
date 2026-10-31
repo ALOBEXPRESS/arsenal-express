@@ -304,21 +304,22 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
     shared.metaEntries.push(entry)
   }
 
-  const registerVideo = (asset: Asset) => {
-    if (materialIdByAsset.has(asset.id)) return materialIdByAsset.get(asset.id)!
+  const registerVideo = (asset: Asset, crop?: { top: number; bottom: number }) => {
+    const key = crop ? `${asset.id}:${crop.top}:${crop.bottom}` : asset.id
+    if (materialIdByAsset.has(key)) return materialIdByAsset.get(key)!
     const info = input.mediaInfo.get(asset.id)
     const isPhoto = asset.type === 'image' || (asset.type === 'asset' && /\.(png|jpe?g|webp|bmp|svg)$/i.test(asset.filename))
     const fileName = input.fileNames.get(asset.id)!
     const id = hex()
-    materialIdByAsset.set(asset.id, id)
+    materialIdByAsset.set(key, id)
     mat.videos.push({
       audio_fade: null,
       category_id: '',
       category_name: 'local',
       check_flag: 63487,
       crop: {
-        upper_left_x: 0.0, upper_left_y: 0.0, upper_right_x: 1.0, upper_right_y: 0.0,
-        lower_left_x: 0.0, lower_left_y: 1.0, lower_right_x: 1.0, lower_right_y: 1.0,
+        upper_left_x: 0.0, upper_left_y: crop?.top ?? 0.0, upper_right_x: 1.0, upper_right_y: crop?.top ?? 0.0,
+        lower_left_x: 0.0, lower_left_y: crop?.bottom ?? 1.0, lower_right_x: 1.0, lower_right_y: crop?.bottom ?? 1.0,
       },
       crop_ratio: 'free',
       crop_scale: 1.0,
@@ -515,7 +516,10 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
         ...SEGMENT_COMMON,
         track_render_index: layer,
         id: hex(),
-        material_id: registerVideo(asset),
+        material_id: registerVideo(asset, bar && info?.width && info?.height ? (() => {
+          const fraction = Math.min(1, (input.canvas.height * bar.height / input.canvas.width) * info.width / info.height)
+          return clip.assembly_bar === "top" ? { top: 1 - fraction, bottom: 1 } : { top: 0, bottom: fraction }
+        })() : undefined),
         target_timerange: { start: toUs(clip.start), duration: durUs },
         common_keyframes: animKeyframes,
         keyframe_refs: [],
@@ -528,7 +532,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
           alpha: Math.round(clip.opacity * 1000) / 1000,
           flip: { horizontal: false, vertical: false },
           rotation: 0.0,
-          scale: { x: clip.scale * (bar?.scale ?? 1), y: clip.scale * (bar?.scale ?? 1) },
+          scale: { x: clip.scale, y: clip.scale },
           // CapCut units: fraction of half canvas, y up — same as OverlayClip
           transform: { x: clip.x, y: bar?.y ?? clip.y },
           // Color adjustments
@@ -538,7 +542,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
           // Blend mode
           blend_mode: clip.blend_mode || 'normal',
         },
-        uniform_scale: { on: true, value: clip.scale * (bar?.scale ?? 1) },
+        uniform_scale: { on: true, value: clip.scale },
         hdr_settings: { intensity: 1.0, mode: 1, nits: 1000 },
         render_index: layer,
       }
