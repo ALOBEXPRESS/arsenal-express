@@ -725,6 +725,7 @@ export function VideoPreview({
                       const v = e.currentTarget
                       if (v.videoWidth) setNatural((p) => ({ ...p, [o.id]: { w: v.videoWidth, h: v.videoHeight } }))
                     }}
+                    style={bar ? { objectPosition: `center ${(o.crop_position_y ?? 0) * 100}%` } : undefined}
                     className={cn("pointer-events-none h-full w-full", bar ? "object-cover object-top" : "object-contain")}
                   />
                 ) : (
@@ -737,6 +738,7 @@ export function VideoPreview({
                       const img = e.currentTarget
                       if (img.naturalWidth) setNatural((p) => ({ ...p, [o.id]: { w: img.naturalWidth, h: img.naturalHeight } }))
                     }}
+                    style={bar ? { objectPosition: `center ${(o.crop_position_y ?? 0) * 100}%` } : undefined}
                     className={cn("pointer-events-none h-full w-full select-none", bar ? "object-cover object-top" : "object-contain")}
                   />
                 )}

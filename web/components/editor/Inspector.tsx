@@ -600,6 +600,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           ) : (
             <>
               <Group title="Transformar">
+                {o.assembly_bar && <PropSlider label="Enquadramento da imagem" value={o.crop_position_y ?? 0} min={0} max={1} step={0.01} format={pct} onChange={(v) => set({ crop_position_y: v })} onReset={() => set({ crop_position_y: 0 })} />}
                 <PropSlider label="Escala" value={o.scale} min={0.05} max={3} step={0.01} format={pct} onChange={(v) => set({ scale: v })} onReset={o.scale !== 1 ? () => set({ scale: 1 }) : undefined} />
                 <PropSlider label="Posição X" value={o.x} min={-1.5} max={1.5} step={0.005} format={(v) => (v * 50).toFixed(1) + '%'} onChange={(v) => set({ x: v })} onReset={o.x ? () => set({ x: 0 }) : undefined} />
                 <PropSlider label="Posição Y" value={o.y} min={-1.5} max={1.5} step={0.005} format={(v) => (v * 50).toFixed(1) + '%'} onChange={(v) => set({ y: v })} onReset={o.y ? () => set({ y: 0 }) : undefined} />

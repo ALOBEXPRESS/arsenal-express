@@ -518,7 +518,8 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
         id: hex(),
         material_id: registerVideo(asset, bar && info?.width && info?.height ? (() => {
           const fraction = Math.min(1, (input.canvas.height * bar.height / input.canvas.width) * info.width / info.height)
-          return { top: 0, bottom: fraction }
+          const top = (1 - fraction) * Math.max(0, Math.min(1, clip.crop_position_y ?? 0))
+          return { top, bottom: top + fraction }
         })() : undefined),
         target_timerange: { start: toUs(clip.start), duration: durUs },
         common_keyframes: animKeyframes,

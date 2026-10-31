@@ -601,12 +601,25 @@ export function Timeline({
   const [viewport, setViewport] = useState(800)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; crop?: { id: string; before: number; after: number }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
   useEffect(() => {
     setCutHistory([])
     setCutHistoryIndex(-1)
   }, [projectId, subId])
+
+  useEffect(() => {
+    const record = (event: Event) => {
+      const d = (event as CustomEvent).detail
+      if (d.projectId !== projectId || d.subId !== subId) return
+      const entry = { sceneId: '', beforeDuration: 0, afterDuration: 0, beforeTrim: 0, afterTrim: 0, crop: { id: d.id, before: d.before, after: d.after } }
+      const next = [...cutHistory.slice(0, cutHistoryIndex + 1), entry]
+      setCutHistory(next)
+      setCutHistoryIndex(next.length - 1)
+    }
+    window.addEventListener('overlay-crop-edit', record)
+    return () => window.removeEventListener('overlay-crop-edit', record)
+  }, [projectId, subId, cutHistory, cutHistoryIndex])
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   useEffect(() => {
@@ -1039,6 +1052,7 @@ export function Timeline({
     }
 
     const entry = cutHistory[cutHistoryIndex]
+    if (entry.crop) { tracks.restoreCrop(entry.crop.id, entry.crop.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.deletion) {
       const { scene: saved, previousId, nextId, index } = entry.deletion
       if (scenes.some(s => s.id === saved.id)) { toast.error('A cena já existe na timeline.'); return }
@@ -1101,7 +1115,7 @@ export function Timeline({
 
     setCutHistoryIndex(cutHistoryIndex - 1)
     toast.success('Corte desfeito', { description: 'Ctrl+Y para refazer' })
-  }, [cutHistory, cutHistoryIndex, scenes, patchScene, undoSplit, splitScene.isPending, projectId, select, insertScene, deleteScene.isPending])
+  }, [cutHistory, cutHistoryIndex, scenes, patchScene, undoSplit, splitScene.isPending, projectId, select, insertScene, deleteScene.isPending, tracks])
 
   // Redo last undone cut
   const handleRedo = useCallback(async () => {
@@ -1113,6 +1127,7 @@ export function Timeline({
 
     const nextIndex = cutHistoryIndex + 1
     const entry = cutHistory[nextIndex]
+    if (entry.crop) { tracks.restoreCrop(entry.crop.id, entry.crop.after); setCutHistoryIndex(nextIndex); return }
     if (entry.deletion) {
       const current = scenes.find(s => s.id === entry.sceneId)
       if (!current) { toast.error('Cena não encontrada'); return }
@@ -1155,7 +1170,7 @@ export function Timeline({
 
     setCutHistoryIndex(nextIndex)
     toast.success('Corte refeito', { description: 'Ctrl+Z para desfazer' })
-  }, [cutHistory, cutHistoryIndex, scenes, patchScene, splitScene, undoSplit.isPending, projectId, select, deleteScene, selection, insertScene.isPending])
+  }, [cutHistory, cutHistoryIndex, scenes, patchScene, splitScene, undoSplit.isPending, projectId, select, deleteScene, selection, insertScene.isPending, tracks])
 
   // Keyboard shortcuts for undo/redo and split
   useEffect(() => {

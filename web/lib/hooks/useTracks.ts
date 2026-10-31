@@ -107,8 +107,14 @@ export function useTracks(projectId: string, subId: string) {
 
   const api = useMemo(
     () => ({
-      updateOverlay: (id: string, patch: Partial<OverlayClip>) =>
-        commit((s) => ({ overlays: s.overlays.map((o) => (o.id === id ? { ...o, ...patch } : o)) })),
+      updateOverlay: (id: string, patch: Partial<OverlayClip>) => {
+        if (patch.crop_position_y !== undefined) {
+          const current = read().find(s => s.id === subId)?.overlays.find(o => o.id === id)
+          if (current && (current.crop_position_y ?? 0) !== patch.crop_position_y) window.dispatchEvent(new CustomEvent('overlay-crop-edit', { detail: { projectId, subId, id, before: current.crop_position_y ?? 0, after: patch.crop_position_y } }))
+        }
+        commit((s) => ({ overlays: s.overlays.map((o) => (o.id === id ? { ...o, ...patch } : o)) }))
+      },
+      restoreCrop: (id: string, value: number) => commit((s) => ({ overlays: s.overlays.map(o => o.id === id ? { ...o, crop_position_y: value } : o) })),
       addOverlay: (clip: OverlayClip) => commit((s) => ({ overlays: [...s.overlays, clip] })),
       removeOverlay: (id: string) => commit((s) => ({ overlays: s.overlays.filter((o) => o.id !== id) })),
       updateImageOverlay: (id: string, patch: Partial<OverlayClip>) =>
@@ -132,7 +138,7 @@ export function useTracks(projectId: string, subId: string) {
       removeNarration: (index: number) =>
         commit((s) => ({ narration_track: relayNarration(s.narration_track.filter((_, i) => i !== index)) })),
     }),
-    [commit]
+    [commit, read, subId, projectId]
   )
 
   // ---- Subproject management ------------------------------------------------------

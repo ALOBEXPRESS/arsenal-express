@@ -73,6 +73,7 @@ export interface AdjustClip {
 export interface OverlayClip {
   id: string
   /** Identifies overlays added by the assembly options. */
+  crop_position_y?: number
   assembly_bar?: 'top' | 'bottom'
   /** Bar height as a fraction of the output canvas; used by generated bars. */
   assembly_bar_height?: number
