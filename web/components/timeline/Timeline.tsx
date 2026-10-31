@@ -27,7 +27,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useDeleteScene, useReorderScenes, useInsertScene, useSplitScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
+import { useDeleteScene, useReorderScenes, useInsertScene, useSplitScene, useUndoSplitScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
 import { newClipId, type Tracks } from '@/lib/hooks/useTracks'
 import { useSFXManifest } from '@/hooks/useSFXManifest'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,7 @@ import { usePlayhead } from '@/lib/stores/playhead'
 import { useDragAsset, ASSET_MIME } from '@/lib/stores/drag'
 import { useSelection } from '@/lib/stores/selection'
 import type { AdjustClip, Asset, AudioClip, NarrationSegment, OverlayClip, Scene, Subproject } from '@/types/project'
+import { splitSceneData } from '@/lib/sync/splitScene'
 import { LOOK_BY_ID, LOOKS, matchesLook } from '@/lib/sync/adjust'
 import { cn } from '@/lib/utils'
 
@@ -586,6 +587,7 @@ export function Timeline({
   const reorderScenes = useReorderScenes()
   const insertScene = useInsertScene()
   const splitScene = useSplitScene()
+  const undoSplit = useUndoSplitScene()
   const patchScene = usePatchScene(projectId)
   const dragAsset = useDragAsset((s) => s.asset)
   const { selection, select } = useSelection()
@@ -599,7 +601,7 @@ export function Timeline({
   const [viewport, setViewport] = useState(800)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number } }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
   useEffect(() => {
     setCutHistory([])
@@ -607,6 +609,11 @@ export function Timeline({
   }, [projectId, subId])
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
+  useEffect(() => {
+    if (selection?.kind !== 'scene' || activeSceneIndex === undefined) return
+    const current = timeline.find(item => activeSceneIndex >= item.start && activeSceneIndex < item.start + item.duration)
+    if (current && current.scene.id !== selection.id) select({ kind: 'scene', id: current.scene.id })
+  }, [activeSceneIndex, timeline, selection, select])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
   
   // Map SFX IDs to names from manifest
@@ -1003,24 +1010,49 @@ export function Timeline({
       }
       await patchScene.flush(true)
       const right = await splitScene.mutateAsync({ projectId, scenes, scene, index: timedScene.index, point: splitPoint, duration: timedScene.duration, trim: timedScene.trim, rate: timedScene.rate })
-      setCutHistory([])
-      setCutHistoryIndex(-1)
+      const nextHistory = cutHistory.slice(0, cutHistoryIndex + 1)
+      nextHistory.push({ sceneId: scene.id, beforeDuration: timedScene.duration, afterDuration: splitPoint, beforeTrim: timedScene.trim, afterTrim: timedScene.trim, split: { original: scene, right, rate: timedScene.rate } })
+      setCutHistory(nextHistory)
+      setCutHistoryIndex(nextHistory.length - 1)
       toast.success('Cena dividida', { description: 'As duas partes foram mantidas. Selecione a fatia que deseja excluir.' })
       select({ kind: 'scene', id: right.id })
     } catch (err) {
       console.error('[Cut] Failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
     }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene])
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene, cutHistory, cutHistoryIndex])
 
   // Undo last cut
-  const handleUndo = useCallback(() => {
+  const handleUndo = useCallback(async () => {
+    if (splitScene.isPending || undoSplit.isPending) return
     if (cutHistoryIndex < 0) {
       toast.info('Nada para desfazer')
       return
     }
 
     const entry = cutHistory[cutHistoryIndex]
+    if (entry.split) {
+      try {
+        const tail = scenes.find(s => s.id === entry.split!.right.id)
+        if (!tail) throw new Error('A segunda fatia não existe mais; não é seguro desfazer automaticamente.')
+        const sameValue = (a: unknown, b: unknown) => {
+          const normalize = (value: unknown): string => JSON.stringify(value, (_, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([x], [y]) => x.localeCompare(y))) : v) ?? ''
+          return normalize(a) === normalize(b)
+        }
+        const expected = splitSceneData(entry.split.original, entry.afterDuration, entry.beforeDuration, entry.beforeTrim, entry.split.rate)
+        if (!sameValue(tail.metadata, expected.right.metadata) || tail.animation_type !== entry.split.right.animation_type || tail.video_asset_id !== entry.split.right.video_asset_id || tail.transition_in !== entry.split.right.transition_in) throw new Error('A segunda fatia foi editada; não é seguro removê-la automaticamente.')
+        const expectedTrim = entry.beforeTrim + entry.afterDuration * entry.split.rate
+        if (Math.abs((tail.audio_duration || 0) - (entry.beforeDuration - entry.afterDuration)) > 0.001 || Math.abs(Number(tail.metadata?.trim) - expectedTrim) > 0.001) throw new Error('A segunda fatia foi editada; não é seguro removê-la automaticamente.')
+        const left = scenes.find(s => s.id === entry.sceneId)
+        if (!left || Math.abs((left.audio_duration || 0) - entry.afterDuration) > 0.001 || !sameValue(left.metadata, expected.left.metadata)) throw new Error('A cena foi alterada depois da divisão; não é seguro desfazer automaticamente.')
+        await patchScene.flush(true)
+        await undoSplit.mutateAsync({ projectId, original: entry.split.original, rightId: entry.split.right.id })
+        setCutHistoryIndex(cutHistoryIndex - 1)
+        select({ kind: 'scene', id: entry.sceneId })
+        toast.success('Divisão desfeita')
+      } catch (error) { toast.error('Falha ao desfazer', { description: error instanceof Error ? error.message : undefined }) }
+      return
+    }
     const scene = scenes.find((s) => s.id === entry.sceneId)
     if (!scene) {
       toast.error('Cena não encontrada')
@@ -1035,10 +1067,11 @@ export function Timeline({
 
     setCutHistoryIndex(cutHistoryIndex - 1)
     toast.success('Corte desfeito', { description: 'Ctrl+Y para refazer' })
-  }, [cutHistory, cutHistoryIndex, scenes, patchScene])
+  }, [cutHistory, cutHistoryIndex, scenes, patchScene, undoSplit, splitScene.isPending, projectId, select])
 
   // Redo last undone cut
-  const handleRedo = useCallback(() => {
+  const handleRedo = useCallback(async () => {
+    if (splitScene.isPending || undoSplit.isPending) return
     if (cutHistoryIndex >= cutHistory.length - 1) {
       toast.info('Nada para refazer')
       return
@@ -1046,6 +1079,19 @@ export function Timeline({
 
     const nextIndex = cutHistoryIndex + 1
     const entry = cutHistory[nextIndex]
+    if (entry.split) {
+      const index = scenes.findIndex(s => s.id === entry.sceneId)
+      if (index < 0) { toast.error('Cena não encontrada'); return }
+      try {
+        await patchScene.flush(true)
+        const right = await splitScene.mutateAsync({ projectId, scenes, scene: scenes[index], index, point: entry.afterDuration, duration: entry.beforeDuration, trim: entry.beforeTrim, rate: entry.split.rate })
+        setCutHistory(history => history.map((item, i) => i === nextIndex && item.split ? { ...item, split: { ...item.split, right } } : item))
+        setCutHistoryIndex(nextIndex)
+        select({ kind: 'scene', id: right.id })
+        toast.success('Divisão refeita')
+      } catch (error) { toast.error('Falha ao refazer', { description: error instanceof Error ? error.message : undefined }) }
+      return
+    }
     const scene = scenes.find((s) => s.id === entry.sceneId)
     if (!scene) {
       toast.error('Cena não encontrada')
@@ -1060,7 +1106,7 @@ export function Timeline({
 
     setCutHistoryIndex(nextIndex)
     toast.success('Corte refeito', { description: 'Ctrl+Z para desfazer' })
-  }, [cutHistory, cutHistoryIndex, scenes, patchScene])
+  }, [cutHistory, cutHistoryIndex, scenes, patchScene, splitScene, undoSplit.isPending, projectId, select])
 
   // Keyboard shortcuts for undo/redo and split
   useEffect(() => {
@@ -1173,8 +1219,8 @@ export function Timeline({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="flex items-center rounded-md border border-border" role="group" aria-label="Histórico de cortes">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUndo} disabled={busy || cutHistoryIndex < 0} aria-label="Desfazer corte" title="Desfazer corte (Ctrl+Z)"><Undo2 /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRedo} disabled={busy || cutHistoryIndex >= cutHistory.length - 1} aria-label="Refazer corte" title="Refazer corte (Ctrl+Y ou Ctrl+Shift+Z)"><Redo2 /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUndo} disabled={busy || splitScene.isPending || undoSplit.isPending || cutHistoryIndex < 0} aria-label="Desfazer corte" title="Desfazer corte (Ctrl+Z)"><Undo2 /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRedo} disabled={busy || splitScene.isPending || undoSplit.isPending || cutHistoryIndex >= cutHistory.length - 1} aria-label="Refazer corte" title="Refazer corte (Ctrl+Y ou Ctrl+Shift+Z)"><Redo2 /></Button>
           </div>
           <div className="mr-1 flex items-center rounded-md border border-border" role="group" aria-label="Zoom da timeline">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => zoom(1 / 1.5)} aria-label="Diminuir zoom">
@@ -1485,7 +1531,7 @@ export function Timeline({
                       key={item.scene.id}
                       item={item}
                       pps={scale}
-                      active={activeSceneIndex === item.index}
+                      active={activeSceneIndex !== undefined && activeSceneIndex >= item.start && activeSceneIndex < item.start + item.duration}
                       selected={isSelected('scene', item.scene.id)}
                       dragging={draggedScene === item.index}
                       onSelect={(clientX) => {

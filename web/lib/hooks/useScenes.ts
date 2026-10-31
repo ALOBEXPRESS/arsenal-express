@@ -209,6 +209,20 @@ export function useSplitScene() {
   })
 }
 
+/** Restore the original scene before removing its split tail. */
+export function useUndoSplitScene() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ projectId, original, rightId }: { projectId: string; original: Scene; rightId: string }) => {
+      const { error: updateError } = await supabase.from('scenes').update({ audio_duration: original.audio_duration, metadata: original.metadata }).eq('project_id', projectId).eq('id', original.id).select('id').single()
+      if (updateError) throw updateError
+      const { error: deleteError } = await supabase.from('scenes').delete().eq('project_id', projectId).eq('id', rightId).select('id').single()
+      if (deleteError) throw new Error('A cena original foi restaurada, mas não foi possível remover a segunda fatia. Confira a timeline.')
+    },
+    onSettled: (_, __, { projectId }) => queryClient.invalidateQueries({ queryKey: ['scenes', projectId] }),
+  })
+}
+
 /** Next free order_index across every subproject */
 export const nextOrderIndex = (all: Scene[]) => all.reduce((m, s) => Math.max(m, s.order_index), -1) + 1
 
