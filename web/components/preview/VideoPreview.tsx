@@ -535,7 +535,7 @@ export function VideoPreview({
       {/* Monitor */}
       <div
         ref={monitorRef}
-        className="relative flex-1 cursor-pointer overflow-hidden rounded-xl border border-border"
+        className="group relative flex-1 cursor-pointer overflow-hidden rounded-xl border border-border"
         onClick={togglePlay}
       >
         {/* Stage = the actual output frame (9:16, 16:9…). Clips fill it (cover) and animations
@@ -961,7 +961,7 @@ export function VideoPreview({
             togglePlay()
           }}
           aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-          className="absolute bottom-4 left-1/2 z-30 flex h-12 w-12 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_0_24px_hsl(var(--primary)/0.45)] transition-transform duration-200 hover:scale-105"
+          className="absolute left-1/2 top-1/2 z-30 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-visible:opacity-100"
         >
           {isPlaying ? <Pause className="h-5 w-5" fill="currentColor" /> : <Play className="ml-0.5 h-5 w-5" fill="currentColor" />}
         </button>

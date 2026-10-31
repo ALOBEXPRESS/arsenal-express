@@ -601,7 +601,7 @@ export function Timeline({
   const [viewport, setViewport] = useState(800)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; crop?: { id: string; before: number; after: number }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
   useEffect(() => {
     setCutHistory([])
