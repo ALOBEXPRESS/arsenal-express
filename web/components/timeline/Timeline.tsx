@@ -608,12 +608,15 @@ export function Timeline({
     setCutHistoryIndex(-1)
   }, [projectId, subId])
 
+  const historyRef = useRef({ history: cutHistory, index: cutHistoryIndex })
+  historyRef.current = { history: cutHistory, index: cutHistoryIndex }
   useEffect(() => {
     const record = (event: Event) => {
       const d = (event as CustomEvent).detail
       if (d.projectId !== projectId || d.subId !== subId) return
       const entry = { sceneId: '', beforeDuration: 0, afterDuration: 0, beforeTrim: 0, afterTrim: 0, crop: { id: d.id, before: d.before, after: d.after } }
-      const next = [...cutHistory.slice(0, cutHistoryIndex + 1), entry]
+      const next = [...historyRef.current.history.slice(0, historyRef.current.index + 1), entry]
+      historyRef.current = { history: next, index: next.length - 1 }
       setCutHistory(next)
       setCutHistoryIndex(next.length - 1)
     }
@@ -1176,7 +1179,7 @@ export function Timeline({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
-      if (target?.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')) return
+      if (target?.closest('input:not([type=range]), textarea, select, [contenteditable="true"], [role="textbox"]')) return
       const key = e.key.toLowerCase()
       // Undo: Ctrl+Z
       if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
@@ -1380,7 +1383,7 @@ export function Timeline({
                 <Music className="h-3.5 w-3.5 text-emerald-400" aria-hidden /> 
                 <span className="font-medium">Áudio</span>
               </div>
-              <div className="mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
+              <div className="mb-1.5 mt-1.5 flex h-9 shrink-0 items-center gap-1.5 px-2.5 transition-colors hover:bg-white/5">
                 <Sparkles className="h-3.5 w-3.5 text-pink-400" aria-hidden /> 
                 <span className="font-medium">SFX</span>
               </div>
