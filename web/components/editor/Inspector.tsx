@@ -743,9 +743,9 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
 
           <Group title="Animação contínua">
             <select aria-label="Animação contínua" value={o.animation_loop || 'none'} onChange={e => set({ animation_loop: e.target.value as typeof o.animation_loop })} className="w-full rounded-md border border-border bg-surface-0 px-2 py-1 text-[12px] text-foreground">
-              <option value="none">Nenhuma</option><option value="pulse">Pulsar</option><option value="horizontal">Movimento horizontal</option><option value="vertical">Movimento vertical</option>
+              <option value="none">Nenhuma</option><option value="pulse">Pulsar</option><option value="horizontal">Movimento horizontal</option><option value="vertical">Movimento vertical</option><option value="diagonal">Movimento diagonal</option><option value="zoom-out">Zoom para fora</option>
             </select>
-            {o.animation_loop && o.animation_loop !== 'none' && <PropSlider label="Duração do ciclo" value={o.animation_duration ?? 2} min={0.5} max={10} step={0.1} format={v => `${v.toFixed(1)}s`} onChange={v => set({ animation_duration: v })} />}
+            {o.animation_loop && o.animation_loop !== 'none' && <PropSlider label="Velocidade (duração do ciclo)" value={o.animation_duration ?? 2} min={0.5} max={10} step={0.1} format={v => `${v.toFixed(1)}s`} onChange={v => set({ animation_duration: v })} hint="Menos segundos deixam a animação mais rápida." />}
           </Group>
 
           {o.kind === 'video' && (

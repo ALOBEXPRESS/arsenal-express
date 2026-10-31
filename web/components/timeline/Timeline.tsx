@@ -51,6 +51,7 @@ interface TimelineProps {
   tracks: Tracks
   activeSceneIndex?: number
   onSeek: (time: number) => void
+  fps?: number
   onAddScene?: () => void
   onEditScene?: (scene: Scene) => void
   onOpenAssembly?: () => void
@@ -569,6 +570,7 @@ export function Timeline({
   tracks,
   activeSceneIndex,
   onSeek,
+  fps = 30,
   onAddScene,
   onEditScene,
   onOpenAssembly,
@@ -1193,6 +1195,22 @@ export function Timeline({
       const key = e.key.toLowerCase()
       const historyShortcut = (e.ctrlKey || e.metaKey) && (key === "z" || key === "y")
       if (!historyShortcut && target?.closest('input:not([type=range]), textarea, select, [contenteditable="true"], [role="textbox"]')) return
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !target?.closest('input, select, textarea, [role="slider"], button, [contenteditable="true"]')) {
+        const time = usePlayhead.getState().time
+        if (key === 'arrowright' || key === 'arrowleft') {
+          e.preventDefault()
+          const rate = Number.isFinite(fps) && fps > 0 ? fps : 30
+          const frame = Math.round(time * rate) + (key === 'arrowright' ? 1 : -1)
+          onSeek(Math.min(total, Math.max(0, frame / rate)))
+          return
+        }
+        if (key === 'pageup' || key === 'pagedown') {
+          e.preventDefault()
+          const destination = key === 'pageup' ? [...timeline].reverse().find(item => item.start < time - 0.001) : timeline.find(item => item.start > time + 0.001)
+          if (destination) onSeek(destination.start)
+          return
+        }
+      }
       // Undo: Ctrl+Z
       if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault()
@@ -1214,7 +1232,7 @@ export function Timeline({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSplitAtPlayhead, handleUndo, handleRedo])
+  }, [handleSplitAtPlayhead, handleUndo, handleRedo, fps, onSeek, timeline, total])
 
   return (
     <div className="flex h-full flex-col bg-surface-1">
@@ -1347,7 +1365,7 @@ export function Timeline({
         ) : (
           <div className="relative flex h-full min-h-[400px]" style={{ width: contentWidth + GUTTER }}>
             {/* Sticky lane labels */}
-            <div className="sticky left-0 z-40 flex h-full shrink-0 flex-col border-r border-border/80 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black text-[11px] text-muted-foreground shadow-lg" style={{ width: GUTTER }}>
+            <div className="sticky left-0 z-40 flex self-stretch shrink-0 flex-col border-r border-border/80 bg-gradient-to-br from-neutral-900 via-neutral-950 to-black text-[11px] text-muted-foreground shadow-lg" style={{ width: GUTTER }}>
               <div className="h-7 shrink-0 border-b border-border/50 bg-gradient-to-b from-neutral-900 to-neutral-950" />
               <div className="mt-1.5 flex h-7 shrink-0 items-center gap-1.5 pl-2.5 pr-1 transition-colors hover:bg-white/5">
                 <SlidersVertical className="h-3.5 w-3.5 text-brand-cyan" aria-hidden /> 

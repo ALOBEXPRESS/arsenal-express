@@ -95,7 +95,7 @@ export interface OverlayClip {
   /** seconds of the source skipped at the start (set by the cut tool) */
   in_point?: number
   /** CapCut animation for entrance */
-  animation_loop?: 'none' | 'pulse' | 'horizontal' | 'vertical'
+  animation_loop?: 'none' | 'pulse' | 'horizontal' | 'vertical' | 'diagonal' | 'zoom-out'
   animation_in?: 'none' | 'fade' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right' | 'zoom-in' | 'zoom-out'
   /** CapCut animation for exit */
   animation_out?: 'none' | 'fade' | 'slide-up' | 'slide-down' | 'slide-left' | 'slide-right' | 'zoom-in' | 'zoom-out'

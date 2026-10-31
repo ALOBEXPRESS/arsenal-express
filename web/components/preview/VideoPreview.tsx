@@ -491,7 +491,7 @@ export function VideoPreview({
     const cycle = Math.max(0.5, o.animation_duration ?? 2)
     const phase = ((Math.max(0, time - o.start) % cycle) / cycle)
     const wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2
-    return { x: o.x + (o.animation_loop === 'horizontal' ? 0.08 * wave : 0), y: o.y + (o.animation_loop === 'vertical' ? 0.08 * wave : 0), scale: o.scale * (o.animation_loop === 'pulse' ? 1 + 0.1 * wave : 1) }
+    return { x: o.x + ((o.animation_loop === 'horizontal' || o.animation_loop === 'diagonal') ? 0.08 * wave : 0), y: o.y + ((o.animation_loop === 'vertical' || o.animation_loop === 'diagonal') ? 0.08 * wave : 0), scale: o.scale * (o.animation_loop === 'pulse' ? 1 + 0.1 * wave : o.animation_loop === 'zoom-out' ? 1 - 0.1 * wave : 1) }
   }
   const overlayFilter = (o: OverlayClip) => {
     const filters: string[] = []

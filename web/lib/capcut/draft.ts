@@ -516,11 +516,13 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
         const cycle = Math.max(0.5, clip.animation_duration ?? 2)
         const half = cycle / 2
         const count = Math.ceil(clip.duration / half)
-        const property = clip.animation_loop === 'pulse' ? 'KFTypeScaleX' : clip.animation_loop === 'horizontal' ? 'KFTypePositionX' : 'KFTypePositionY'
-        const base = clip.animation_loop === 'pulse' ? clip.scale : clip.animation_loop === 'horizontal' ? clip.x : (bar?.y ?? clip.y)
-        const amplitude = clip.animation_loop === 'pulse' ? clip.scale * 0.1 : 0.08
-        const frames = Array.from({ length: count + 1 }, (_, i) => { const t = Math.min(clip.duration, i * half); const phase = (t % cycle) / cycle; const wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2; return keyframe(toUs(t), base + amplitude * wave) })
-        return [{ id: hex(), keyframe_list: frames, material_id: '', property_type: property }]
+        const properties = clip.animation_loop === 'diagonal' ? ['KFTypePositionX', 'KFTypePositionY'] : [clip.animation_loop === 'pulse' || clip.animation_loop === 'zoom-out' ? 'KFTypeScaleX' : clip.animation_loop === 'horizontal' ? 'KFTypePositionX' : 'KFTypePositionY']
+        return properties.map(property => {
+          const base = property === 'KFTypeScaleX' ? clip.scale : property === 'KFTypePositionX' ? clip.x : (bar?.y ?? clip.y)
+          const amplitude = property === 'KFTypeScaleX' ? clip.scale * (clip.animation_loop === 'zoom-out' ? -0.1 : 0.1) : 0.08
+          const frames = Array.from({ length: count + 1 }, (_, i) => { const t = Math.min(clip.duration, i * half); const phase = (t % cycle) / cycle; const wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2; return keyframe(toUs(t), base + amplitude * wave) })
+          return { id: hex(), keyframe_list: frames, material_id: '', property_type: property }
+        })
       })() : legacyKeyframes
 
       return {

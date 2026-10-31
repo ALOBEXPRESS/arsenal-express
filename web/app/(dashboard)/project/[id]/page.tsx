@@ -518,6 +518,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               tracks={tracks}
               activeSceneIndex={activeSceneIndex}
               onSeek={seek}
+              fps={project.settings?.fps ?? 30}
               onAddScene={() => {
                 setEditingScene(null)
                 setShowSceneEditor(true)
