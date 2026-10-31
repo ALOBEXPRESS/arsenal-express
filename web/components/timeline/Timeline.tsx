@@ -21,6 +21,8 @@ import {
   SlidersVertical,
   X,
   Scissors,
+  Undo2,
+  Redo2,
   Type,
   Image as ImageIcon,
 } from 'lucide-react'
@@ -157,7 +159,7 @@ interface ClipBlockProps {
   onDelete: () => void
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
-  onTrim: (newDuration: number, newAudioStart?: number) => void
+  onTrim: (newDuration: number, newTrim: number) => void
 }
 
 function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, onDelete, onDragStart, onDragEnd, onTrim }: ClipBlockProps) {
@@ -168,9 +170,8 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
   const anim = ANIMATION_BY_ID.get(normalizeAnimation(item.scene.animation_type) as never)
   const name = media?.filename.replace(/\.[^.]+$/, '') || item.scene.narration_text
   const compact = width < 90
-  const [draft, setDraft] = useState<{ duration: number; audioStart?: number } | null>(null)
+  const [draft, setDraft] = useState<{ duration: number; trim: number } | null>(null)
   const d = draft?.duration ?? item.duration
-  const audioStart = draft?.audioStart ?? (item.scene.audio_start || 0)
 
   const beginTrim = (e: React.PointerEvent, edge: 'start' | 'end') => {
     e.stopPropagation()
@@ -178,7 +179,7 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
     const x0 = e.clientX
     const el = e.currentTarget as HTMLElement
     el.setPointerCapture(e.pointerId)
-    let latest = { duration: item.duration, audioStart: item.scene.audio_start || 0 }
+    let latest = { duration: item.duration, trim: item.trim }
     const move = (ev: PointerEvent) => {
       const dt = (ev.clientX - x0) / pps
       
@@ -189,20 +190,15 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
         const sourceDur = media?.duration
         if (sourceDur && media?.type === 'video') {
           const rate = item.rate || 1
-          nd = Math.min(nd, sourceDur / rate - latest.audioStart)
+          nd = Math.max(0.2, Math.min(nd, (sourceDur - item.trim) / rate))
         }
-        latest = { duration: Math.round(nd * 1000) / 1000, audioStart: latest.audioStart }
+        latest = { duration: Math.round(nd * 1000) / 1000, trim: item.trim }
       } else {
-        // Trim start: adjust audio_start offset + reduce duration
-        let newStart = Math.max(0, (item.scene.audio_start || 0) + dt)
-        const sourceDur = media?.duration
-        if (sourceDur && media?.type === 'video') {
-          const rate = item.rate || 1
-          newStart = Math.min(newStart, sourceDur / rate - 0.2)
-        }
-        const deltaStart = newStart - (item.scene.audio_start || 0)
+        // Move the source in-point while keeping the end of the clip fixed.
+        const rate = item.rate || 1
+        const deltaStart = Math.max(-item.trim / rate, Math.min(dt, item.duration - 0.2))
         latest = {
-          audioStart: Math.round(newStart * 1000) / 1000,
+          trim: Math.round((item.trim + deltaStart * rate) * 1000) / 1000,
           duration: Math.max(0.2, item.duration - deltaStart),
         }
       }
@@ -213,8 +209,8 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
       el.removeEventListener('pointerup', up)
       el.removeEventListener('pointercancel', up)
       setDraft(null)
-      if (latest.duration !== item.duration || latest.audioStart !== (item.scene.audio_start || 0)) {
-        onTrim(latest.duration, latest.audioStart)
+      if (latest.duration !== item.duration || latest.trim !== item.trim) {
+        onTrim(latest.duration, latest.trim)
       }
     }
     el.addEventListener('pointermove', move)
@@ -599,8 +595,12 @@ export function Timeline({
   const [viewport, setViewport] = useState(800)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
+  useEffect(() => {
+    setCutHistory([])
+    setCutHistoryIndex(-1)
+  }, [projectId, subId])
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
@@ -997,6 +997,8 @@ export function Timeline({
         sceneId: scene.id,
         beforeDuration: timedScene.duration, // Original duration before cut
         afterDuration: splitPoint, // New duration after cut
+        beforeTrim: timedScene.trim,
+        afterTrim: timedScene.trim,
       })
       setCutHistory(newHistory)
       setCutHistoryIndex(newHistory.length - 1)
@@ -1034,6 +1036,7 @@ export function Timeline({
     console.log('[Undo] Restoring scene', entry.sceneId, 'to duration', entry.beforeDuration)
     patchScene(entry.sceneId, {
       audio_duration: entry.beforeDuration,
+      metadata: { ...scene.metadata, trim: entry.beforeTrim },
     })
 
     setCutHistoryIndex(cutHistoryIndex - 1)
@@ -1058,6 +1061,7 @@ export function Timeline({
     console.log('[Redo] Re-applying cut to scene', entry.sceneId, 'duration', entry.afterDuration)
     patchScene(entry.sceneId, {
       audio_duration: entry.afterDuration,
+      metadata: { ...scene.metadata, trim: entry.afterTrim },
     })
 
     setCutHistoryIndex(nextIndex)
@@ -1067,21 +1071,24 @@ export function Timeline({
   // Keyboard shortcuts for undo/redo and split
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')) return
+      const key = e.key.toLowerCase()
       // Undo: Ctrl+Z
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault()
         handleUndo()
       }
       // Redo: Ctrl+Y or Ctrl+Shift+Z
-      else if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) {
+      else if (((e.ctrlKey || e.metaKey) && key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'z')) {
         e.preventDefault()
         handleRedo()
       }
       // Cut: Ctrl+B or S
-      else if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      else if ((e.ctrlKey || e.metaKey) && key === 'b') {
         e.preventDefault()
         handleSplitAtPlayhead()
-      } else if (e.key === 's' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+      } else if (key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
         handleSplitAtPlayhead()
       }
@@ -1171,6 +1178,10 @@ export function Timeline({
           )}
         </div>
         <div className="flex items-center gap-1.5">
+          <div className="flex items-center rounded-md border border-border" role="group" aria-label="Histórico de cortes">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUndo} disabled={busy || cutHistoryIndex < 0} aria-label="Desfazer corte" title="Desfazer corte (Ctrl+Z)"><Undo2 /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRedo} disabled={busy || cutHistoryIndex >= cutHistory.length - 1} aria-label="Refazer corte" title="Refazer corte (Ctrl+Y ou Ctrl+Shift+Z)"><Redo2 /></Button>
+          </div>
           <div className="mr-1 flex items-center rounded-md border border-border" role="group" aria-label="Zoom da timeline">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => zoom(1 / 1.5)} aria-label="Diminuir zoom">
               <ZoomOut />
@@ -1498,9 +1509,14 @@ export function Timeline({
                         setDraggedScene(null)
                         setDropHint(null)
                       }}
-                      onTrim={(newDuration, newAudioStart) => {
-                        const patch: Partial<Scene> = { audio_duration: newDuration }
-                        if (newAudioStart !== undefined) patch.audio_start = newAudioStart
+                      onTrim={(newDuration, newTrim) => {
+                        const nextHistory = cutHistory.slice(0, cutHistoryIndex + 1)
+                        nextHistory.push({ sceneId: item.scene.id, beforeDuration: item.duration, afterDuration: newDuration, beforeTrim: item.trim, afterTrim: newTrim })
+                        setCutHistory(nextHistory)
+                        setCutHistoryIndex(nextHistory.length - 1)
+                        const oldEnd = Number(item.scene.metadata?.trim_end)
+                        const extendedEnd = Number.isFinite(oldEnd) && oldEnd > 0 ? Math.max(oldEnd, newTrim + newDuration * (item.rate || 1)) : undefined
+                        const patch: Partial<Scene> = { audio_duration: newDuration, metadata: { ...item.scene.metadata, trim: newTrim, ...(extendedEnd ? { trim_end: extendedEnd } : {}) } }
                         patchScene(item.scene.id, patch)
                         toast.success('Cena cortada', { description: `${newDuration.toFixed(2)}s` })
                       }}

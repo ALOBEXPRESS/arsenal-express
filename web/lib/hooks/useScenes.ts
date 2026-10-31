@@ -190,16 +190,21 @@ export function usePatchScene(projectId: string) {
   const queryClient = useQueryClient()
   const pending = useRef(new Map<string, Partial<Scene>>())
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const writeQueue = useRef<Promise<void>>(Promise.resolve())
 
   const flush = useCallback(async () => {
     const batch = [...pending.current.entries()]
     pending.current.clear()
-    const results = await Promise.all(batch.map(([id, updates]) => supabase.from('scenes').update(updates).eq('id', id)))
-    const failed = results.find((r) => r.error)
-    if (failed?.error) {
-      toast.error('Não foi possível salvar a alteração da cena', { description: failed.error.message })
-      queryClient.invalidateQueries({ queryKey: ['scenes', projectId] })
+    const write = async () => {
+      const results = await Promise.all(batch.map(([id, updates]) => supabase.from('scenes').update(updates).eq('id', id)))
+      const failed = results.find((r) => r.error)
+      if (failed?.error) {
+        toast.error('Não foi possível salvar a alteração da cena', { description: failed.error.message })
+        queryClient.invalidateQueries({ queryKey: ['scenes', projectId] })
+      }
     }
+    writeQueue.current = writeQueue.current.catch(() => {}).then(write)
+    await writeQueue.current
   }, [projectId, queryClient])
 
   useEffect(
