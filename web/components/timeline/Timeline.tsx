@@ -610,18 +610,29 @@ export function Timeline({
 
   const historyRef = useRef({ history: cutHistory, index: cutHistoryIndex })
   historyRef.current = { history: cutHistory, index: cutHistoryIndex }
+  const overlayGesture = useRef(false)
+  const gestureStart = useRef(0)
   useEffect(() => {
+    const start = () => { overlayGesture.current = true; gestureStart.current = historyRef.current.index + 1 }
+    const end = () => { overlayGesture.current = false }
     const record = (event: Event) => {
       const d = (event as CustomEvent).detail
       if (d.projectId !== projectId || d.subId !== subId) return
       const entry = { sceneId: '', beforeDuration: 0, afterDuration: 0, beforeTrim: 0, afterTrim: 0, crop: { id: d.id, before: d.before, after: d.after } }
-      const next = [...historyRef.current.history.slice(0, historyRef.current.index + 1), entry]
+      const next = historyRef.current.history.slice(0, historyRef.current.index + 1)
+      const match = overlayGesture.current ? next.findIndex((item, i) => i >= gestureStart.current && item.crop && item.crop.id === d.id && Object.keys(item.crop.after).join() === Object.keys(d.after).join()) : -1
+      const previous = next[match]
+      if (match >= 0 && previous?.crop) {
+        next[match] = { ...previous, crop: { ...previous.crop, after: d.after } }
+      } else next.push(entry)
       historyRef.current = { history: next, index: next.length - 1 }
       setCutHistory(next)
       setCutHistoryIndex(next.length - 1)
     }
+    window.addEventListener('overlay-edit-start', start)
+    window.addEventListener('overlay-edit-end', end)
     window.addEventListener('overlay-crop-edit', record)
-    return () => window.removeEventListener('overlay-crop-edit', record)
+    return () => { window.removeEventListener('overlay-edit-start', start); window.removeEventListener('overlay-edit-end', end); window.removeEventListener('overlay-crop-edit', record) }
   }, [projectId, subId, cutHistory, cutHistoryIndex])
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])

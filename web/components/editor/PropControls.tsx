@@ -54,7 +54,7 @@ export function PropSlider({
           )}
         </span>
       </div>
-      <Slider id={id} min={min} max={max} step={step} value={[value]} onValueChange={([v]) => onChange(v)} aria-label={label} />
+      <Slider onPointerDownCapture={() => window.dispatchEvent(new Event("overlay-edit-start"))} onPointerUpCapture={() => window.dispatchEvent(new Event("overlay-edit-end"))} onPointerCancelCapture={() => window.dispatchEvent(new Event("overlay-edit-end"))} id={id} min={min} max={max} step={step} value={[value]} onValueChange={([v]) => onChange(v)} aria-label={label} />
       {hint && <p className="text-[11px] leading-snug text-muted-foreground">{hint}</p>}
     </div>
   )
