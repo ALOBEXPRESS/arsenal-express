@@ -106,7 +106,8 @@ function Playhead({
     <div className="absolute bottom-0 top-0 z-30 w-0 pointer-events-none" style={{ left: x }}>
       {/* Line with glow effect */}
       <div 
-        className="absolute -left-0.5 bottom-0 top-0 w-0.5 bg-gradient-to-b from-brand-cyan via-brand-cyan to-brand-cyan/60 shadow-[0_0_12px_rgba(34,211,238,0.6)]" 
+        onPointerDown={onGrab}
+        className="pointer-events-auto cursor-ew-resize absolute -left-0.5 bottom-0 top-0 w-0.5 bg-gradient-to-b from-brand-cyan via-brand-cyan to-brand-cyan/60 shadow-[0_0_12px_rgba(34,211,238,0.6)]" 
         aria-hidden 
       />
       {/* Draggable head */}
@@ -594,7 +595,7 @@ export function Timeline({
   const [viewport, setViewport] = useState(800)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; sceneEdit?: { before: Partial<Scene>; after: Partial<Scene> }; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
   useEffect(() => {
     setCutHistory([])
@@ -622,10 +623,20 @@ export function Timeline({
       setCutHistory(next)
       setCutHistoryIndex(next.length - 1)
     }
+    const sceneRecord = (event: Event) => {
+      const d = (event as CustomEvent).detail
+      if (d.projectId !== projectId || d.subId !== subId) return
+      const next = historyRef.current.history.slice(0, historyRef.current.index + 1)
+      const match = overlayGesture.current ? next.findIndex((item, i) => i >= gestureStart.current && item.sceneId === d.id && item.sceneEdit && Object.keys(item.sceneEdit.after).join() === Object.keys(d.after).join()) : -1
+      if (match >= 0 && next[match].sceneEdit) next[match] = { ...next[match], sceneEdit: { before: next[match].sceneEdit!.before, after: d.after } }
+      else next.push({ sceneId: d.id, beforeDuration: 0, afterDuration: 0, beforeTrim: 0, afterTrim: 0, sceneEdit: { before: d.before, after: d.after } })
+      historyRef.current = { history: next, index: next.length - 1 }; setCutHistory(next); setCutHistoryIndex(next.length - 1)
+    }
+    window.addEventListener('scene-property-edit', sceneRecord)
     window.addEventListener('overlay-edit-start', start)
     window.addEventListener('overlay-edit-end', end)
     window.addEventListener('overlay-crop-edit', record)
-    return () => { window.removeEventListener('overlay-edit-start', start); window.removeEventListener('overlay-edit-end', end); window.removeEventListener('overlay-crop-edit', record) }
+    return () => { window.removeEventListener('scene-property-edit', sceneRecord); window.removeEventListener('overlay-edit-start', start); window.removeEventListener('overlay-edit-end', end); window.removeEventListener('overlay-crop-edit', record) }
   }, [projectId, subId, cutHistory, cutHistoryIndex])
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
@@ -1059,6 +1070,7 @@ export function Timeline({
     }
 
     const entry = cutHistory[cutHistoryIndex]
+    if (entry.sceneEdit) { patchScene(entry.sceneId, entry.sceneEdit.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.crop) { tracks.restoreCrop(entry.crop.id, entry.crop.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.deletion) {
       const { scene: saved, previousId, nextId, index } = entry.deletion
@@ -1134,6 +1146,7 @@ export function Timeline({
 
     const nextIndex = cutHistoryIndex + 1
     const entry = cutHistory[nextIndex]
+    if (entry.sceneEdit) { patchScene(entry.sceneId, entry.sceneEdit.after); setCutHistoryIndex(nextIndex); return }
     if (entry.crop) { tracks.restoreCrop(entry.crop.id, entry.crop.after); setCutHistoryIndex(nextIndex); return }
     if (entry.deletion) {
       const current = scenes.find(s => s.id === entry.sceneId)

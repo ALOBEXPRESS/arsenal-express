@@ -290,7 +290,13 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     const animation = normalizeAnimation(scene.animation_type)
     const transition = normalizeTransition(scene.transition_in)
     const autoRate = clipRate(item.videoAsset?.duration, item.duration)
-    const setMeta = (patch: Record<string, unknown>) => patchScene(scene.id, { metadata: { ...(scene.metadata || {}), ...patch } })
+    const editScene = (id: string, patch: Partial<Scene>) => {
+      const before: Partial<Scene> = {}
+      for (const key of Object.keys(patch) as (keyof Scene)[]) Object.assign(before, { [key]: scene[key] })
+      window.dispatchEvent(new CustomEvent('scene-property-edit', { detail: { projectId, subId: tracks.sub.id, id, before, after: patch } }))
+      patchScene(id, patch)
+    }
+    const setMeta = (patch: Record<string, unknown>) => editScene(scene.id, { metadata: { ...(scene.metadata || {}), ...patch } })
     const consumed = item.duration * item.rate
     const clipLen = item.videoAsset?.duration || 0
     const defaultVolume = narrationTrack.length ? CLIP_VOLUME_UNDER_NARRATION : 1
@@ -385,7 +391,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
 
           <Group title="Animação">
             <div role="radiogroup" aria-label="Animação do clipe" className="grid grid-cols-2 gap-1.5">
-              <Chip selected={animation === 'none'} onClick={() => patchScene(scene.id, { animation_type: 'none' })}>
+              <Chip selected={animation === 'none'} onClick={() => editScene(scene.id, { animation_type: 'none' })}>
                 <Ban className="h-3 w-3" aria-hidden /> Nenhuma
               </Chip>
               {ANIMATIONS.map((a) => (
@@ -393,7 +399,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
                   key={a.id}
                   selected={animation === a.id}
                   title={a.hint}
-                  onClick={() => patchScene(scene.id, { animation_type: a.id as AnimationId })}
+                  onClick={() => editScene(scene.id, { animation_type: a.id as AnimationId })}
                 >
                   <Sparkles className="h-3 w-3" aria-hidden /> {a.label}
                 </Chip>
@@ -405,7 +411,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
           {item.index > 0 && (
             <Group title="Transição de entrada">
               <div role="radiogroup" aria-label="Transição de entrada" className="grid grid-cols-2 gap-1.5">
-                <Chip selected={transition === 'cut'} onClick={() => patchScene(scene.id, { transition_in: 'cut' })}>
+                <Chip selected={transition === 'cut'} onClick={() => editScene(scene.id, { transition_in: 'cut' })}>
                   <Scissors className="h-3 w-3" aria-hidden /> Corte seco
                 </Chip>
                 {TRANSITIONS.map((t) => (
@@ -413,7 +419,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
                     key={t.id}
                     selected={transition === t.id}
                     title={t.hint}
-                    onClick={() => patchScene(scene.id, { transition_in: t.id as TransitionId })}
+                    onClick={() => editScene(scene.id, { transition_in: t.id as TransitionId })}
                   >
                     {t.label}
                   </Chip>
