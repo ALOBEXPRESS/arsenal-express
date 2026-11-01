@@ -10,6 +10,7 @@ import {
   useAutoAssemble,
   useSaveSyncSettings,
   useApplyEffects,
+  usePatchScene,
   nextOrderIndex,
   type AutoAssembleMode,
 } from '@/lib/hooks/useScenes'
@@ -29,7 +30,7 @@ import { Inspector } from '@/components/editor/Inspector'
 import { AssemblySheet } from '@/components/sync/AssemblySheet'
 import { ExportMenu } from '@/components/project/ExportMenu'
 import { LogoMark } from '@/components/brand/Logo'
-import { buildTimeline, formatTime } from '@/lib/timeline'
+import { buildTimeline, formatTime, sortByModificationDate } from '@/lib/timeline'
 import { withDefaults, type SyncSettings } from '@/lib/sync/presets'
 import type { Asset, Scene, Subproject } from '@/types/project'
 import { MAIN_SUB, scenesOf } from '@/lib/subprojects'
@@ -70,6 +71,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const autoAssemble = useAutoAssemble()
   const saveSettings = useSaveSyncSettings()
   const applyEffects = useApplyEffects()
+  const patchScene = usePatchScene(id)
 
   const [showSceneEditor, setShowSceneEditor] = useState(false)
   const [showExport, setShowExport] = useState(false)
@@ -210,7 +212,37 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const runAssemble = async (mode: AutoAssembleMode, settings: SyncSettings = syncSettings) => {
     const s = withDefaults(settings)
     if (!s.media.with_images && !s.media.with_videos) {
-      await applyExisting(s)
+      if (mode !== 'scenes_with_audio') { await applyExisting(s); return }
+      const narration = sortByModificationDate((assets || []).filter(a => a.type === 'audio' && a.is_narration))
+      if (!narration.length) { toast.error('Marque um áudio como narração na biblioteca.'); return }
+      if (!timeline.length || narration.some(a => !a.duration || !a.url)) { toast.error('Confira as cenas e os arquivos de narração.'); return }
+      const loading = toast.loading('Preparando narração para as cenas existentes...')
+      try {
+        const totalVideo = timeline.reduce((end, item) => Math.max(end, item.start + item.duration), 0)
+        const totalAudio = narration.reduce((sum, a) => sum + (a.duration || 0), 0)
+        if (s.replace_voice && Math.abs(totalVideo - totalAudio) > 0.25) throw new Error(`A narração (${totalAudio.toFixed(2)}s) difere das cenas (${totalVideo.toFixed(2)}s). Confira o alinhamento antes de continuar.`)
+        let intervals: { start: number; end: number }[] = []
+        if (s.replace_voice) {
+          const { detectSpeechIntervals } = await import('@/lib/sync/speech')
+          const { decodeAudio } = await import('@/lib/sync/rhythm')
+          let offset = 0
+          for (const asset of narration) {
+            const response = await fetch(asset.url!)
+            if (!response.ok) throw new Error(`Não foi possível carregar ${asset.filename}`)
+            const found = await detectSpeechIntervals(await decodeAudio(await response.blob()))
+            intervals.push(...found.map(v => ({ start: v.start + offset, end: v.end + offset })))
+            offset += asset.duration || 0
+          }
+          if (!intervals.length) throw new Error('Nenhuma fala detectada. Nenhuma alteração foi aplicada.')
+          for (const item of timeline) patchScene(item.scene.id, { metadata: { ...(item.scene.metadata || {}), voice_mute_intervals: intervals.filter(v => v.end > item.start && v.start < item.start + item.duration).map(v => ({ start: Math.max(0, v.start - item.start), end: Math.min(item.duration, v.end - item.start) })) } })
+          await patchScene.flush(true)
+        }
+        tracks.setNarration(narration)
+        await tracks.flush()
+        await saveSettings.mutateAsync({ projectId: id, settings: s })
+        toast.success('Narração adicionada às cenas existentes', { id: loading, description: 'Os cortes foram preservados. Confira o sincronismo no visor.' })
+        setShowAssembly(false)
+      } catch (e) { toast.error('Falha ao juntar com áudio', { id: loading, description: e instanceof Error ? e.message : undefined }) }
       return
     }
     const perAudio = mode === 'scenes_with_audio' && s.narration.split === 'per_audio' && audioCount > 1
