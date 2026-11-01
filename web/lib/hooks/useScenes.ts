@@ -551,7 +551,7 @@ export function useAutoAssemble() {
             generated_in_flow: false,
             metadata: {
               sub: target.sub.id,
-              ...(settings.replace_voice && mode === 'scenes_with_audio' ? { voice_mute_intervals: voiceIntervals.filter(v => v.end > cursor && v.start < cursor + duration).map(v => ({ start: Math.max(0, v.start - cursor), end: Math.min(duration, v.end - cursor) })) } : {}),
+              ...(mode === 'scenes_with_audio' ? { volume: 0 } : {}),
               video_filename: video.filename,
               ...(bounds ? { trim: bounds.start, trim_end: bounds.end } : {}),
               timeline_start: Math.round(cursor * 1000) / 1000,

@@ -234,9 +234,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             offset += asset.duration || 0
           }
           if (!intervals.length) throw new Error('Nenhuma fala detectada. Nenhuma alteração foi aplicada.')
-          for (const item of timeline) patchScene(item.scene.id, { metadata: { ...(item.scene.metadata || {}), voice_mute_intervals: intervals.filter(v => v.end > item.start && v.start < item.start + item.duration).map(v => ({ start: Math.max(0, v.start - item.start), end: Math.min(item.duration, v.end - item.start) })) } })
-          await patchScene.flush(true)
         }
+        for (const item of timeline) {
+          const metadata: Record<string, unknown> = { ...(item.scene.metadata || {}), volume: 0 }
+          delete metadata.voice_mute_intervals
+          patchScene(item.scene.id, { metadata })
+        }
+        await patchScene.flush(true)
         tracks.setNarration(narration)
         await tracks.flush()
         await saveSettings.mutateAsync({ projectId: id, settings: s })
