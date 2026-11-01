@@ -591,7 +591,7 @@ export function Timeline({
   const undoSplit = useUndoSplitScene()
   const patchScene = usePatchScene(projectId)
   const dragAsset = useDragAsset((s) => s.asset)
-  const { selection, select } = useSelection()
+  const { selection, select, allScenes, selectAllScenes } = useSelection()
   const { data: sfxManifest } = useSFXManifest()
   const [draggedScene, setDraggedScene] = useState<number | null>(null)
   const [dropHint, setDropHint] = useState<{ lane: Lane; time: number } | null>(null)
@@ -667,10 +667,10 @@ export function Timeline({
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   useEffect(() => {
-    if (selection?.kind !== 'scene' || activeSceneIndex === undefined) return
+    if (allScenes || selection?.kind !== 'scene' || activeSceneIndex === undefined) return
     const current = timeline.find(item => activeSceneIndex >= item.start && activeSceneIndex < item.start + item.duration)
     if (current && current.scene.id !== selection.id) select({ kind: 'scene', id: current.scene.id })
-  }, [activeSceneIndex, timeline, selection, select])
+  }, [activeSceneIndex, timeline, selection, select, allScenes])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
   
   // Map SFX IDs to names from manifest
@@ -1248,6 +1248,7 @@ export function Timeline({
           return
         }
       }
+      if ((e.ctrlKey || e.metaKey) && key === 'a' && timeline.length) { e.preventDefault(); selectAllScenes(timeline[0].scene.id); return }
       // Undo: Ctrl+Z
       if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
         e.preventDefault()
@@ -1273,7 +1274,7 @@ export function Timeline({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSplitAtPlayhead, handleUndo, handleRedo, fps, onSeek, timeline, total, selection, scenes, onEditScene])
+  }, [handleSplitAtPlayhead, handleUndo, handleRedo, fps, onSeek, timeline, total, selection, scenes, onEditScene, selectAllScenes])
 
   return (
     <div className="flex h-full flex-col bg-surface-1">
@@ -1372,6 +1373,7 @@ export function Timeline({
               <ZoomIn />
             </Button>
           </div>
+          <Button size="sm" variant={allScenes ? "secondary" : "ghost"} onClick={() => { if (timeline.length) selectAllScenes(timeline[0].scene.id) }} disabled={!timeline.length} title="Selecionar todas as cenas (Ctrl+A)">Selecionar todas</Button>
           {selection?.kind === 'scene' && <Button size="sm" variant="ghost" onClick={() => { const scene = scenes.find(s => s.id === selection.id); if (scene) onEditScene?.(scene) }} aria-label="Editar cena selecionada" title="Editar cena selecionada"><Pencil /> Editar cena</Button>}
           <Button size="sm" variant="ghost" onClick={onOpenAssembly} disabled={busy}>
             <SlidersHorizontal /> Montagem
@@ -1677,7 +1679,7 @@ export function Timeline({
                       item={item}
                       pps={scale}
                       active={activeSceneIndex !== undefined && activeSceneIndex >= item.start && activeSceneIndex < item.start + item.duration}
-                      selected={isSelected('scene', item.scene.id)}
+                      selected={allScenes || isSelected('scene', item.scene.id)}
                       dragging={draggedScene === item.index}
                       onSelect={(clientX) => {
                         select({ kind: 'scene', id: item.scene.id })

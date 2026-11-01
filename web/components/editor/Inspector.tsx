@@ -101,7 +101,7 @@ function Chip({ selected, onClick, children, title }: { selected: boolean; onCli
 }
 
 export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, onEditScene }: InspectorProps) {
-  const { selection: rawSelection, select } = useSelection()
+  const { selection: rawSelection, select, allScenes } = useSelection()
   const patchScene = usePatchScene(projectId)
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
@@ -291,10 +291,14 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
     const transition = normalizeTransition(scene.transition_in)
     const autoRate = clipRate(item.videoAsset?.duration, item.duration)
     const editScene = (id: string, patch: Partial<Scene>) => {
-      const before: Partial<Scene> = {}
-      for (const key of Object.keys(patch) as (keyof Scene)[]) Object.assign(before, { [key]: scene[key] })
-      window.dispatchEvent(new CustomEvent('scene-property-edit', { detail: { projectId, subId: tracks.sub.id, id, before, after: patch } }))
-      patchScene(id, patch)
+      const targets = allScenes ? timeline.map(t => t.scene) : [scene]
+      for (const target of targets) {
+        const updates = patch.metadata ? { ...patch, metadata: { ...(target.metadata || {}), ...Object.fromEntries(Object.entries(patch.metadata).filter(([key, value]) => (scene.metadata || {})[key] !== value)) } } : patch
+        const before: Partial<Scene> = {}
+        for (const key of Object.keys(updates) as (keyof Scene)[]) Object.assign(before, { [key]: target[key] })
+        window.dispatchEvent(new CustomEvent('scene-property-edit', { detail: { projectId, subId: tracks.sub.id, id: target.id, before, after: updates } }))
+        patchScene(target.id, updates)
+      }
     }
     const setMeta = (patch: Record<string, unknown>) => editScene(scene.id, { metadata: { ...(scene.metadata || {}), ...patch } })
     const consumed = item.duration * item.rate
@@ -305,7 +309,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
       <div className="flex h-full flex-col">
           <Header
             icon={isVideo ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-            eyebrow={`Cena ${String(item.index + 1).padStart(2, '0')} · ${formatClock(item.start)} → ${formatClock(item.start + item.duration)}`}
+            eyebrow={allScenes ? `${timeline.length} cenas selecionadas` : `Cena ${String(item.index + 1).padStart(2, '0')} · ${formatClock(item.start)} → ${formatClock(item.start + item.duration)}`}
             title={media?.filename || scene.narration_text}
           />
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">

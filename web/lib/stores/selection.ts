@@ -10,10 +10,14 @@ export type Selection = { kind: SelectionKind; id: string } | null
 
 interface SelectionState {
   selection: Selection
+  allScenes: boolean
+  selectAllScenes: (firstId: string) => void
   select: (s: Selection) => void
 }
 
 export const useSelection = create<SelectionState>((set) => ({
   selection: null,
-  select: (selection) => set({ selection }),
+  allScenes: false,
+  selectAllScenes: (id) => set({ selection: { kind: "scene", id }, allScenes: true }),
+  select: (selection) => set({ selection, allScenes: false }),
 }))
