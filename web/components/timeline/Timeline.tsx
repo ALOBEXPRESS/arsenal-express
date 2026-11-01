@@ -597,6 +597,24 @@ export function Timeline({
   const [dropHint, setDropHint] = useState<{ lane: Lane; time: number } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [pps, setPps] = useState<number | null>(null) // null = fit
+  const [zoomLoaded, setZoomLoaded] = useState<string | null>(null)
+  useEffect(() => {
+    setZoomLoaded(null)
+    try {
+      const saved = localStorage.getItem(`syncexpress:timeline-zoom:${projectId}`)
+      const value = saved === null ? null : Number(saved)
+      setPps(value !== null && Number.isFinite(value) && value >= MIN_PPS && value <= MAX_PPS ? value : null)
+    } catch { setPps(null) }
+    setZoomLoaded(projectId)
+  }, [projectId])
+  useEffect(() => {
+    if (zoomLoaded !== projectId) return
+    try {
+      const key = `syncexpress:timeline-zoom:${projectId}`
+      if (pps === null) localStorage.removeItem(key)
+      else localStorage.setItem(key, String(pps))
+    } catch { /* Storage may be unavailable. */ }
+  }, [projectId, pps, zoomLoaded])
   const scroller = useRef<HTMLDivElement>(null)
   const content = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState(800)
@@ -1350,6 +1368,7 @@ export function Timeline({
               <ZoomIn />
             </Button>
           </div>
+          {selection?.kind === 'scene' && <Button size="sm" variant="ghost" onClick={() => { const scene = scenes.find(s => s.id === selection.id); if (scene) onEditScene?.(scene) }} aria-label="Editar cena selecionada" title="Editar cena selecionada"><Pencil /> Editar cena</Button>}
           <Button size="sm" variant="ghost" onClick={onOpenAssembly} disabled={busy}>
             <SlidersHorizontal /> Montagem
           </Button>
