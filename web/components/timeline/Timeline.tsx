@@ -25,6 +25,7 @@ import {
   Redo2,
   Type,
   Image as ImageIcon,
+  Magnet,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDeleteScene, useReorderScenes, useInsertScene, useSplitScene, useUndoSplitScene, type AutoAssembleMode, usePatchScene } from '@/lib/hooks/useScenes'
@@ -239,7 +240,7 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
         'group relative cursor-pointer overflow-hidden rounded-lg shadow-lg',
         draft ? 'transition-none' : 'transition-all duration-200',
         selected 
-          ? 'z-10 ring-2 ring-brand-cyan ring-offset-2 ring-offset-neutral-900 scale-[1.02]' 
+          ? 'z-10 ring-2 ring-brand-cyan ring-offset-2 ring-offset-neutral-900' 
           : active 
             ? 'z-10 ring-2 ring-violet-500 ring-offset-1 ring-offset-neutral-900' 
             : 'hover:ring-1 hover:ring-white/30 hover:shadow-xl',
@@ -394,6 +395,7 @@ interface LaneClipProps {
   selected: boolean
   /** longest the clip can be (source length / speed); undefined = unlimited (images) */
   maxDuration?: number
+  boundaryEnd?: number
   snapTo: number[]
   label: string
   meta: string
@@ -403,7 +405,7 @@ interface LaneClipProps {
   onCommit: (patch: { start: number; duration: number }) => void
 }
 
-function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, label, meta, tone, thumb, onSelect, onCommit }: LaneClipProps) {
+function LaneClip({ id, start, duration, pps, selected, maxDuration, boundaryEnd, snapTo, label, meta, tone, thumb, onSelect, onCommit }: LaneClipProps) {
   const [draft, setDraft] = useState<{ start: number; duration: number } | null>(null)
   const s = draft?.start ?? start
   const d = draft?.duration ?? duration
@@ -431,15 +433,17 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, lab
     const move = (ev: PointerEvent) => {
       const dt = (ev.clientX - x0) / pps
       if (mode === 'move') {
-        let ns = Math.max(0, start + dt)
+        let ns = Math.max(0, Math.min(boundaryEnd != null ? Math.max(0, boundaryEnd - duration) : Infinity, start + dt))
         const snappedStart = snap(ns)
         const snappedEnd = snap(ns + duration)
         if (snappedStart !== ns) ns = snappedStart
         else if (snappedEnd !== ns + duration) ns = Math.max(0, snappedEnd - duration)
+        ns = Math.max(0, Math.min(boundaryEnd != null ? Math.max(0, boundaryEnd - duration) : Infinity, ns))
         latest = { start: Math.round(ns * 1000) / 1000, duration }
       } else {
         let nd = Math.max(0.2, snap(start + duration + dt) - start)
         if (maxDuration) nd = Math.min(nd, maxDuration)
+        if (boundaryEnd != null) nd = Math.min(nd, Math.max(0.2, boundaryEnd - start))
         latest = { start, duration: Math.round(nd * 1000) / 1000 }
       }
       setDraft(latest)
@@ -478,9 +482,10 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, lab
           if (e.altKey) {
             let nd = Math.max(0.2, duration + delta)
             if (maxDuration) nd = Math.min(nd, maxDuration)
+            if (boundaryEnd != null) nd = Math.min(nd, Math.max(0.2, boundaryEnd - start))
             onCommit({ start, duration: Math.round(nd * 1000) / 1000 })
           } else {
-            onCommit({ start: Math.round(Math.max(0, start + delta) * 1000) / 1000, duration })
+            onCommit({ start: Math.round(Math.max(0, Math.min(boundaryEnd != null ? Math.max(0, boundaryEnd - duration) : Infinity, start + delta)) * 1000) / 1000, duration })
           }
         }
       }}
@@ -493,7 +498,7 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, lab
             ? 'bg-gradient-to-r from-brand-cyan/30 via-violet-500/25 to-brand-pink/30 border border-brand-cyan/60'
             : 'bg-gradient-to-br from-emerald-500/30 via-green-500/25 to-teal-500/30 border border-emerald-400/50',
         selected && 'z-10 ring-2 ring-brand-cyan ring-offset-1 ring-offset-neutral-900 scale-[1.02]',
-        draft && 'z-20 shadow-2xl scale-105'
+        draft && 'z-20 shadow-2xl'
       )}
       style={{ 
         position: 'absolute',
@@ -501,7 +506,7 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, snapTo, lab
         bottom: 4,
         left: s * pps + 2, 
         width: width - 4,
-        minWidth: 24
+        minWidth: 4
       }}
       data-id={id}
     >
@@ -593,6 +598,7 @@ export function Timeline({
   const scroller = useRef<HTMLDivElement>(null)
   const content = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState(800)
+  const [magnetEnabled, setMagnetEnabled] = useState(true)
 
   // Undo/Redo history for cuts
   const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; sceneEdit?: { before: Partial<Scene>; after: Partial<Scene> }; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
@@ -1330,6 +1336,7 @@ export function Timeline({
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUndo} disabled={busy || splitScene.isPending || undoSplit.isPending || deleteScene.isPending || insertScene.isPending || cutHistoryIndex < 0} aria-label="Desfazer edição" title="Desfazer edição (Ctrl+Z)"><Undo2 /></Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRedo} disabled={busy || splitScene.isPending || undoSplit.isPending || deleteScene.isPending || insertScene.isPending || cutHistoryIndex >= cutHistory.length - 1} aria-label="Refazer edição" title="Refazer edição (Ctrl+Y ou Ctrl+Shift+Z)"><Redo2 /></Button>
           </div>
+          <Button variant={magnetEnabled ? "secondary" : "ghost"} size="icon" className="h-8 w-8" aria-label="Ímã das cenas" aria-pressed={magnetEnabled} title={magnetEnabled ? "Desativar ímã" : "Ativar ímã"} onClick={() => setMagnetEnabled(v => !v)}><Magnet /></Button>
           <div className="mr-1 flex items-center rounded-md border border-border" role="group" aria-label="Zoom da timeline">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => zoom(1 / 1.5)} aria-label="Diminuir zoom">
               <ZoomOut />
@@ -1533,7 +1540,8 @@ export function Timeline({
                         meta=""
                         selected={isSelected('overlay', o.id)}
                         maxDuration={undefined}
-                        snapTo={snapWithPlayhead()}
+                        boundaryEnd={sceneEnd > 0 ? sceneEnd : undefined}
+                        snapTo={magnetEnabled ? timeline.flatMap(t => [t.start, t.start + t.duration]) : []}
                         onSelect={() => select({ kind: 'overlay', id: o.id })}
                         onCommit={(p) => tracks.updateOverlay(o.id, p)}
                       />
