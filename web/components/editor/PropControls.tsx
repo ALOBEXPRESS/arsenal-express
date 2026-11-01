@@ -40,7 +40,9 @@ export function PropSlider({
           {label}
         </label>
         <span className="flex items-center gap-1">
+          <button type="button" aria-label={`Diminuir ${label}`} className="px-1 text-muted-foreground hover:text-foreground" onClick={() => onChange(Math.max(min, Number((value - (label === 'Posição X' || label === 'Posição Y' ? 0.02 : ['Altura da faixa', 'Enquadramento da imagem', 'Escala', 'Opacidade'].includes(label) ? 0.01 : step)).toFixed(4))))}>−</button>
           <span className="font-mono tabular-nums text-foreground">{format(value)}</span>
+          <button type="button" aria-label={`Aumentar ${label}`} className="px-1 text-muted-foreground hover:text-foreground" onClick={() => onChange(Math.min(max, Number((value + (label === 'Posição X' || label === 'Posição Y' ? 0.02 : ['Altura da faixa', 'Enquadramento da imagem', 'Escala', 'Opacidade'].includes(label) ? 0.01 : step)).toFixed(4))))}>+</button>
           {onReset && (
             <button
               type="button"

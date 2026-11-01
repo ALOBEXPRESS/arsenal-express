@@ -1258,6 +1258,10 @@ export function Timeline({
         e.preventDefault()
         handleRedo()
       }
+      else if (key === 'e' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const scene = selection?.kind === 'scene' ? scenes.find(s => s.id === selection.id) : undefined
+        if (scene) { e.preventDefault(); onEditScene?.(scene) }
+      }
       // Cut: Ctrl+B or S
       else if ((e.ctrlKey || e.metaKey) && key === 'b') {
         e.preventDefault()
@@ -1269,7 +1273,7 @@ export function Timeline({
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSplitAtPlayhead, handleUndo, handleRedo, fps, onSeek, timeline, total])
+  }, [handleSplitAtPlayhead, handleUndo, handleRedo, fps, onSeek, timeline, total, selection, scenes, onEditScene])
 
   return (
     <div className="flex h-full flex-col bg-surface-1">

@@ -38,20 +38,16 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
         return
       }
 
-      if (!chosen.narration || chosen.narration.length === 0) {
-        alert('Nenhuma narração encontrada para exportar')
-        return
-      }
-
       // Create offline audio context to mix all audio
-      const duration = Math.max(...chosen.timeline.map((s: any) => s.start + s.duration), 0)
+      const duration = Math.max(...chosen.timeline.map((s: any) => s.start + s.duration), ...(chosen.narration || []).map((s: any) => s.start + s.duration), ...(chosen.audioClips || []).map((s: any) => s.clip.start + s.clip.duration), 0)
+      if (duration <= 0) { alert("Nenhum áudio disponível para exportar."); return }
       const sampleRate = 48000
       const audioCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate)
 
       let audioCount = 0
       // Load and schedule narration segments
-      for (const narr of chosen.narration) {
-        const audioUrl = (narr as any).audio_url
+      for (const narr of chosen.narration || []) {
+        const audioUrl = narr.asset?.url || narr.audio_url
         if (!audioUrl) {
           console.warn('Narração sem audio_url:', narr)
           continue
@@ -66,15 +62,54 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
           const source = audioCtx.createBufferSource()
           source.buffer = buffer
           source.connect(audioCtx.destination)
-          source.start(narr.start)
+          source.start(narr.start, 0, Math.min(narr.duration, buffer.duration))
           audioCount++
         } catch (err) {
           console.error('Erro ao carregar narração:', err)
         }
       }
 
+      for (const scene of chosen.timeline || []) {
+        const url = scene.videoAsset?.url
+        if (!url) continue
+        try {
+          const response = await fetch(url)
+          if (!response.ok) throw new Error(`Falha ao buscar vídeo: ${response.status}`)
+          const buffer = await audioCtx.decodeAudioData(await response.arrayBuffer())
+          const source = audioCtx.createBufferSource()
+          source.buffer = buffer
+          source.playbackRate.value = scene.rate || 1
+          const gain = audioCtx.createGain()
+          const explicitVolume = scene.scene.metadata?.volume
+          if (explicitVolume != null) gain.gain.value = Math.max(0, Math.min(1, Number(explicitVolume)))
+          else {
+            const ranges = (chosen.narration || []).map((n: any) => ({ start: Math.max(scene.start, n.start), end: Math.min(scene.start + scene.duration, n.start + n.duration) })).filter((n: any) => n.end > n.start).sort((a: any, b: any) => a.start - b.start)
+            const merged: { start: number; end: number }[] = []
+            for (const range of ranges) { const last = merged[merged.length - 1]; if (last && range.start <= last.end) last.end = Math.max(last.end, range.end); else merged.push({ ...range }) }
+            gain.gain.setValueAtTime(1, 0)
+            for (const range of merged) { gain.gain.setValueAtTime(0.125, range.start); gain.gain.setValueAtTime(1, range.end) }
+          }
+          source.connect(gain).connect(audioCtx.destination)
+          const offset = scene.trim || 0
+          if (offset < buffer.duration) { source.start(scene.start, offset, Math.min(scene.duration * source.playbackRate.value, buffer.duration - offset)); audioCount++ }
+        } catch (err) { console.warn('Não foi possível carregar áudio do clipe:', err) }
+      }
+      for (const { clip, asset } of chosen.audioClips || []) {
+        if (!asset?.url) continue
+        try {
+          const response = await fetch(asset.url)
+          if (!response.ok) throw new Error(`Falha ao buscar áudio: ${response.status}`)
+          const buffer = await audioCtx.decodeAudioData(await response.arrayBuffer())
+          const source = audioCtx.createBufferSource(); source.buffer = buffer; source.playbackRate.value = clip.speed || 1
+          const gain = audioCtx.createGain(); gain.gain.value = clip.volume ?? 1
+          source.connect(gain).connect(audioCtx.destination)
+          const offset = clip.in_point || 0
+          if (offset < buffer.duration) { source.start(clip.start, offset, Math.min(clip.duration * source.playbackRate.value, buffer.duration - offset)); audioCount++ }
+        } catch (err) { console.warn('Não foi possível carregar faixa de áudio:', err) }
+      }
+
       if (audioCount === 0) {
-        alert('Nenhum áudio foi carregado. Verifique se os arquivos de narração estão acessíveis.')
+        alert('Nenhum áudio foi carregado. Verifique se os arquivos de mídia estão acessíveis.')
         return
       }
 
