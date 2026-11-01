@@ -168,7 +168,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       narration: sp.narration_track
         .map((seg) => ({ asset: assetById.get(seg.asset_id)!, start: seg.start, duration: seg.duration }))
         .filter((n) => n.asset),
-      overlays: resolve(sp.overlays),
+      overlays: resolve([...sp.overlays, ...sp.image_overlays]),
       audioClips: resolve(sp.audio_clips),
       adjustments: sp.adjustments,
     }))

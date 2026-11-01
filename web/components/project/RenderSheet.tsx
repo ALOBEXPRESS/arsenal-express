@@ -19,11 +19,12 @@ interface RenderSheetProps {
   activeSubId: string
 }
 
-type PresetKey = '720p' | '1080p' | 'shorts'
+type PresetKey = '720p' | '1080p' | 'shorts' | 'shorts720'
 
 const PRESETS: Record<PresetKey, { label: string; width: number; height: number; fps: number }> = {
   '720p': { label: '720p (HD)', width: 1280, height: 720, fps: 30 },
   '1080p': { label: '1080p (Full HD)', width: 1920, height: 1080, fps: 30 },
+  shorts720: { label: 'Shorts/Reels 720p (mais rápido)', width: 720, height: 1280, fps: 30 },
   shorts: { label: 'Shorts/Reels (9:16)', width: 1080, height: 1920, fps: 30 },
 }
 
@@ -85,8 +86,8 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
         {
           timeline: chosen.timeline,
           narration: chosen.narration as any,
-          audioClips: chosen.audioClips as any || [],
-          overlays: chosen.overlays as any || [],
+          audioClips: (chosen.audioClips || []).map(({ clip, asset }) => ({ ...clip, asset })) as any,
+          overlays: (chosen.overlays || []).map(({ clip, asset }) => ({ ...clip, asset })) as any,
           duration: totalDuration,
         },
         options
@@ -112,7 +113,7 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent className="w-full overflow-y-auto px-6 py-8 sm:max-w-xl">
         {/* Header */}
         <div className="space-y-2">
           <SheetTitle className="flex items-center gap-2 font-display text-xl">

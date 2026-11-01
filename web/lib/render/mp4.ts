@@ -158,7 +158,8 @@ async function preloadAssets(
     if (loadedIds.has(asset.id)) return
     loadedIds.add(asset.id)
 
-    if (asset.type === 'video') {
+    const isVideo = asset.type === 'video' || (asset.type === 'asset' && /\.(mp4|mov|webm)$/i.test(asset.filename))
+    if (isVideo) {
       promises.push(
         new Promise((resolve, reject) => {
           if (signal?.aborted) return reject(new Error('Aborted'))
@@ -175,7 +176,7 @@ async function preloadAssets(
           if (signal) signal.addEventListener('abort', () => reject(new Error('Aborted')))
         })
       )
-    } else if (asset.type === 'image') {
+    } else if (asset.type === 'image' || asset.type === 'asset') {
       promises.push(
         new Promise((resolve, reject) => {
           if (signal?.aborted) return reject(new Error('Aborted'))
@@ -458,8 +459,24 @@ async function renderFrame(
       // Convert CapCut units to canvas pixels
       const overlayX = width / 2 + overlay.x * (width / 2)
       const overlayY = height / 2 - overlay.y * (height / 2)
-      const overlayW = (overlayAsset.width || width) * overlay.scale
-      const overlayH = (overlayAsset.height || height) * overlay.scale
+      const nativeW = overlayAsset instanceof HTMLVideoElement ? overlayAsset.videoWidth : overlayAsset.naturalWidth
+      const nativeH = overlayAsset instanceof HTMLVideoElement ? overlayAsset.videoHeight : overlayAsset.naturalHeight
+      const fit = Math.min(width / nativeW, height / nativeH) * overlay.scale
+      const overlayW = nativeW * fit
+      const overlayH = nativeH * fit
+      if (overlay.assembly_bar && overlay.assembly_bar_height) {
+        const { barLayout } = await import('@/lib/sync/barLayout')
+        const bar = barLayout({ canvasWidth: width, canvasHeight: height, mediaWidth: nativeW, mediaHeight: nativeH, position: overlay.assembly_bar, storedHeight: overlay.assembly_bar_height, storedY: overlay.y, customHeight: overlay.assembly_bar_custom_height, auto: overlay.assembly_bar_custom_height == null && overlay.assembly_bar_height === 0.08 })
+        if (bar) {
+          const bh = height * bar.height, by = (height - bh) / 2 - bar.y * height / 2
+          ctx.beginPath(); ctx.rect(0, by, width, bh); ctx.clip()
+          const cover = Math.max(width / nativeW, bh / nativeH) * overlay.scale
+          const iw = nativeW * cover, ih = nativeH * cover
+          const pos = Math.max(0, Math.min(1, overlay.crop_position_y ?? 0))
+          await drawImageWithFilters(ctx, overlayAsset, (width - iw) / 2 + overlay.x * width / 2, by - (ih - bh) * pos, iw, ih, overlay.brightness ?? 0, overlay.contrast ?? 0, overlay.saturation ?? 0)
+          ctx.restore(); continue
+        }
+      }
       
       // Apply blend mode (must be set before drawing)
       const blendMode = overlay.blend_mode || 'normal'
@@ -548,12 +565,20 @@ async function mixAndAddAudio(
   const duration = Math.ceil(input.duration)
   const audioCtx = new OfflineAudioContext(2, duration * sampleRate, sampleRate)
 
+  let audioCount = 0
+  for (const narration of input.narration as any[]) {
+    const url = narration.asset?.url
+    if (!url) continue
+    const buffer = await loadAudioBuffer(url, audioCtx)
+    const source = audioCtx.createBufferSource(); source.buffer = buffer
+    source.connect(audioCtx.destination); source.start(narration.start, 0, Math.min(narration.duration, buffer.duration)); audioCount++
+  }
   // Load audio from scenes (áudio de narração ou voz)
   for (const scene of input.timeline) {
     if (signal?.aborted) throw new Error('Aborted')
     
     // Scene audio is specified via audio_asset_id in the Scene object
-    const sceneAudio = (scene.scene as any).audio_asset
+    const sceneAudio = scene.videoAsset
     if (!sceneAudio?.url) continue
     
     try {
@@ -565,10 +590,13 @@ async function mixAndAddAudio(
       source.playbackRate.value = scene.rate || 1
       
       // Connect to destination
-      source.connect(audioCtx.destination)
-      
-      // Start at scene time, from trim point
-      source.start(scene.start, scene.trim || 0, scene.duration)
+      const gain = audioCtx.createGain()
+      const volume = Number(scene.scene.metadata?.volume ?? (input.narration.length ? 0.125 : 1))
+      gain.gain.value = Math.max(0, Math.min(1, volume))
+      for (const v of (scene.scene.metadata?.voice_mute_intervals || []) as {start: number; end: number}[]) { gain.gain.setValueAtTime(0, scene.start + v.start); gain.gain.setValueAtTime(volume, scene.start + v.end) }
+      source.connect(gain).connect(audioCtx.destination)
+      const offset = scene.trim || 0
+      if (offset < buffer.duration) { source.start(scene.start, offset, Math.min(scene.duration * source.playbackRate.value, buffer.duration - offset)); audioCount++ }
     } catch (err) {
       console.warn('[mixAndAddAudio] Failed to load scene audio:', err)
     }
@@ -592,7 +620,7 @@ async function mixAndAddAudio(
       
       source.connect(gain)
       gain.connect(audioCtx.destination)
-      source.start(clip.start, clip.in_point || 0, clip.duration)
+      source.start(clip.start, clip.in_point || 0, Math.min(clip.duration * source.playbackRate.value, buffer.duration - (clip.in_point || 0))); audioCount++
     } catch (err) {
       console.warn('[mixAndAddAudio] Failed to load audio clip:', err)
     }
