@@ -217,7 +217,7 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
     <div
       role="button"
       tabIndex={0}
-      data-clip
+      data-clip data-selection-kind="scene" data-selection-id={item.scene.id}
       aria-label={`Cena ${item.index + 1}: ${name}, ${item.duration.toFixed(1)} segundos`}
       aria-pressed={selected}
       draggable
@@ -465,7 +465,7 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, boundaryEnd
   const width = Math.max(d * pps, 8)
   return (
     <div
-      data-clip
+      data-clip data-selection-kind={tone === "audio" ? "audio" : tone === "adjust" ? "adjust" : "overlay"} data-selection-id={id}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
@@ -591,7 +591,7 @@ export function Timeline({
   const undoSplit = useUndoSplitScene()
   const patchScene = usePatchScene(projectId)
   const dragAsset = useDragAsset((s) => s.asset)
-  const { selection, select, allScenes, selectAllScenes } = useSelection()
+  const { selection, select, allScenes, selectAllScenes, selectedItems, append } = useSelection()
   const { data: sfxManifest } = useSFXManifest()
   const [draggedScene, setDraggedScene] = useState<number | null>(null)
   const [dropHint, setDropHint] = useState<{ lane: Lane; time: number } | null>(null)
@@ -667,10 +667,10 @@ export function Timeline({
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   useEffect(() => {
-    if (allScenes || selection?.kind !== 'scene' || activeSceneIndex === undefined) return
+    if (allScenes || selectedItems.length > 1 || selection?.kind !== 'scene' || activeSceneIndex === undefined) return
     const current = timeline.find(item => activeSceneIndex >= item.start && activeSceneIndex < item.start + item.duration)
     if (current && current.scene.id !== selection.id) select({ kind: 'scene', id: current.scene.id })
-  }, [activeSceneIndex, timeline, selection, select, allScenes])
+  }, [activeSceneIndex, timeline, selection, select, allScenes, selectedItems])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
   
   // Map SFX IDs to names from manifest
@@ -1010,7 +1010,7 @@ export function Timeline({
   }
 
   const isSelected = (kind: 'scene' | 'overlay' | 'audio' | 'adjust' | 'narration', id: string) =>
-    selection?.kind === kind && selection.id === id
+    selectedItems.some(item => item.kind === kind && item.id === id)
   const accepting = (lane: Lane) => {
     if (!dragAsset) return false
     if (dragAsset.type === 'audio') return lane === 'audio' || lane === 'narration' || lane === 'sfx'
@@ -1469,6 +1469,21 @@ export function Timeline({
                 ref={content}
                 className="relative flex h-full flex-col"
                 style={{ width: contentWidth - 24 }}
+                onClickCapture={(e) => { if (e.ctrlKey) { e.preventDefault(); e.stopPropagation() } }}
+                onPointerDownCapture={(e) => {
+                  if (!e.ctrlKey || e.button !== 0) return
+                  e.preventDefault(); e.stopPropagation()
+                  const startX = e.clientX, startY = e.clientY
+                  const root = e.currentTarget
+                  const origin = (e.target as HTMLElement).closest<HTMLElement>('[data-selection-kind]')
+                  const move = (ev: PointerEvent) => {
+                    const left = Math.min(startX, ev.clientX), right = Math.max(startX, ev.clientX), top = Math.min(startY, ev.clientY), bottom = Math.max(startY, ev.clientY)
+                    const items = Array.from(root.querySelectorAll<HTMLElement>('[data-selection-kind]')).filter(el => { const r = el.getBoundingClientRect(); return r.right >= left && r.left <= right && r.bottom >= top && r.top <= bottom }).map(el => ({ kind: el.dataset.selectionKind as 'scene' | 'overlay' | 'audio' | 'adjust' | 'narration', id: el.dataset.selectionId! }))
+                    append(items)
+                  }
+                  const up = (ev: PointerEvent) => { if (Math.abs(ev.clientX-startX) < 3 && Math.abs(ev.clientY-startY) < 3 && origin?.dataset.selectionKind && origin.dataset.selectionId) append([{ kind: origin.dataset.selectionKind as 'scene' | 'overlay' | 'audio' | 'adjust' | 'narration', id: origin.dataset.selectionId }]); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+                  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
+                }}
                 onPointerDown={(e) => {
                   // empty lane area → scrub + clear selection
                   const target = e.target as HTMLElement
@@ -1761,7 +1776,7 @@ export function Timeline({
                     return (
                       <div
                         key={seg.asset_id + seg.start}
-                        data-clip
+                        data-clip data-selection-kind="narration" data-selection-id={String(i)}
                         role="button"
                         tabIndex={0}
                         aria-pressed={sel}

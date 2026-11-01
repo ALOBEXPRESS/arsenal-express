@@ -100,7 +100,13 @@ function Chip({ selected, onClick, children, title }: { selected: boolean; onCli
   )
 }
 
-export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, onEditScene }: InspectorProps) {
+export function Inspector(props: InspectorProps) {
+  const items = useSelection(s => s.selectedItems)
+  if (items.length <= 1) return <InspectorSingle {...props} />
+  return <div className="h-full overflow-y-auto"><div className="p-3 text-sm font-semibold">{items.length} itens selecionados</div>{items.map(item => <div key={`${item.kind}:${item.id}`} className="h-[400px] border-t border-border"><InspectorSingle {...props} overrideSelection={item} /></div>)}</div>
+}
+
+function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, onEditScene, overrideSelection }: InspectorProps & { overrideSelection?: NonNullable<import('@/lib/stores/selection').Selection> }) {
   const { selection: rawSelection, select, allScenes } = useSelection()
   const patchScene = usePatchScene(projectId)
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
@@ -108,7 +114,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
 
   // selection from another subproject (or deleted) → show the empty state
   const selection = (() => {
-    const sel = rawSelection
+    const sel = overrideSelection || rawSelection
     if (!sel) return null
     const ok =
       sel.kind === 'scene'
