@@ -1516,7 +1516,7 @@ export function Timeline({
 
                 {/* Text overlay lane (text bars from assembly) */}
                 <div
-                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
+                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 overflow-hidden rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('overlay')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('overlay')}
@@ -1538,7 +1538,7 @@ export function Timeline({
                         thumb={undefined}
                         label={o.text_content || 'Texto'}
                         meta=""
-                        selected={isSelected('overlay', o.id)}
+                        selected={isSelected('overlay', o.id) || !!(o.assembly_bar && selection?.kind === 'overlay' && overlays.some(x => x.id === selection.id && x.assembly_bar && x.asset_id === o.asset_id && Math.abs(x.start - o.start) < 0.001 && Math.abs(x.duration - o.duration) < 0.001))}
                         maxDuration={undefined}
                         boundaryEnd={sceneEnd > 0 ? sceneEnd : undefined}
                         snapTo={magnetEnabled ? timeline.flatMap(t => [t.start, t.start + t.duration]) : []}
@@ -1552,7 +1552,7 @@ export function Timeline({
 
                 {/* Sobrepor lane (from assembly - imageOverlays) */}
                 <div
-                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
+                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 overflow-hidden rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('overlay')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('overlay')}
@@ -1588,7 +1588,7 @@ export function Timeline({
 
                 {/* Overlays lane (manual - user dragged) */}
                 <div
-                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 rounded-lg bg-neutral-950/40 border border-white/5')}
+                  className={cn(laneClass('overlay'), 'relative mt-1.5 h-9 shrink-0 overflow-hidden rounded-lg bg-neutral-950/40 border border-white/5')}
                   onDragOver={laneDragOver('overlay')}
                   onDragLeave={laneDragLeave}
                   onDrop={laneDrop('overlay')}
@@ -1598,7 +1598,7 @@ export function Timeline({
                       Arraste uma imagem ou vídeo aqui pra sobrepor manualmente
                     </span>
                   )}
-                  {overlays.filter(o => o.kind !== 'text').map((o) => {
+                  {overlays.filter(o => o.kind !== 'text' && !(o.assembly_bar === 'bottom' && overlays.some(x => x.assembly_bar === 'top' && x.asset_id === o.asset_id && Math.abs(x.start - o.start) < 0.001 && Math.abs(x.duration - o.duration) < 0.001))).map((o) => {
                     const a = assetById.get(o.asset_id)
                     return (
                       <LaneClip

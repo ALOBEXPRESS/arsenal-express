@@ -461,19 +461,7 @@ export function Inspector({ projectId, scenes, assets, narrationTrack, tracks, o
       if (isImageOverlay) tracks.updateImageOverlay(o.id, patch)
       else tracks.updateOverlay(o.id, patch)
       
-      // If grouped, update the sibling overlay
-      // For Y position changes: only update the selected overlay
-      // For other properties: update both overlays
-      if (groupedOverlay) {
-        const siblingPatch = { ...patch }
-        delete siblingPatch.y  // Never sync Y position between grouped overlays
-        delete siblingPatch.assembly_bar_custom_height
-        
-        if (Object.keys(siblingPatch).length > 0) {
-          if (isImageOverlay) tracks.updateImageOverlay(groupedOverlay.id, siblingPatch)
-          else tracks.updateOverlay(groupedOverlay.id, siblingPatch)
-        }
-      }
+
     }
     
     const remove = () => {
