@@ -253,8 +253,8 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
         // During a left-edge drag, move the left edge with the pointer while
         // leaving the right edge in place. The timeline closes the gap on commit.
         left: (item.start + (draft ? (draft.trim - item.trim) / (item.rate || 1) : 0)) * pps + 2,
-        width: d * pps - 4,
-        minWidth: 32
+        width: Math.max(2, d * pps - 4),
+        minWidth: 2
       }}
     >
       {/* Background with gradient overlay */}
@@ -366,14 +366,16 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
 
       {/* Trim handles with visual indicators */}
       <span
-        className="absolute inset-y-0 left-0 w-4 cursor-ew-resize bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/20 to-transparent opacity-0 transition-opacity hover:opacity-100 active:opacity-100 group-hover:opacity-60"
+        style={{ width: Math.max(1, Math.min(12, Math.max(2, d * pps - 4) / 2)) }}
+        className="absolute inset-y-0 left-0 cursor-ew-resize bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/20 to-transparent opacity-0 transition-opacity hover:opacity-100 active:opacity-100 group-hover:opacity-60"
         aria-label="Arraste para cortar início"
         onPointerDown={(e) => beginTrim(e, 'start')}
       >
         <div className="absolute left-1 top-1/2 h-8 w-0.5 -translate-y-1/2 rounded-full bg-brand-cyan shadow-lg shadow-brand-cyan/50" />
       </span>
       <span
-        className="absolute inset-y-0 right-0 w-4 cursor-ew-resize bg-gradient-to-l from-brand-cyan/0 via-brand-cyan/20 to-transparent opacity-0 transition-opacity hover:opacity-100 active:opacity-100 group-hover:opacity-60"
+        style={{ width: Math.max(1, Math.min(12, Math.max(2, d * pps - 4) / 2)) }}
+        className="absolute inset-y-0 right-0 cursor-ew-resize bg-gradient-to-l from-brand-cyan/0 via-brand-cyan/20 to-transparent opacity-0 transition-opacity hover:opacity-100 active:opacity-100 group-hover:opacity-60"
         aria-label="Arraste para cortar fim"
         onPointerDown={(e) => beginTrim(e, 'end')}
       >
@@ -439,12 +441,12 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, boundaryEnd
         if (snappedStart !== ns) ns = snappedStart
         else if (snappedEnd !== ns + duration) ns = Math.max(0, snappedEnd - duration)
         ns = Math.max(0, Math.min(boundaryEnd != null ? Math.max(0, boundaryEnd - duration) : Infinity, ns))
-        latest = { start: Math.round(ns * 1000) / 1000, duration }
+        latest = { start: ns, duration }
       } else {
         let nd = Math.max(0.2, snap(start + duration + dt) - start)
         if (maxDuration) nd = Math.min(nd, maxDuration)
         if (boundaryEnd != null) nd = Math.min(nd, Math.max(0.2, boundaryEnd - start))
-        latest = { start, duration: Math.round(nd * 1000) / 1000 }
+        latest = { start, duration: nd }
       }
       setDraft(latest)
     }
@@ -497,7 +499,7 @@ function LaneClip({ id, start, duration, pps, selected, maxDuration, boundaryEnd
           : tone === 'adjust'
             ? 'bg-gradient-to-r from-brand-cyan/30 via-violet-500/25 to-brand-pink/30 border border-brand-cyan/60'
             : 'bg-gradient-to-br from-emerald-500/30 via-green-500/25 to-teal-500/30 border border-emerald-400/50',
-        selected && 'z-10 ring-2 ring-brand-cyan ring-offset-1 ring-offset-neutral-900 scale-[1.02]',
+        selected && 'z-10 ring-2 ring-inset ring-brand-cyan',
         draft && 'z-20 shadow-2xl'
       )}
       style={{ 
@@ -1540,8 +1542,7 @@ export function Timeline({
                         meta=""
                         selected={isSelected('overlay', o.id) || !!(o.assembly_bar && selection?.kind === 'overlay' && overlays.some(x => x.id === selection.id && x.assembly_bar && x.asset_id === o.asset_id && Math.abs(x.start - o.start) < 0.001 && Math.abs(x.duration - o.duration) < 0.001))}
                         maxDuration={undefined}
-                        boundaryEnd={sceneEnd > 0 ? sceneEnd : undefined}
-                        snapTo={magnetEnabled ? timeline.flatMap(t => [t.start, t.start + t.duration]) : []}
+                        snapTo={snapWithPlayhead()}
                         onSelect={() => select({ kind: 'overlay', id: o.id })}
                         onCommit={(p) => tracks.updateOverlay(o.id, p)}
                       />
@@ -1577,7 +1578,8 @@ export function Timeline({
                         meta={`${Math.round(o.opacity * 100)}% · ${o.scale.toFixed(2)}×`}
                         selected={isSelected('overlay', o.id)}
                         maxDuration={o.kind === 'video' ? sourceMax(o.asset_id, o.speed) : undefined}
-                        snapTo={snapWithPlayhead()}
+                        boundaryEnd={sceneEnd > 0 ? sceneEnd : undefined}
+                        snapTo={magnetEnabled ? timeline.flatMap(t => [t.start, t.start + t.duration]) : []}
                         onSelect={() => select({ kind: 'overlay', id: o.id })}
                         onCommit={(p) => tracks.updateImageOverlay(o.id, p)}
                       />
