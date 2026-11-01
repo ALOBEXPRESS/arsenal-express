@@ -14,6 +14,7 @@ import {
   type AudioEncodingConfig,
 } from 'mediabunny'
 import type { TimedScene } from '../timeline'
+import { barLayout } from '@/lib/sync/barLayout'
 import type { Asset, NarrationSegment, AudioClip, OverlayClip } from '@/types/project'
 
 export interface RenderOptions {
@@ -113,6 +114,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
   const frameDuration = 1 / frameRate
   const totalFrames = Math.ceil(input.duration * frameRate)
   let frameIndex = 0
+  let lastProgress = -1
 
   for (let t = 0; t < input.duration; t += frameDuration) {
     if (signal?.aborted) {
@@ -127,7 +129,8 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
     await videoSource.add(t, frameDuration)
 
     frameIndex++
-    onProgress?.(frameIndex / totalFrames)
+    const progress = Math.floor(frameIndex * 100 / totalFrames)
+    if (progress !== lastProgress) { lastProgress = progress; onProgress?.(frameIndex / totalFrames) }
   }
 
   // Mix audio and add to audio track
@@ -316,6 +319,10 @@ async function drawImageWithFilters(
   contrast: number,
   saturation: number
 ): Promise<void> {
+  if (brightness === 0 && contrast === 0 && saturation === 0) {
+    ctx.drawImage(image, x, y, width, height)
+    return
+  }
   // Try using canvas.filter first
   if (brightness !== 0 || contrast !== 0 || saturation !== 0) {
     const filters: string[] = []
@@ -465,7 +472,6 @@ async function renderFrame(
       const overlayW = nativeW * fit
       const overlayH = nativeH * fit
       if (overlay.assembly_bar && overlay.assembly_bar_height) {
-        const { barLayout } = await import('@/lib/sync/barLayout')
         const bar = barLayout({ canvasWidth: width, canvasHeight: height, mediaWidth: nativeW, mediaHeight: nativeH, position: overlay.assembly_bar, storedHeight: overlay.assembly_bar_height, storedY: overlay.y, customHeight: overlay.assembly_bar_custom_height, auto: overlay.assembly_bar_custom_height == null && overlay.assembly_bar_height === 0.08 })
         if (bar) {
           const bh = height * bar.height, by = (height - bh) / 2 - bar.y * height / 2
