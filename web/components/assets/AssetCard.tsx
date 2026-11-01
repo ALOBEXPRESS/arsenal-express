@@ -58,7 +58,7 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
     setIsUpdating(true)
     try {
       await updateAsset.mutateAsync(
-        { id: asset.id, patch: { is_narration: checked } },
+        { id: asset.id, patch: { metadata: { ...(asset.metadata || {}), is_narration: checked } } },
         {
           onSuccess: () => {
             toast.success(checked ? '🎤 Marcado como narração' : 'Desmarcado como narração', {

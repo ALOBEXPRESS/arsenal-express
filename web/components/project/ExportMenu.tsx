@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { FileDown, Music, Video, Loader2 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -27,20 +28,24 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
   const [capCutOpen, setCapCutOpen] = useState(false)
   const [renderOpen, setRenderOpen] = useState(false)
   const [isExportingAudio, setIsExportingAudio] = useState(false)
+  const exportingAudio = useRef(false)
 
   const handleExportAudio = async () => {
     // Mix narration + audio clips into a single WAV
+    if (exportingAudio.current) return
+    exportingAudio.current = true
     setIsExportingAudio(true)
+    const toastId = toast.loading("Exportando áudio...", { description: "Preparando as faixas da timeline." })
     try {
       const chosen = timelines.find((t) => t.id === activeSubId) || timelines[0]
       if (!chosen) {
-        alert('Nenhuma timeline encontrada')
+        toast.error('Nenhuma timeline encontrada', { id: toastId })
         return
       }
 
       // Create offline audio context to mix all audio
       const duration = Math.max(...chosen.timeline.map((s: any) => s.start + s.duration), ...(chosen.narration || []).map((s: any) => s.start + s.duration), ...(chosen.audioClips || []).map((s: any) => s.clip.start + s.clip.duration), 0)
-      if (duration <= 0) { alert("Nenhum áudio disponível para exportar."); return }
+      if (duration <= 0) { toast.error("Nenhum áudio disponível para exportar.", { id: toastId }); return }
       const sampleRate = 48000
       const audioCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate)
 
@@ -81,7 +86,12 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
           source.playbackRate.value = scene.rate || 1
           const gain = audioCtx.createGain()
           const explicitVolume = scene.scene.metadata?.volume
-          if (explicitVolume != null) gain.gain.value = Math.max(0, Math.min(1, Number(explicitVolume)))
+          const voiceIntervals = scene.scene.metadata?.voice_mute_intervals as { start: number; end: number }[] | undefined
+          if (voiceIntervals) {
+            const base = Math.max(0, Math.min(1, Number(explicitVolume ?? 1)))
+            gain.gain.setValueAtTime(base, 0)
+            for (const interval of voiceIntervals) { gain.gain.setValueAtTime(0, scene.start + interval.start); gain.gain.setValueAtTime(base, scene.start + interval.end) }
+          } else if (explicitVolume != null) gain.gain.value = Math.max(0, Math.min(1, Number(explicitVolume)))
           else {
             const ranges = (chosen.narration || []).map((n: any) => ({ start: Math.max(scene.start, n.start), end: Math.min(scene.start + scene.duration, n.start + n.duration) })).filter((n: any) => n.end > n.start).sort((a: any, b: any) => a.start - b.start)
             const merged: { start: number; end: number }[] = []
@@ -109,11 +119,12 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
       }
 
       if (audioCount === 0) {
-        alert('Nenhum áudio foi carregado. Verifique se os arquivos de mídia estão acessíveis.')
+        toast.error('Nenhum áudio foi carregado.', { id: toastId, description: 'Verifique se os arquivos de mídia estão acessíveis.' })
         return
       }
 
       // Render the mixed audio
+      toast.loading("Exportando áudio...", { id: toastId, description: "Mixando e preparando o arquivo WAV." })
       const renderedBuffer = await audioCtx.startRendering()
 
       // Convert AudioBuffer to WAV (PCM)
@@ -132,11 +143,12 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
       // Cleanup
       setTimeout(() => URL.revokeObjectURL(url), 100)
 
-      console.log('Audio exported successfully')
+      toast.success('Áudio exportado', { id: toastId, description: 'O download do arquivo WAV foi iniciado.' })
     } catch (err) {
       console.error('Audio export failed:', err)
-      alert(`Erro ao exportar áudio: ${err instanceof Error ? err.message : 'Desconhecido'}`)
+      toast.error('Erro ao exportar áudio', { id: toastId, description: err instanceof Error ? err.message : 'Erro desconhecido' })
     } finally {
+      exportingAudio.current = false
       setIsExportingAudio(false)
     }
   }
@@ -201,7 +213,7 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button disabled={disabled}>
-            <FileDown /> Exportar
+            {isExportingAudio ? <Loader2 className="animate-spin" /> : <FileDown />} {isExportingAudio ? "Exportando áudio..." : "Exportar"}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">

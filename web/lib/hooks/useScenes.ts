@@ -411,6 +411,7 @@ export function useAutoAssemble() {
         return blob
       }
 
+      if (settings.replace_voice && mode === 'scenes_with_audio' && (settings.trim_silence.start || settings.trim_silence.end || settings.speed.enabled)) throw new Error('Desative cortes automáticos e velocidade para manter a voz sincronizada.')
       // Analyze speech before writing scenes, keeping the originals intact if no speech is found.
       const clipBounds = new Map<string, { start: number; end: number }>()
       if (settings.trim_silence.start || settings.trim_silence.end) {
@@ -494,9 +495,24 @@ export function useAutoAssemble() {
         const clipDurs = clips.map((v) => (v.type === 'image' ? Number.POSITIVE_INFINITY : (clipBounds.get(v.id) ? clipBounds.get(v.id)!.end - clipBounds.get(v.id)!.start : v.duration || DEFAULT_SCENE_DURATION)))
         const ownDurs = clips.map((v) => (v.type === 'image' ? STILL_DURATION : (clipBounds.get(v.id) ? clipBounds.get(v.id)!.end - clipBounds.get(v.id)!.start : v.duration || DEFAULT_SCENE_DURATION)))
 
+        let voiceIntervals: { start: number; end: number }[] = []
+        if (settings.replace_voice && mode === 'scenes_with_audio') {
+          if (clips.some(v => v.type !== 'video') || !clips.length || !track.length) throw new Error('A substituição de voz exige vídeos e narração.')
+          const clipTotal = ownDurs.reduce((a, b) => a + b, 0)
+          if (Math.abs(clipTotal - narrationDuration) > 0.25) throw new Error(`A duração da narração (${narrationDuration.toFixed(2)}s) difere dos vídeos (${clipTotal.toFixed(2)}s). Confira o alinhamento antes de montar.`)
+          onStatus?.('Detectando falas da narração...')
+          const { detectSpeechIntervals } = await import('@/lib/sync/speech')
+          for (const seg of track) {
+            const asset = target.audios.find(a => a.id === seg.asset_id)!
+            const intervals = await detectSpeechIntervals(await decodeAudio(await download(asset)))
+            voiceIntervals.push(...intervals.map(interval => ({ start: interval.start + seg.start, end: interval.end + seg.start })))
+          }
+          if (!voiceIntervals.length) throw new Error('Nenhuma fala detectada na narração; a montagem foi cancelada para preservar o áudio original.')
+        }
         // Scene durations
         let durations: number[] = []
         if (clips.length === 0) durations = []
+        else if (settings.replace_voice && mode === 'scenes_with_audio') durations = ownDurs
         else if (mode === 'scenes' || narrationDuration === 0 || !canCover(clipDurs, narrationDuration)) durations = ownDurs
         else if (useVariable) {
           onStatus?.(targets.length > 1 ? `${target.sub.name}: analisando pausas...` : 'Analisando pausas da narração...')
@@ -535,6 +551,7 @@ export function useAutoAssemble() {
             generated_in_flow: false,
             metadata: {
               sub: target.sub.id,
+              ...(settings.replace_voice && mode === 'scenes_with_audio' ? { voice_mute_intervals: voiceIntervals.filter(v => v.end > cursor && v.start < cursor + duration).map(v => ({ start: Math.max(0, v.start - cursor), end: Math.min(duration, v.end - cursor) })) } : {}),
               video_filename: video.filename,
               ...(bounds ? { trim: bounds.start, trim_end: bounds.end } : {}),
               timeline_start: Math.round(cursor * 1000) / 1000,

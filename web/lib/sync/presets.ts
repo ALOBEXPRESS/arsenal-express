@@ -207,6 +207,7 @@ export type NarrationSplit = 'per_audio' | 'continuous'
 export interface SyncSettings {
   /** Each scene lasts as long as its narration phrase (cuts snap to speech pauses) */
   variable_rhythm: boolean
+  replace_voice: boolean
   trim_silence: { start: boolean; end: boolean }
   /** How clips are ordered when the timeline is assembled */
   order: { by: SceneOrderBy; reverse: boolean }
@@ -277,6 +278,7 @@ export const DEFAULT_SCENE_PACE = 6.6 // config.yaml -> cenas.duracao_padrao
 
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   variable_rhythm: true,
+  replace_voice: false,
   trim_silence: { start: false, end: false },
   order: { by: 'modified', reverse: false },
   narration: { split: 'per_audio', pace: DEFAULT_SCENE_PACE },
@@ -321,6 +323,7 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
   const overlay_bars = { ...DEFAULT_SYNC_SETTINGS.overlay_bars, ...(s?.overlay_bars || {}) }
   return {
     variable_rhythm: s?.variable_rhythm ?? DEFAULT_SYNC_SETTINGS.variable_rhythm,
+    replace_voice: s?.replace_voice ?? false,
     trim_silence: { ...DEFAULT_SYNC_SETTINGS.trim_silence, ...(s?.trim_silence || {}) },
     order: { ...DEFAULT_SYNC_SETTINGS.order, ...(s?.order || {}) },
     narration: {

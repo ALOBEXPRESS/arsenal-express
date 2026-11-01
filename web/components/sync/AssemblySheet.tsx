@@ -208,6 +208,10 @@ export function AssemblySheet({
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5">
           <section className="rounded-xl border border-border bg-surface-2/60 p-4 space-y-3">
+            <label className="flex items-center justify-between gap-3 text-[13px]"><span>Substituir voz e preservar ambiente</span><Switch checked={s.replace_voice} onCheckedChange={(replace_voice: boolean) => setS(p => ({ ...p, replace_voice }))} /></label>
+            <p className="text-[12px] text-muted-foreground">Para voz alterada de um vídeo: mantém duração original e silencia o áudio do vídeo durante falas detectadas. Confirme a sincronização manualmente.</p>
+          </section>
+          <section className="rounded-xl border border-border bg-surface-2/60 p-4 space-y-3">
             <h3 className="font-display text-[15px] font-bold">Cortar antes e depois da fala</h3>
             <p className="text-[12px] text-muted-foreground">Detecta a fala mesmo com sons ambientes e mantém uma pequena margem em cada ponta. Confira os cortes na timeline.</p>
             <label className="flex items-center justify-between gap-3 text-[13px]"><span>No início dos vídeos</span><Switch checked={s.trim_silence.start} onCheckedChange={(start: boolean) => setS(p => ({ ...p, trim_silence: { ...p.trim_silence, start } }))} aria-label="Remover silêncio no início" /></label>

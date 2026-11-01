@@ -269,7 +269,8 @@ export function VideoPreview({
 
         const el = host.querySelector('video')
         if (!el) return
-        el.volume = Math.min(1, props.volume ?? (narrationActive ? CLIP_VOLUME_UNDER_NARRATION : 1))
+        const voiceIntervals = item.scene.metadata?.voice_mute_intervals as { start: number; end: number }[] | undefined
+        el.volume = voiceIntervals ? (voiceIntervals.some(v => since >= v.start && since < v.end) ? 0 : Math.min(1, props.volume ?? 1)) : Math.min(1, props.volume ?? (narrationActive ? CLIP_VOLUME_UNDER_NARRATION : 1))
         const clipDur = item.videoAsset?.duration || (Number.isFinite(el.duration) ? el.duration : 0)
         const visible = t < sceneEnd && (k === idx || (transitioning && k === idx - 1))
         // item.trim = part of the clip removed by the cut tool (source starts later)

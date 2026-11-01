@@ -44,6 +44,7 @@ export function useAssets(projectId: string) {
         ...asset,
         type: (asset.metadata as any)?.original_type || asset.kind,
         duration: asset.duration_seconds,
+        is_narration: (asset.metadata?.is_narration ?? asset.is_narration) === true,
         url: urlByPath.get(asset.storage_path) || '',
       })) as Asset[]
       
