@@ -5,7 +5,7 @@ import { isConfirmOpen } from '@/components/ui/confirm'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip } from '@/types/project'
 import { barLayout } from '@/lib/sync/barLayout'
-import { Play, Pause, Mic, Clock, Info, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff } from 'lucide-react'
+import { Play, Pause, Mic, Clock, Info, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff, Loader2 } from 'lucide-react'
 import {
   buildTimeline,
   totalDuration,
@@ -135,6 +135,9 @@ export function VideoPreview({
 
   const sceneEnd = totalDuration(timeline)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isBuffering, setIsBuffering] = useState(false)
+  const bufferingRef = useRef(false)
+  const [bufferedRanges, setBufferedRanges] = useState<{ start: number; end: number }[]>([])
   const [time, setTime] = useState(0)
   const [showTimecode, setShowTimecode] = useState(true)
   const [showDetails, setShowDetails] = useState(true)
@@ -366,10 +369,40 @@ export function VideoPreview({
     let last = performance.now()
     let lastUi = 0
     let lastIdx = -1
+    let lastBufferUi = 0
     const tick = (now: number) => {
       const dt = (now - last) / 1000
       last = now
-      if (playingRef.current) {
+      const currentTime = clockRef.current
+      const activeIndex = timeline.length ? sceneAt(timeline, currentTime) : -1
+      const activeItem = timeline[activeIndex]
+      const activeHost = hostRefs.find(ref => Number(ref.current?.dataset.scene ?? -1) === activeIndex)?.current
+      const video = activeHost?.querySelector('video')
+      const sourceTime = activeItem ? activeItem.trim + (currentTime - activeItem.start) * activeItem.rate : 0
+      const sourceEnd = activeItem ? Math.min(activeItem.videoAsset?.duration || Infinity, Number(activeItem.scene.metadata?.trim_end) || Infinity) : Infinity
+      const needsVideo = !!activeItem?.videoAsset && currentTime < sceneEnd && sourceTime < sourceEnd - 0.02
+      const narration = narrationAt(narrationTrack, currentTime)
+      const waiting = playingRef.current && (
+        (needsVideo && (!video || video.readyState < 3 || video.seeking)) ||
+        (!!narration && (!audioRef.current || audioRef.current.dataset.asset !== narration.asset_id || audioRef.current.readyState < 3 || audioRef.current.seeking))
+      )
+      if (bufferingRef.current !== waiting) { bufferingRef.current = waiting; setIsBuffering(waiting) }
+      if (now - lastBufferUi > 250) {
+        lastBufferUi = now
+        const ranges: { start: number; end: number }[] = []
+        for (const ref of hostRefs) {
+          const item = timeline[Number(ref.current?.dataset.scene ?? -1)]
+          const media = ref.current?.querySelector('video')
+          if (!item || !media) continue
+          for (let i = 0; i < media.buffered.length; i++) {
+            const start = Math.max(item.start, item.start + (media.buffered.start(i) - item.trim) / item.rate)
+            const end = Math.min(item.start + item.duration, item.start + (media.buffered.end(i) - item.trim) / item.rate)
+            if (end > start) ranges.push({ start, end })
+          }
+        }
+        setBufferedRanges(previous => JSON.stringify(previous) === JSON.stringify(ranges) ? previous : ranges)
+      }
+      if (playingRef.current && !waiting) {
         let next = clockRef.current + dt
         // Smooth clock (rAF) gently pulled toward the narration. audio.currentTime only updates
         // in coarse steps, so snapping to it made animations move in jerks.
@@ -400,7 +433,7 @@ export function VideoPreview({
           publishTime(t)
         }
       }
-      sync(clockRef.current, playingRef.current)
+      sync(clockRef.current, playingRef.current && !waiting)
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -989,6 +1022,7 @@ export function VideoPreview({
         <button type="button" aria-label="Tela cheia" title="Tela cheia" className="rounded p-1.5 hover:bg-white/10" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void fullscreenRef.current?.requestFullscreen() }}><Maximize2 className="h-4 w-4" /></button>
       </div>
 
+      {isBuffering && <div role="status" aria-live="polite" className="mt-2 flex items-center justify-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Carregando vídeo…</div>}
       {/* Scrubber with scene markers (click or drag) */}
       <div className="mt-3 px-1">
         <div
@@ -1022,6 +1056,7 @@ export function VideoPreview({
             if (e.key === 'ArrowLeft') seek(time - 1)
           }}
         >
+          {bufferedRanges.map((range, i) => <div key={i} aria-hidden className="absolute h-full rounded-full bg-white/25" style={{ left: `${total ? range.start / total * 100 : 0}%`, width: `${total ? (range.end - range.start) / total * 100 : 0}%` }} />)}
           <div className="absolute h-full rounded-full bg-gradient-to-r from-brand-pink to-brand-orange" style={{ width: `${total ? (time / total) * 100 : 0}%` }} />
           {timeline.slice(1).map((item) => (
             <div key={item.scene.id} className="absolute top-0 h-full w-px bg-background/80" style={{ left: `${(item.start / total) * 100}%` }} />

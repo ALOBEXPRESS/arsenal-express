@@ -19,13 +19,11 @@ interface RenderSheetProps {
   activeSubId: string
 }
 
-type PresetKey = '720p' | '1080p' | 'shorts' | 'shorts720'
+type PresetKey = '720p' | '1080p'
 
 const PRESETS: Record<PresetKey, { label: string; width: number; height: number; fps: number }> = {
-  '720p': { label: '720p (HD)', width: 1280, height: 720, fps: 30 },
+  '720p': { label: '720p (HD, mais rápido)', width: 1280, height: 720, fps: 30 },
   '1080p': { label: '1080p (Full HD)', width: 1920, height: 1080, fps: 30 },
-  shorts720: { label: 'Shorts/Reels 720p (mais rápido)', width: 720, height: 1280, fps: 30 },
-  shorts: { label: 'Shorts/Reels (9:16)', width: 1080, height: 1920, fps: 30 },
 }
 
 export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activeSubId }: RenderSheetProps) {
@@ -40,7 +38,8 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
   const isVertical = srcHeight > srcWidth
 
   // Auto-select output format based on source orientation
-  const autoPreset: PresetKey = isVertical ? 'shorts' : '1080p'
+  const autoPreset: PresetKey = '1080p'
+  const outputPresets = Object.fromEntries(Object.entries(PRESETS).map(([key, value]) => [key, { ...value, width: isVertical ? value.height : value.width, height: isVertical ? value.width : value.height }])) as typeof PRESETS
 
   const [preset, setPreset] = useState<PresetKey>(autoPreset)
   const [rendering, setRendering] = useState(false)
@@ -55,23 +54,11 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
     setResultUrl(null)
 
     try {
-      const config = PRESETS[preset]
-      
-      // Detect source aspect ratio and auto-fit
-      const srcIsVertical = srcHeight > srcWidth
-      const targetIsVertical = config.height > config.width
-      
-      let renderWidth = config.width
-      let renderHeight = config.height
-      
-      // Match orientation: if source is vertical but target is horizontal (or vice-versa), swap
-      if (srcIsVertical !== targetIsVertical) {
-        ;[renderWidth, renderHeight] = [renderHeight, renderWidth]
-      }
+      const config = outputPresets[preset]
 
       const options: RenderOptions = {
-        width: renderWidth,
-        height: renderHeight,
+        width: config.width,
+        height: config.height,
         frameRate: config.fps,
         videoCodec: 'avc',
         videoQuality: 2_000_000, // 2 Mbps
@@ -142,14 +129,14 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
           {/* Output quality selector */}
           <div className="space-y-2">
             <Label htmlFor="quality-select" className="text-sm font-medium">
-              Qualidade / Formato de Saída
+              Resolução de saída
             </Label>
             <Select value={preset} onValueChange={(v: string) => setPreset(v as PresetKey)} disabled={rendering}>
               <SelectTrigger id="quality-select" className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(PRESETS).map(([key, val]) => (
+                {Object.entries(outputPresets).map(([key, val]) => (
                   <SelectItem key={key} value={key} className="py-3">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-medium">{val.label}</span>
@@ -163,8 +150,8 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
             </Select>
             <p className="text-xs text-muted-foreground">
               {isVertical
-                ? '✓ Formato automático: Shorts/Reels para vídeos verticais'
-                : '✓ Formato automático: 1080p para vídeos horizontais'}
+                ? 'A orientação vertical dos clipes será mantida.'
+                : 'A orientação horizontal dos clipes será mantida.'}
             </p>
           </div>
 
