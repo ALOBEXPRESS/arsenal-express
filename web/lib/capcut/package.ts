@@ -1,3 +1,4 @@
+import { downloadMedia } from '@/lib/storage/media'
 // Packs a CapCut draft + its media: .zip download or direct write into com.lveditor.draft
 // (File System Access API, Chrome/Edge).
 import JSZip from 'jszip'
@@ -157,8 +158,7 @@ async function downloadAll(
       const a = assets[next++]
       const name = fileNames.get(a.id)!
       onProgress?.(done, assets.length, `Baixando ${name}`)
-      const { data, error } = await supabase.storage.from('media').download(a.storage_path)
-      if (error || !data) throw error || new Error(`Falha ao baixar ${a.filename}`)
+      const data = await downloadMedia(a)
       writing = writing.then(() => onFile(name, data))
       await writing
       done++

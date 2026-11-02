@@ -19,12 +19,12 @@ function client() {
 
 export async function signR2Read(key: string) {
   const { s3, bucket } = client()
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 900 })
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 3600 })
 }
 
-export async function signR2Upload(key: string, contentType: string) {
+export async function signR2Upload(key: string, contentType: string, contentLength: number) {
   const { s3, bucket } = client()
-  return getSignedUrl(s3, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), { expiresIn: 300 })
+  return getSignedUrl(s3, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, ContentLength: contentLength }), { expiresIn: 300 })
 }
 
 export async function statR2Object(key: string) {

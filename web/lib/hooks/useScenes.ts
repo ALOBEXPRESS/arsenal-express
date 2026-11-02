@@ -1,3 +1,4 @@
+import { downloadMedia } from '@/lib/storage/media'
 import { useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -362,7 +363,7 @@ export function useAutoAssemble() {
       if (projectError) throw projectError
       if (scenesError) throw scenesError
 
-      const assets = (rows || []).map((a) => ({ ...a, type: a.kind, duration: a.duration_seconds, url: '' })) as Asset[]
+      const assets = (rows || []).map((a) => ({ ...a, type: a.kind, duration: a.duration_seconds, is_narration: a.metadata?.is_narration === true, url: '' })) as Asset[]
       
       // Filter media by user settings
       const allowedTypes: string[] = []
@@ -405,8 +406,7 @@ export function useAutoAssemble() {
       const download = async (a: Asset) => {
         const cached = blobs.get(a.id)
         if (cached) return cached
-        const { data: blob, error } = await supabase.storage.from('media').download(a.storage_path)
-        if (error || !blob) throw error || new Error(`Falha ao baixar ${a.filename}`)
+        const blob = await downloadMedia(a)
         blobs.set(a.id, blob)
         return blob
       }

@@ -1,3 +1,4 @@
+import { deleteMedia } from '@/lib/storage/media'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -137,12 +138,9 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: async (id: string) => {
       // Remove the project's media from Storage first (DB rows cascade, files don't)
-      const { data: files } = await supabase.from('assets').select('storage_path').eq('project_id', id)
-      const paths = (files || []).map((f) => f.storage_path).filter(Boolean)
-      for (let i = 0; i < paths.length; i += 100) {
-        const { error: rmError } = await supabase.storage.from('media').remove(paths.slice(i, i + 100))
-        if (rmError) console.warn('[deleteProject] storage cleanup failed:', rmError)
-      }
+      const { data: files, error: listError } = await supabase.from('assets').select('id').eq('project_id', id)
+      if (listError) throw listError
+      for (const file of files || []) await deleteMedia(file.id)
 
       const { error } = await supabase
         .from('projects')

@@ -1,3 +1,4 @@
+import { mediaUrl, downloadMedia, deleteMedia } from '@/lib/storage/media'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Asset, UploadAssetInput } from '@/types/project'
@@ -31,12 +32,14 @@ export function useAssets(projectId: string) {
       if (rows.length > 0) {
         const { data: signed, error: signError } = await supabase.storage
           .from('media')
-          .createSignedUrls(rows.map((a) => a.storage_path), SIGNED_URL_TTL)
+          .createSignedUrls(rows.filter(a => a.metadata?.storage_provider !== 'r2').map((a) => a.storage_path), SIGNED_URL_TTL)
         if (signError) console.error('[useAssets] Failed to sign URLs:', signError)
         signed?.forEach((s) => {
           if (s.path && s.signedUrl) urlByPath.set(s.path, s.signedUrl)
         })
       }
+
+      await Promise.all(rows.filter(a => a.metadata?.storage_provider === 'r2').map(async a => { urlByPath.set(a.storage_path, await mediaUrl(a)) }))
 
       // Map DB columns to frontend fields ('kind' -> 'type', 'duration_seconds' -> 'duration')
       // Restore original_type from metadata if it was 'asset'
@@ -82,18 +85,11 @@ export function useUploadAsset() {
       const timestamp = Date.now()
       const filePath = `${project_id}/${type}/${timestamp}-${storageSafeName(file.name)}`
 
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        })
-
-      if (uploadError) {
-        console.error('Upload error details:', uploadError)
-        throw new Error(`Upload failed: ${uploadError.message || JSON.stringify(uploadError)}`)
-      }
+      const initResponse = await fetch('/api/media/uploads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project_id, size: file.size, contentType: file.type || 'application/octet-stream' }) })
+      const upload = await initResponse.json()
+      if (!initResponse.ok) throw new Error(upload.error || 'Falha ao preparar upload')
+      const put = await fetch(upload.url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file })
+      if (!put.ok) throw new Error('Falha ao enviar arquivo ao armazenamento.')
 
       // Get file metadata (duration for video/audio, thumbnails)
       let duration_seconds: number | undefined
@@ -134,35 +130,12 @@ export function useUploadAsset() {
         }
       }
 
-      const { data: asset, error: dbError } = await supabase
-        .from('assets')
-        .insert([
-          {
-            project_id,
-            kind: dbKind, // Use mapped database kind
-            origin: 'upload',
-            filename: file.name,
-            storage_path: filePath,
-            duration_seconds,
-            file_size_bytes: file.size,
-            // subtype, // Temporarily disabled - column doesn't exist
-            metadata: {
-              mime_type: file.type,
-              thumbnail, // Base64 thumbnail for preview
-              last_modified: file.lastModified, // File modification date (used by Auto Assemble ordering)
-              ...(dims || {}), // width/height → output frame (9:16 vs 16:9)
-              // Store original type when uploading as 'asset' (since DB only accepts video/audio/image)
-              original_type: type === 'asset' ? 'asset' : undefined,
-            },
-          },
-        ])
-        .select()
-        .single()
-
-      if (dbError) {
-        console.error('Database error details:', dbError)
-        throw new Error(`Database insert failed: ${dbError.message || JSON.stringify(dbError)}`)
-      }
+      const complete = await fetch('/api/media/uploads/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reservationId: upload.reservationId, asset: {
+        kind: dbKind, filename: file.name, duration_seconds,
+        metadata: { mime_type: file.type, thumbnail, last_modified: file.lastModified, ...(dims || {}), original_type: type === 'asset' ? 'asset' : undefined }
+      } }) })
+      const asset = await complete.json()
+      if (!complete.ok) throw new Error(asset.error || 'Falha ao registrar mídia')
       return asset as Asset
     },
     onSuccess: (data) => {
@@ -177,20 +150,7 @@ export function useDeleteAsset() {
 
   return useMutation({
     mutationFn: async (asset: Asset) => {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('media')
-        .remove([asset.storage_path])
-
-      if (storageError) throw storageError
-
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('assets')
-        .delete()
-        .eq('id', asset.id)
-
-      if (dbError) throw dbError
+      await deleteMedia(asset.id)
     },
     onSuccess: (_, asset) => {
       queryClient.invalidateQueries({ queryKey: ['assets', asset.project_id] })
@@ -403,8 +363,7 @@ export function useRegenerateThumbnail() {
   return useMutation({
     mutationFn: async (asset: Asset) => {
       // Download the asset file from storage
-      const { data: blob, error } = await supabase.storage.from('media').download(asset.storage_path)
-      if (error || !blob) throw error || new Error(`Failed to download ${asset.filename}`)
+      const blob = await downloadMedia(asset)
 
       // Generate thumbnail based on type
       let thumbnail: string | undefined
@@ -473,12 +432,7 @@ export function useBatchRegenerateThumbnails() {
 
         try {
           // Download the file
-          const { data: blob, error: downloadError } = await supabase.storage.from('media').download(asset.storage_path)
-          if (downloadError || !blob) {
-            console.warn(`[batch regen] Skip ${asset.filename}: download failed`, downloadError)
-            skipped++
-            continue
-          }
+          const blob = await downloadMedia(asset)
 
           // Generate thumbnail
           let thumbnail: string | undefined
