@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AudioLines, Clapperboard, Image as ImageIcon, Upload, Package, X } from 'lucide-react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Upload, Package, X, Trash2 } from 'lucide-react'
 import { useAssets, useUploadAsset, useDeleteAsset } from '@/lib/hooks/useAssets'
 import { AssetCard } from './AssetCard'
 import { AssetUpload } from './AssetUpload'
@@ -9,6 +9,8 @@ import type { Asset, AssetType } from '@/types/project'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { sortByModificationDate } from '@/lib/timeline'
 import { cn } from '@/lib/utils'
+import { confirmDialog } from '@/components/ui/confirm'
+import { toast } from 'sonner'
 
 interface AssetLibraryProps {
   projectId: string
@@ -74,6 +76,14 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
             </button>
           ))}
         </div>
+
+        <button type="button" disabled={!sorted.length || deleteAsset.isPending} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive disabled:opacity-50" onClick={async () => {
+          const ok = await confirmDialog({ title: `Excluir todas as ${sorted.length} mídias?`, description: 'Os arquivos serão removidos da biblioteca e cenas que os usam ficarão sem mídia. Esta ação não pode ser desfeita.', confirmLabel: 'Excluir todas', tone: 'danger' })
+          if (!ok) return
+          let removed = 0
+          try { for (const asset of sorted) { await deleteAsset.mutateAsync(asset); removed++ } setPreviewId(null); toast.success(`${removed} mídias excluídas`) }
+          catch (error) { toast.error(`Não foi possível excluir todas. ${removed} mídia(s) removida(s).`, { description: error instanceof Error ? error.message : undefined }) }
+        }}><Trash2 className="h-3.5 w-3.5" /> Excluir todas as mídias</button>
 
         <div className="flex gap-1 rounded-lg bg-surface-0 p-1" role="tablist" aria-label="Filtrar mídias">
           {tabs.map((t) => (

@@ -761,13 +761,6 @@ export function Timeline({
   // ---- Delete -------------------------------------------------------------------------
   const removeScene = useCallback(
     async (scene: Scene, index: number) => {
-      const ok = await confirmDialog({
-        title: `Excluir a cena ${index + 1}?`,
-        description: 'As cenas seguintes andam pra trás pra fechar o buraco.',
-        confirmLabel: 'Excluir cena',
-        tone: 'danger',
-      })
-      if (!ok) return
       try {
         await patchScene.flush(true)
         await deleteScene.mutateAsync(scene)
@@ -784,6 +777,30 @@ export function Timeline({
 
   const removeSelected = useCallback(() => {
     if (!selection) return
+    const selectedSceneIds = new Set(selectedItems.filter(item => item.kind === 'scene').map(item => item.id))
+    const chosen = allScenes ? timeline : timeline.filter(item => selectedSceneIds.has(item.scene.id))
+    if (chosen.length > 1) {
+      void (async () => {
+        if (chosen.length === timeline.length) {
+          const ok = await confirmDialog({ title: `Excluir todas as ${chosen.length} cenas?`, description: 'As demais faixas serão preservadas.', confirmLabel: 'Excluir todas', tone: 'danger' })
+          if (!ok) return
+        }
+        const next = cutHistory.slice(0, cutHistoryIndex + 1)
+        let removed = 0
+        try {
+          await patchScene.flush(true)
+          for (const item of [...chosen].reverse()) {
+            await deleteScene.mutateAsync(item.scene)
+            const index = scenes.findIndex(scene => scene.id === item.scene.id)
+            next.push({ sceneId: item.scene.id, beforeDuration: item.scene.audio_duration || 0, afterDuration: 0, beforeTrim: 0, afterTrim: 0, deletion: { scene: item.scene, index, previousId: scenes[index - 1]?.id, nextId: scenes[index + 1]?.id } })
+            removed++
+          }
+          toast.success(`${removed} cenas excluídas`, { description: 'Use Ctrl+Z para restaurar as cenas.' })
+        } catch (e) { toast.error(`Não foi possível concluir a exclusão. ${removed} cena(s) excluída(s).`, { description: e instanceof Error ? e.message : undefined }) }
+        if (removed) { setCutHistory(next); setCutHistoryIndex(next.length - 1); select(null) }
+      })()
+      return
+    }
     if (selection.kind === 'overlay') tracks.removeOverlay(selection.id)
     else if (selection.kind === 'audio') tracks.removeAudio(selection.id)
     else if (selection.kind === 'adjust') tracks.removeAdjust(selection.id)
@@ -807,7 +824,7 @@ export function Timeline({
       return
     }
     select(null)
-  }, [selection, tracks, timeline, removeScene, select, narrationTrack, assetById])
+  }, [selection, tracks, timeline, removeScene, select, narrationTrack, assetById, selectedItems, allScenes, scenes, cutHistory, cutHistoryIndex, patchScene, deleteScene])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
