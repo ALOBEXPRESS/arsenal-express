@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { ProjectList } from '@/components/projects/ProjectList'
+import { StorageSummary } from '@/components/projects/StorageSummary'
 import { NewProjectModal } from '@/components/projects/NewProjectModal'
 import { Button } from '@/components/ui/button'
 
@@ -24,6 +25,7 @@ export default function DashboardPage() {
         </Button>
       </div>
 
+      <StorageSummary />
       <ProjectList />
 
       <NewProjectModal open={showNewProjectModal} onOpenChange={setShowNewProjectModal} />
