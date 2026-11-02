@@ -13,7 +13,7 @@ export function useAssets(projectId: string) {
       const { data, error } = await supabase
         .from('assets')
         .select('*')
-        .eq('project_id', projectId)
+        .or(`project_id.eq.${projectId},library_user_id.not.is.null`)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -78,17 +78,17 @@ export function useUploadAsset() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ project_id, type, file }: UploadAssetInput) => {
+    mutationFn: async ({ project_id, type, file, signal }: UploadAssetInput) => {
       // Generate unique filename
       // Storage keys must be ASCII-safe ("…", accents etc. → "Invalid key").
       // The original name is kept in assets.filename.
       const timestamp = Date.now()
       const filePath = `${project_id}/${type}/${timestamp}-${storageSafeName(file.name)}`
 
-      const initResponse = await fetch('/api/media/uploads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project_id, size: file.size, contentType: file.type || 'application/octet-stream' }) })
+      const initResponse = await fetch('/api/media/uploads', { signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: project_id, size: file.size, contentType: file.type || 'application/octet-stream' }) })
       const upload = await initResponse.json()
       if (!initResponse.ok) throw new Error(upload.error || 'Falha ao preparar upload')
-      const put = await fetch(upload.url, { method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file })
+      const put = await fetch(upload.url, { signal, method: 'PUT', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file })
       if (!put.ok) throw new Error('Falha ao enviar arquivo ao armazenamento.')
 
       // Get file metadata (duration for video/audio, thumbnails)
@@ -130,7 +130,8 @@ export function useUploadAsset() {
         }
       }
 
-      const complete = await fetch('/api/media/uploads/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reservationId: upload.reservationId, asset: {
+      if (signal?.aborted) throw new DOMException('Importação cancelada', 'AbortError')
+      const complete = await fetch('/api/media/uploads/complete', { signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reservationId: upload.reservationId, asset: {
         kind: dbKind, filename: file.name, duration_seconds,
         metadata: { mime_type: file.type, thumbnail, last_modified: file.lastModified, ...(dims || {}), original_type: type === 'asset' ? 'asset' : undefined }
       } }) })
@@ -139,7 +140,7 @@ export function useUploadAsset() {
       return asset as Asset
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['assets', data.project_id] })
+      queryClient.invalidateQueries({ queryKey: ['assets'] })
     },
   })
 }
@@ -153,7 +154,7 @@ export function useDeleteAsset() {
       await deleteMedia(asset.id)
     },
     onSuccess: (_, asset) => {
-      queryClient.invalidateQueries({ queryKey: ['assets', asset.project_id] })
+      queryClient.invalidateQueries({ queryKey: ['assets'] })
     },
   })
 }
@@ -394,7 +395,7 @@ export function useRegenerateThumbnail() {
       return data as Asset
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['assets', data.project_id] })
+      queryClient.invalidateQueries({ queryKey: ['assets'] })
     },
   })
 }

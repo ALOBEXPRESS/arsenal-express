@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { extractVideoArchive } from '@/lib/archive'
 import type { AssetType } from '@/types/project'
@@ -8,7 +8,7 @@ import type { AssetType } from '@/types/project'
 interface AssetUploadProps {
   projectId: string
   type: AssetType
-  onUpload: (file: File) => Promise<void>
+  onUpload: (file: File, signal?: AbortSignal) => Promise<void>
   /** Called once after the whole batch finishes */
   onComplete?: () => void
 }
@@ -28,23 +28,30 @@ const MAX_SIZES: Record<AssetType, number> = {
 }
 
 export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUploadProps) {
+  const controller = useRef<AbortController | null>(null)
+  useEffect(() => () => controller.current?.abort(), [])
   const [uploading, setUploading] = useState(false)
   const [uploadCount, setUploadCount] = useState({ current: 0, total: 0 })
   const [dragActive, setDragActive] = useState(false)
 
   const handleFiles = useCallback(
     async (files: FileList) => {
+      if (controller.current && !controller.current.signal.aborted) return
+      const batch = new AbortController()
+      controller.current = batch
       const acceptTypes = ACCEPT_TYPES[type].split(',')
       const maxMB = MAX_SIZES[type] / (1024 * 1024)
       
       setUploading(true)
       const expanded: File[] = []
       for (const file of Array.from(files)) {
+        if (batch.signal.aborted) return
         if (type === 'video' && /\.(zip|rar)$/i.test(file.name)) {
           try { expanded.push(...await extractVideoArchive(file)) }
           catch (error) { toast.error(`Não foi possível abrir ${file.name}`, { description: error instanceof Error ? error.message : String(error) }) }
         } else expanded.push(file)
       }
+      if (batch.signal.aborted) return
       // Validate all files first
       const validFiles: File[] = []
       const badType: string[] = []
@@ -58,7 +65,7 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
       if (badType.length) toast.error(`${badType.length} arquivo(s) com formato não suportado`, { description: badType.join('\n') })
       if (tooBig.length) toast.error(`${tooBig.length} arquivo(s) acima de ${maxMB}MB`, { description: tooBig.join('\n') })
 
-      if (validFiles.length === 0) { setUploading(false); return }
+      if (validFiles.length === 0) { controller.current = null; setUploading(false); return }
 
       setUploading(true)
       setUploadCount({ current: 0, total: validFiles.length })
@@ -66,11 +73,13 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
       const failed: string[] = []
       // Upload files sequentially to avoid overwhelming the server; one failure doesn't stop the batch
       for (let i = 0; i < validFiles.length; i++) {
+        if (batch.signal.aborted) return
         const file = validFiles[i]
         setUploadCount({ current: i + 1, total: validFiles.length })
         try {
-          await onUpload(file)
+          await onUpload(file, batch.signal)
         } catch (error) {
+          if (batch.signal.aborted) return
           console.error(`Upload failed for ${file.name}:`, error)
           console.error('Error type:', typeof error)
           console.error('Error keys:', error ? Object.keys(error) : 'null')
@@ -78,6 +87,8 @@ export function AssetUpload({ projectId, type, onUpload, onComplete }: AssetUplo
           failed.push(file.name)
         }
       }
+      if (batch.signal.aborted) return
+      controller.current = null
       setUploading(false)
       setUploadCount({ current: 0, total: 0 })
 

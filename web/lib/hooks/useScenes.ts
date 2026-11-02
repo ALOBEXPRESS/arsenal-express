@@ -303,7 +303,7 @@ const sha256 = async (blob: Blob) => {
 }
 
 /** Scene row → input accepted by replace_scenes (keeps everything the editor uses) */
-const toSceneInput = (s: Scene) => ({
+export const toSceneInput = (s: Scene) => ({
   narration_text: s.narration_text,
   media_type: s.media_type,
   image_asset_id: s.image_asset_id ?? null,
@@ -413,8 +413,10 @@ export function useAutoAssemble() {
 
       if (settings.replace_voice && mode === 'scenes_with_audio' && (settings.trim_silence.start || settings.trim_silence.end || settings.speed.enabled)) throw new Error('Desative cortes automáticos e velocidade para manter a voz sincronizada.')
       // Analyze speech before writing scenes, keeping the originals intact if no speech is found.
+      if (settings.trim_silence.middle && (mode === 'scenes_with_audio' || getSubprojects(projectRow?.config).some(s => s.id === subId && s.narration_track?.length))) throw new Error('Desative o corte no meio para preservar a sincronização com a narração externa.')
+      const clipSegments = new Map<string, { start: number; end: number }[]>()
       const clipBounds = new Map<string, { start: number; end: number }>()
-      if (settings.trim_silence.start || settings.trim_silence.end) {
+      if (settings.trim_silence.start || settings.trim_silence.end || settings.trim_silence.middle) {
         onStatus?.('Carregando detector de voz...')
         const { createSpeechDetector } = await import('@/lib/sync/speech')
         const detectSpeech = await createSpeechDetector()
@@ -423,7 +425,14 @@ export function useAutoAssemble() {
           onStatus?.(`Detectando fala em ${video.filename}...`)
           try {
             const buffer = await decodeAudio(await download(video))
-            const bounds = await detectSpeech(buffer, video.duration || buffer.duration, settings.trim_silence)
+            let bounds
+            if (settings.trim_silence.middle) {
+              const { detectSpeechIntervals } = await import('@/lib/sync/speech')
+              const { speechKeepRanges } = await import('@/lib/sync/speechRanges')
+              const ranges = speechKeepRanges(await detectSpeechIntervals(buffer), Math.min(video.duration || buffer.duration, buffer.duration), settings.trim_silence)
+              if (ranges.length) clipSegments.set(video.id, ranges)
+              bounds = ranges.length ? { start: ranges[0].start, end: ranges[ranges.length - 1].end } : null
+            } else bounds = await detectSpeech(buffer, video.duration || buffer.duration, settings.trim_silence)
             if (bounds) clipBounds.set(video.id, bounds)
             else noSpeech.push(video.filename)
           } catch {
@@ -530,7 +539,7 @@ export function useAutoAssemble() {
 
         onStatus?.('Montando timeline...')
         let cursor = 0
-        const scenes = clips.map((video, index) => {
+        let scenes = clips.map((video, index) => {
           const duration = durations[index]
           const isImage = video.type === 'image'
           const bounds = clipBounds.get(video.id)
@@ -564,6 +573,24 @@ export function useAutoAssemble() {
           cursor += duration
           return scene
         })
+        if (settings.trim_silence.middle) {
+          cursor = 0
+          scenes = scenes.flatMap(scene => {
+            const ranges = scene.video_asset_id ? clipSegments.get(scene.video_asset_id) : undefined
+            if (!ranges) {
+              const result = { ...scene, metadata: { ...scene.metadata, timeline_start: cursor } }
+              cursor += scene.audio_duration
+              return [result]
+            }
+            return ranges.map(range => {
+              const duration = (range.end - range.start) / scene.metadata.playback_rate
+              const result = { ...scene, audio_duration: duration, metadata: { ...scene.metadata, trim: range.start, trim_end: range.end, timeline_start: cursor } }
+              cursor += duration
+              return result
+            })
+          })
+          durations = scenes.map(scene => scene.audio_duration)
+        }
         const covered = durations.reduce((a, b) => a + b, 0)
         
         // Add image overlays if both videos and images are enabled
@@ -646,7 +673,7 @@ export function useAutoAssemble() {
         if (settings.overlay_bars.enabled) {
           // Check for favorite asset
           const favoriteAsset = settings.overlay_bars.favorite_asset_id 
-            ? assets.find(a => a.id === settings.overlay_bars.favorite_asset_id)
+            ? assets.find(a => a.id === settings.overlay_bars.favorite_asset_id && a.type === 'asset' && a.is_favorite && a.kind !== 'audio')
             : null
           
           console.log('[Overlay Bars]', {

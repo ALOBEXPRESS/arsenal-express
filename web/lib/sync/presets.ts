@@ -208,7 +208,7 @@ export interface SyncSettings {
   /** Each scene lasts as long as its narration phrase (cuts snap to speech pauses) */
   variable_rhythm: boolean
   replace_voice: boolean
-  trim_silence: { start: boolean; end: boolean }
+  trim_silence: { start: boolean; end: boolean; middle: boolean }
   /** How clips are ordered when the timeline is assembled */
   order: { by: SceneOrderBy; reverse: boolean }
   /** Several narration files: one subproject per file, or one continuous timeline */
@@ -279,12 +279,12 @@ export const DEFAULT_SCENE_PACE = 6.6 // config.yaml -> cenas.duracao_padrao
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   variable_rhythm: true,
   replace_voice: false,
-  trim_silence: { start: false, end: false },
-  order: { by: 'modified', reverse: false },
+  trim_silence: { start: true, end: true, middle: false },
+  order: { by: 'name', reverse: false },
   narration: { split: 'per_audio', pace: DEFAULT_SCENE_PACE },
   speed: { enabled: false, value: 1.0 },
   media: {
-    with_images: true,
+    with_images: false,
     with_videos: true,
     images_as_overlay_every: 3,
     favorite_image_id: null,

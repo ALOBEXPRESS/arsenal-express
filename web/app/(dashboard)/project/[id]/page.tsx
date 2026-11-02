@@ -78,6 +78,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [showAssembly, setShowAssembly] = useState(false)
   const [sidebarTab, setSidebarTab] = useState<'assets' | 'sfx'>('assets')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [timelineHeight, setTimelineHeight] = useState(230)
   const [inspectorHeight, setInspectorHeight] = useState(400) // Initial height in pixels
   const [isResizing, setIsResizing] = useState(false)
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false) // New state for Inspector collapse
@@ -450,8 +451,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         {/* Monitor + timeline (min-w-0 keeps the lanes from widening the page) */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden" style={{ transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center bg-surface-0 p-4">
-              <div className="h-full w-full max-w-5xl">
+            <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center bg-surface-0 p-2">
+              <div className="h-full w-full">
                 <VideoPreview
                   key={subId}
                   scenes={subScenes}
@@ -529,7 +530,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           </div>
 
           {/* Timeline - fixed height, Inspector overlays it when expanded */}
-          <div className="h-[330px] flex-shrink-0 border-t border-border">
+          <div role="separator" aria-label="Ajustar altura do visor e da timeline" aria-orientation="horizontal" tabIndex={0} className="group flex h-2 shrink-0 cursor-row-resize items-center justify-center border-y border-border bg-surface-1 hover:bg-primary/20 focus-visible:bg-primary/20" onKeyDown={e => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setTimelineHeight(h => Math.max(160, Math.min(window.innerHeight * 0.65, h + (e.key === 'ArrowUp' ? 20 : -20)))) } }} onPointerDown={e => {
+            e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId)
+            const start = e.clientY, height = timelineHeight, target = e.currentTarget
+            const move = (event: PointerEvent) => setTimelineHeight(Math.max(160, Math.min(window.innerHeight * 0.65, height + start - event.clientY)))
+            const end = () => { target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', end); target.removeEventListener('pointercancel', end) }
+            target.addEventListener('pointermove', move); target.addEventListener('pointerup', end); target.addEventListener('pointercancel', end)
+          }}><span className="h-1 w-12 rounded bg-muted-foreground/40 group-hover:bg-primary" /></div>
+          <div className="flex-shrink-0 border-t border-border" style={{ height: timelineHeight }}>
             <Timeline
               projectId={id}
               scenes={subScenes}
@@ -546,6 +554,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                 seek(0)
                 toast.success(`${sp.name} criado`, { description: 'Arraste a narração e os clipes dele pra timeline.' })
               }}
+              onDuplicateSub={async (sid) => { try { const copy = await tracks.duplicateSubproject(sid); setActiveSub(copy.id); seek(0); toast.success(`${copy.name} criada`) } catch (error) { toast.error(error instanceof Error ? error.message : 'Falha ao duplicar sequência') } }}
               onRenameSub={tracks.renameSubproject}
               onRemoveSub={(sid) => void removeSub(sid)}
               assets={assets || []}

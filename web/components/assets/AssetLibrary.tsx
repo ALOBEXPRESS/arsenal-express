@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AudioLines, Clapperboard, Image as ImageIcon, Upload, Package, X, Trash2 } from 'lucide-react'
 import { useAssets, useUploadAsset, useDeleteAsset } from '@/lib/hooks/useAssets'
 import { AssetCard } from './AssetCard'
@@ -21,18 +21,22 @@ const UPLOAD_COPY: Record<AssetType, { title: string; text: string }> = {
   video: { title: 'Clipes de vídeo', text: 'Selecione vários de uma vez. A ordem na timeline segue a data de modificação.' },
   audio: { title: 'Áudio', text: 'Um ou mais áudios. Marque como narração se for narração de fato.' },
   image: { title: 'Imagens', text: 'Fotos ou artes pra cenas estáticas (com animação de câmera).' },
-  asset: { title: 'Assets Extras', text: 'GIF, JPG, MOV, Lottie, stickers (PNG/SVG/GIF). Vão pro CapCut mas não são usados na montagem automática.' },
+  asset: { title: 'Assets Extras', text: 'Biblioteca da sua conta, disponível em todos os projetos. Favorite uma imagem, GIF ou vídeo para usar nas barras de overlay.' },
 }
 
 export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
   const { data: assets, isLoading } = useAssets(projectId)
   const uploadAsset = useUploadAsset()
   const deleteAsset = useDeleteAsset()
+  const [selected, setSelected] = useState<string[]>([])
+  useEffect(() => { setSelected([]) }, [projectId])
+  const toggle = (id: string) => setSelected(previous => previous.includes(id) ? previous.filter(x => x !== id) : [...previous, id])
   const [activeTab, setActiveTab] = useState<AssetType | 'all'>('all')
   const [showUpload, setShowUpload] = useState<AssetType | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
   const previewAsset = assets?.find((asset) => asset.id === previewId && asset.type === 'video')
 
+  const projectAssets = (assets || []).filter(a => a.type !== 'asset')
   const sorted = sortByModificationDate(assets || [])
   const filtered = activeTab === 'all' ? sorted : sorted.filter((a) => a.type === activeTab)
   const count = (t: AssetType) => sorted.filter((a) => a.type === t).length
@@ -77,14 +81,26 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
           ))}
         </div>
 
-        <button type="button" disabled={!sorted.length || deleteAsset.isPending} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive disabled:opacity-50" onClick={async () => {
-          const ok = await confirmDialog({ title: `Excluir todas as ${sorted.length} mídias?`, description: 'Os arquivos serão removidos da biblioteca e cenas que os usam ficarão sem mídia. Esta ação não pode ser desfeita.', confirmLabel: 'Excluir todas', tone: 'danger' })
+        <button type="button" disabled={!projectAssets.length || deleteAsset.isPending} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive disabled:opacity-50" onClick={async () => {
+          const ok = await confirmDialog({ title: `Excluir todas as ${projectAssets.length} mídias?`, description: 'Os arquivos serão removidos da biblioteca e cenas que os usam ficarão sem mídia. Esta ação não pode ser desfeita.', confirmLabel: 'Excluir todas', tone: 'danger' })
           if (!ok) return
           let removed = 0
-          try { for (const asset of sorted) { await deleteAsset.mutateAsync(asset); removed++ } setPreviewId(null); toast.success(`${removed} mídias excluídas`) }
+          try { for (const asset of projectAssets) { await deleteAsset.mutateAsync(asset); removed++ } setPreviewId(null); toast.success(`${removed} mídias excluídas`) }
           catch (error) { toast.error(`Não foi possível excluir todas. ${removed} mídia(s) removida(s).`, { description: error instanceof Error ? error.message : undefined }) }
-        }}><Trash2 className="h-3.5 w-3.5" /> Excluir todas as mídias</button>
+        }}><Trash2 className="h-3.5 w-3.5" /> Excluir mídias do projeto</button>
 
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <button type="button" onClick={() => setSelected(filtered.map(a => a.id))} disabled={!filtered.length}>Selecionar visíveis</button>
+          {selected.length > 0 && <><button type="button" onClick={() => setSelected([])}>Limpar seleção</button><button type="button" disabled={deleteAsset.isPending} className="text-destructive" onClick={async () => {
+            const targets = sorted.filter(a => selected.includes(a.id))
+            if (!targets.length) return
+            if (!await confirmDialog({ title: `Excluir ${targets.length} mídias selecionadas?`, description: 'Os arquivos serão removidos. Assets Extras são compartilhados: excluí-los afeta todos os seus projetos.', confirmLabel: 'Excluir selecionadas', tone: 'danger' })) return
+            const removed: string[] = []
+            try { for (const asset of targets) { await deleteAsset.mutateAsync(asset); removed.push(asset.id) } toast.success(`${removed.length} mídias excluídas`) }
+            catch (error) { toast.error(error instanceof Error ? error.message : 'Falha ao excluir mídias') }
+            finally { setSelected(previous => previous.filter(id => !removed.includes(id))); if (previewId && removed.includes(previewId)) setPreviewId(null) }
+          }}>Excluir selecionadas ({selected.length})</button></>}
+        </div>
         <div className="flex gap-1 rounded-lg bg-surface-0 p-1" role="tablist" aria-label="Filtrar mídias">
           {tabs.map((t) => (
             <button
@@ -117,8 +133,8 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
               <AssetUpload
                 projectId={projectId}
                 type={showUpload}
-                onUpload={async (file) => {
-                  await uploadAsset.mutateAsync({ project_id: projectId, type: showUpload, file })
+                onUpload={async (file, signal) => {
+                  await uploadAsset.mutateAsync({ project_id: projectId, type: showUpload, file, signal })
                 }}
                 onComplete={() => setShowUpload(null)}
               />
@@ -158,7 +174,10 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {filtered.map((asset) => (
-              <AssetCard key={asset.id} asset={asset} onDelete={(a) => { if (a.id === previewId) setPreviewId(null); deleteAsset.mutate(a) }} onSelect={(a) => { if (a.type === 'video') setPreviewId(a.id); onSelectAsset?.(a) }} />
+              <div key={asset.id} className={cn('relative rounded-lg', selected.includes(asset.id) && 'ring-2 ring-brand-cyan')} onClickCapture={e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggle(asset.id) } }}>
+              <input type="checkbox" aria-label={`Selecionar ${asset.filename}`} checked={selected.includes(asset.id)} onClick={e => e.stopPropagation()} onChange={() => toggle(asset.id)} className="absolute right-2 top-10 z-20 h-4 w-4 accent-primary" />
+              <AssetCard asset={asset} onDelete={(a) => { if (a.id === previewId) setPreviewId(null); deleteAsset.mutate(a) }} onSelect={(a) => { if (a.type === 'video') setPreviewId(a.id); onSelectAsset?.(a) }} />
+              </div>
             ))}
           </div>
         )}

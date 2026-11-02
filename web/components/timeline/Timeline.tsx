@@ -1,5 +1,7 @@
 'use client'
 
+import { ContextMenu } from 'radix-ui'
+
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Clapperboard,
@@ -32,7 +34,7 @@ import { useDeleteScene, useReorderScenes, useInsertScene, useSplitScene, useUnd
 import { newClipId, type Tracks } from '@/lib/hooks/useTracks'
 import { useSFXManifest } from '@/hooks/useSFXManifest'
 import { Button } from '@/components/ui/button'
-import { confirmDialog } from '@/components/ui/confirm'
+import { confirmDialog, isConfirmOpen } from '@/components/ui/confirm'
 import { buildTimeline, totalDuration, formatTime, formatClock, type TimedScene } from '@/lib/timeline'
 import { normalizeAnimation, normalizeTransition, ANIMATION_BY_ID, TRANSITION_BY_ID } from '@/lib/sync/presets'
 import { usePlayhead } from '@/lib/stores/playhead'
@@ -62,6 +64,7 @@ interface TimelineProps {
   subprojects: Subproject[]
   activeSub: string
   onSelectSub: (id: string) => void
+  onDuplicateSub: (id: string) => void
   onAddSub: () => void
   onRenameSub: (id: string, name: string) => void
   onRemoveSub: (id: string) => void
@@ -144,6 +147,7 @@ function Waveform({ seed, width, className }: { seed: string; width: number; cla
 
 interface ClipBlockProps {
   item: TimedScene
+  snapTo?: number[]
   pps: number
   active: boolean
   selected: boolean
@@ -157,7 +161,7 @@ interface ClipBlockProps {
   onTrim: (newDuration: number, newTrim: number) => void
 }
 
-function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, onDelete, onDragStart, onDragEnd, onTrim }: ClipBlockProps) {
+function ClipBlock({ item, snapTo = [], pps, active, selected, dragging, onSelect, onEdit, onDelete, onDragStart, onDragEnd, onTrim }: ClipBlockProps) {
   const media: Asset | undefined = item.videoAsset || item.imageAsset
   const thumb = (media?.metadata?.thumbnail as string | undefined) || (item.imageAsset ? item.imageAsset.url : undefined)
   
@@ -175,27 +179,25 @@ function ClipBlock({ item, pps, active, selected, dragging, onSelect, onEdit, on
     const el = e.currentTarget as HTMLElement
     el.setPointerCapture(e.pointerId)
     let latest = { duration: item.duration, trim: item.trim }
+    const snap = (time: number, min: number, max: number) => {
+      let best = Math.max(min, Math.min(max, time)), distance = SNAP_PX / pps
+      for (const point of snapTo) if (point >= min && point <= max && Math.abs(point - time) < distance) { best = point; distance = Math.abs(point - time) }
+      return best
+    }
     const move = (ev: PointerEvent) => {
       const dt = (ev.clientX - x0) / pps
       
       if (edge === 'end') {
-        // Trim end: adjust duration
-        let nd = Math.max(0.2, item.duration + dt)
-        // Limit to source duration if video
-        const sourceDur = media?.duration
-        if (sourceDur && media?.type === 'video') {
-          const rate = item.rate || 1
-          nd = Math.max(0.2, Math.min(nd, (sourceDur - item.trim) / rate))
-        }
-        latest = { duration: Math.round(nd * 1000) / 1000, trim: item.trim }
-      } else {
-        // Move the source in-point while keeping the end of the clip fixed.
         const rate = item.rate || 1
-        const deltaStart = Math.max(-item.trim / rate, Math.min(dt, item.duration - 0.2))
-        latest = {
-          trim: Math.round((item.trim + deltaStart * rate) * 1000) / 1000,
-          duration: Math.max(0.2, item.duration - deltaStart),
-        }
+        const sourceDuration = media?.duration
+        const max = sourceDuration && item.videoAsset ? Math.max(0.2, (sourceDuration - item.trim) / rate) : Infinity
+        const end = snap(item.start + item.duration + dt, item.start + 0.2, item.start + max)
+        latest = { duration: end - item.start, trim: item.trim }
+      } else {
+        const rate = item.rate || 1
+        const start = snap(item.start + dt, item.start - item.trim / rate, item.start + item.duration - 0.2)
+        const delta = start - item.start
+        latest = { trim: Math.max(0, item.trim + delta * rate), duration: item.duration - delta }
       }
       setDraft(latest)
     }
@@ -580,6 +582,7 @@ export function Timeline({
   activeSub,
   onSelectSub,
   onAddSub,
+  onDuplicateSub,
   onRenameSub,
   onRemoveSub,
   subId,
@@ -828,6 +831,7 @@ export function Timeline({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (isConfirmOpen() || e.defaultPrevented || (e.target as HTMLElement)?.closest('[role="dialog"], [role="alertdialog"]')) return
       const el = e.target as HTMLElement
       if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -1245,6 +1249,7 @@ export function Timeline({
   // Keyboard shortcuts for undo/redo and split
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isConfirmOpen() || e.defaultPrevented || (e.target as HTMLElement)?.closest('[role="dialog"], [role="alertdialog"]')) return
       const target = e.target as HTMLElement | null
       const key = e.key.toLowerCase()
       const historyShortcut = (e.ctrlKey || e.metaKey) && (key === "z" || key === "y")
@@ -1299,7 +1304,7 @@ export function Timeline({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
         <div className="flex min-w-0 items-center gap-3">
           <h2 className="sr-only">Timeline</h2>
-          <div role="tablist" aria-label="Subprojetos" className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-lg border border-border bg-surface-0 p-0.5">
+          <div role="tablist" aria-label="Sequências" className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-lg border border-border bg-surface-0 p-0.5">
             {subprojects.map((sp) => {
               const active = sp.id === activeSub
               const dur = Math.max(
@@ -1307,12 +1312,12 @@ export function Timeline({
                 active ? total : 0
               )
               return (
-                <div key={sp.id} className="group/tab relative flex shrink-0 items-center">
+                <ContextMenu.Root key={sp.id}><ContextMenu.Trigger asChild><div className="group/tab relative flex shrink-0 items-center">
                   {renaming === sp.id ? (
                     <input
                       autoFocus
                       defaultValue={sp.name}
-                      aria-label="Nome do subprojeto"
+                      aria-label="Nome da sequência"
                       className="h-7 w-36 rounded-md border border-primary bg-surface-1 px-2 font-display text-[13px] font-bold outline-none"
                       onBlur={(e) => {
                         onRenameSub(sp.id, e.currentTarget.value)
@@ -1351,14 +1356,14 @@ export function Timeline({
                       <X className="h-3 w-3" />
                     </button>
                   )}
-                </div>
+                </div></ContextMenu.Trigger><ContextMenu.Portal><ContextMenu.Content className="z-50 min-w-48 rounded-lg border border-border bg-surface-1 p-1 shadow-xl"><ContextMenu.Item className="cursor-pointer rounded px-3 py-2 text-sm outline-none focus:bg-surface-3" onSelect={() => onDuplicateSub(sp.id)}>Dividir projeto — duplicar sequência</ContextMenu.Item></ContextMenu.Content></ContextMenu.Portal></ContextMenu.Root>
               )
             })}
             <button
               type="button"
               onClick={onAddSub}
-              aria-label="Novo subprojeto"
-              title="Novo subprojeto (vira outra linha do tempo no CapCut)"
+              aria-label="Nova sequência"
+              title="Nova sequência (vira outra linha do tempo no CapCut)"
               className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -1709,6 +1714,7 @@ export function Timeline({
                     <ClipBlock
                       key={item.scene.id}
                       item={item}
+                      snapTo={magnetEnabled ? [usePlayhead.getState().time, ...timeline.flatMap(t => [t.start, t.start + t.duration])] : []}
                       pps={scale}
                       active={activeSceneIndex !== undefined && activeSceneIndex >= item.start && activeSceneIndex < item.start + item.duration}
                       selected={allScenes || isSelected('scene', item.scene.id)}

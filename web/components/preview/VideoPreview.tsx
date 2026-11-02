@@ -1,5 +1,7 @@
 'use client'
 
+import { isConfirmOpen } from '@/components/ui/confirm'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip } from '@/types/project'
 import { barLayout } from '@/lib/sync/barLayout'
@@ -48,7 +50,7 @@ interface VideoPreviewProps {
 // Clip audio is kept low under narration (config.yaml -> audio.clipes.volume_db: -18)
 export const CLIP_VOLUME_UNDER_NARRATION = 0.125
 const DRIFT_TOLERANCE = 0.3
-const HARD_SEEK = 0.6
+const HARD_SEEK = 0.08
 
 function safePlay(el: HTMLMediaElement) {
   if (!el.paused) return
@@ -68,10 +70,10 @@ function hasTransition(item?: TimedScene) {
  * Keeps a media element on the master clock.
  * local = position inside the source; end = last playable second.
  */
-function syncMedia(el: HTMLMediaElement, local: number, rate: number, playing: boolean, active: boolean, end = Infinity) {
-  if (!active || local < 0) {
+function syncMedia(el: HTMLMediaElement, local: number, rate: number, playing: boolean, active: boolean, end = Infinity, start = 0) {
+  if (!active || local < start) {
     if (!el.paused) el.pause()
-    if (el.currentTime > 0.05 && el.readyState > 0 && local < 0) el.currentTime = 0
+    if (el.readyState > 0 && Math.abs(el.currentTime - start) > 0.001 && local < start) el.currentTime = start
     return
   }
   if (local >= end) {
@@ -195,6 +197,7 @@ export function VideoPreview({
     return vertical ? { w: 9, h: 16 } : { w: 16, h: 9 }
   }, [format, assets, probedVertical])
 
+  const fullscreenRef = useRef<HTMLDivElement>(null)
   const monitorRef = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
   useEffect(() => {
@@ -274,7 +277,7 @@ export function VideoPreview({
         const clipDur = item.videoAsset?.duration || (Number.isFinite(el.duration) ? el.duration : 0)
         const visible = t < sceneEnd && (k === idx || (transitioning && k === idx - 1))
         // item.trim = part of the clip removed by the cut tool (source starts later)
-        syncMedia(el, item.trim + since * item.rate, item.rate, playing, visible, Math.min(clipDur > 0 ? clipDur : Infinity, Number(item.scene.metadata?.trim_end) || Infinity) - 0.05)
+        syncMedia(el, item.trim + since * item.rate, item.rate, playing, visible, Math.min(clipDur > 0 ? clipDur : Infinity, Number(item.scene.metadata?.trim_end) || Infinity, item.trim + item.duration * item.rate) - 0.001, item.trim)
       })
 
       // Overlays: visibility per frame + video sync (text bars)
@@ -464,6 +467,7 @@ export function VideoPreview({
   // Space bar toggles playback (ignored while typing in inputs / using sliders)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (isConfirmOpen() || e.defaultPrevented || (e.target as HTMLElement)?.closest('[role="dialog"], [role="alertdialog"]')) return
       const el = e.target as HTMLElement
       const tag = el?.tagName
       if (e.code !== 'Space' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.getAttribute?.('role') === 'slider') return
@@ -538,11 +542,11 @@ export function VideoPreview({
   const fx = transitionStyle(transitionType, progress)
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div ref={fullscreenRef} className="flex h-full w-full flex-col bg-surface-0 fullscreen:p-4">
       {/* Monitor */}
       <div
         ref={monitorRef}
-        className="group relative flex-1 cursor-pointer overflow-hidden rounded-xl border border-border"
+        className="group relative min-h-0 flex-1 cursor-pointer overflow-hidden rounded-xl border border-border"
         onClick={togglePlay}
       >
         {/* Stage = the actual output frame (9:16, 16:9…). Clips fill it (cover) and animations
@@ -579,12 +583,14 @@ export function VideoPreview({
                     <img src={still.url} alt={still.filename} className="absolute inset-0 h-full w-full object-contain" />
                   ) : (
                     <video
+                      key={`${item?.scene.id}:${item?.trim}:${item?.duration}:${item?.rate}`}
                       src={(item?.videoAsset && proxyUrls[item.videoAsset.id]) || item?.videoAsset?.url || undefined}
-                      poster={item?.videoAsset?.metadata?.thumbnail as string | undefined}
+                      poster={item?.trim ? undefined : item?.videoAsset?.metadata?.thumbnail as string | undefined}
                       preload="auto"
                       playsInline
                       onLoadedMetadata={(e) => {
                         const v = e.currentTarget
+                        if (item) v.currentTime = item.trim + Math.max(0, Math.min(item.duration, clockRef.current - item.start)) * item.rate
                         if (v.videoWidth && v.videoHeight) setProbedVertical(v.videoHeight > v.videoWidth)
                       }}
                       className="absolute inset-0 h-full w-full object-contain"
@@ -978,9 +984,9 @@ export function VideoPreview({
         {proxyStatus && <span className="text-xs text-muted-foreground" role="status">{proxyStatus}</span>}
         <label className="text-xs text-muted-foreground">Qualidade <select aria-label="Qualidade do preview" className="ml-1 rounded bg-surface-2 p-1" value={previewQuality} onChange={e => { setProxyStatus(''); setPreviewQuality(e.target.value as 'original' | '360' | '720') }}><option value="original">Original</option><option value="360">360p</option><option value="720">720p</option></select></label>
         <button type="button" aria-label="Diminuir zoom do monitor" title="Diminuir zoom" className="rounded p-1.5 hover:bg-white/10" onClick={() => setZoomLevel((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}><ZoomOut className="h-4 w-4" /></button>
-        <button type="button" title="Ajustar zoom" className="min-w-12 rounded px-1 text-xs hover:bg-white/10" onClick={() => setZoomLevel(1)}>{Math.round(zoomLevel * 100)}%</button>
+        <button type="button" title="Ajustar zoom" className="min-w-12 rounded px-1 text-xs hover:bg-white/10" onClick={() => setZoomLevel(1)}>{zoomLevel === 1 ? 'Ajustar' : `${Math.round(zoomLevel * 100)}%`}</button>
         <button type="button" aria-label="Aumentar zoom do monitor" title="Aumentar zoom" className="rounded p-1.5 hover:bg-white/10" onClick={() => setZoomLevel((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))}><ZoomIn className="h-4 w-4" /></button>
-        <button type="button" aria-label="Tela cheia" title="Tela cheia" className="rounded p-1.5 hover:bg-white/10" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void monitorRef.current?.requestFullscreen() }}><Maximize2 className="h-4 w-4" /></button>
+        <button type="button" aria-label="Tela cheia" title="Tela cheia" className="rounded p-1.5 hover:bg-white/10" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void fullscreenRef.current?.requestFullscreen() }}><Maximize2 className="h-4 w-4" /></button>
       </div>
 
       {/* Scrubber with scene markers (click or drag) */}

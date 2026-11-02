@@ -17,7 +17,7 @@ export function splitSceneData(scene: Scene, point: number, duration: number, tr
     ...(scene.animation_type ? { animation_type: scene.animation_type } : {}),
     transition_in: 'cut',
     generated_in_flow: scene.generated_in_flow,
-    metadata: { ...scene.metadata, trim: trim + point * rate, speed: rate },
+    metadata: { ...scene.metadata, trim: trim + point * rate, trim_end: trim + duration * rate, speed: rate },
   }
-  return { left: { audio_duration: point, metadata: { ...scene.metadata, trim, speed: rate } }, right }
+  return { left: { audio_duration: point, metadata: { ...scene.metadata, trim, trim_end: trim + point * rate, speed: rate } }, right }
 }

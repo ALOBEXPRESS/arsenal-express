@@ -8,10 +8,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
   const { id } = await params
-  const { data: asset } = await supabase.from('assets').select('id, project_id, storage_path, metadata').eq('id', id).single()
+  const { data: asset } = await supabase.from('assets').select('id, project_id, library_user_id, storage_path, metadata').eq('id', id).single()
   if (!asset) return NextResponse.json({ error: 'Mídia não encontrada' }, { status: 404 })
   const { data: project } = await supabase.from('projects').select('id').eq('id', asset.project_id).eq('user_id', user.id).single()
-  if (!project) return NextResponse.json({ error: 'Mídia não encontrada' }, { status: 404 })
+  if (asset.library_user_id !== user.id && !project) return NextResponse.json({ error: 'Mídia não encontrada' }, { status: 404 })
   try {
     if (asset.metadata?.storage_provider === 'r2') {
       const admin=storageAdmin()

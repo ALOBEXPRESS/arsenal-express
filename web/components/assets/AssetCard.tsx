@@ -19,6 +19,7 @@ interface AssetCardProps {
 const ICONS = { video: Clapperboard, audio: AudioLines, image: ImageIcon, asset: Package }
 
 export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
+  const confirmingDelete = useRef(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const thumb = asset.metadata?.thumbnail as string | undefined
@@ -190,15 +191,17 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
         {/* Delete Button */}
         {onDelete && (
           <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={async (e) => {
+              e.preventDefault()
               e.stopPropagation()
-              const ok = await confirmDialog({
-                title: `Excluir "${asset.filename}"?`,
-                description: 'O arquivo sai da biblioteca. Cenas que usam essa mídia ficam sem clipe.',
-                confirmLabel: 'Excluir',
-                tone: 'danger',
-              })
-              if (ok) onDelete(asset)
+              if (confirmingDelete.current) return
+              confirmingDelete.current = true
+              try {
+                const ok = await confirmDialog({ title: `Excluir "${asset.filename}"?`, description: asset.type === 'asset' ? 'Este asset sai da biblioteca da conta e deixa de estar disponível em todos os seus projetos.' : 'O arquivo sai da biblioteca. Cenas que usam essa mídia ficam sem clipe.', confirmLabel: 'Excluir', tone: 'danger' })
+                if (ok === true) onDelete(asset)
+              } finally { confirmingDelete.current = false }
             }}
             className="absolute left-1.5 top-1.5 rounded-full bg-black/65 p-1.5 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-destructive hover:shadow-[0_0_15px_rgba(239,68,68,0.6)] focus-visible:opacity-100 group-hover:opacity-100"
             aria-label={`Excluir ${asset.filename}`}

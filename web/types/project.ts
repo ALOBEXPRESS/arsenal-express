@@ -165,7 +165,9 @@ export interface NarrationSegment {
 
 export interface Asset {
   id: string
-  project_id: string
+  /** Null for account-wide Extras. */
+  project_id: string | null
+  library_user_id?: string | null
   type: AssetType
   kind?: AssetType
   filename: string
@@ -244,6 +246,7 @@ export interface CreateSceneInput {
 }
 
 export interface UploadAssetInput {
+  signal?: AbortSignal
   project_id: string
   type: AssetType
   file: File

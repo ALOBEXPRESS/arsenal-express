@@ -7,7 +7,7 @@ import type { NarrationSegment, ProjectSettings, Scene, Subproject } from '@/typ
 
 export const MAIN_SUB = 'main'
 
-export const subName = (index: number) => `Subprojeto ${index + 1}`
+export const subName = (index: number) => `Sequência ${index + 1}`
 
 export function emptySub(id: string, index: number): Subproject {
   return { id, name: subName(index), narration_track: [], overlays: [], image_overlays: [], audio_clips: [], adjustments: [] }
@@ -18,7 +18,7 @@ export function getSubprojects(settings?: Partial<ProjectSettings> | null): Subp
   if (list && list.length) {
     return list.map((s, i) => ({
       id: s.id || (i === 0 ? MAIN_SUB : `sub-${i}`),
-      name: s.name || subName(i),
+      name: !s.name || /^Subprojeto\s*\d+$/i.test(s.name) ? subName(i) : s.name,
       narration_track: s.narration_track || [],
       overlays: s.overlays || [],
       image_overlays: s.image_overlays || [],

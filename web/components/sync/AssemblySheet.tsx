@@ -212,10 +212,12 @@ export function AssemblySheet({
             <p className="text-[12px] text-muted-foreground">Para voz alterada: confere duração e fala. Os clipes são silenciados; você pode reativar o áudio em cada cena. Confira a sincronização manualmente.</p>
           </section>
           <section className="rounded-xl border border-border bg-surface-2/60 p-4 space-y-3">
-            <h3 className="font-display text-[15px] font-bold">Cortar antes e depois da fala</h3>
+            <h3 className="font-display text-[15px] font-bold">Cortar pausas dos vídeos</h3>
             <p className="text-[12px] text-muted-foreground">Detecta a fala mesmo com sons ambientes e mantém uma pequena margem em cada ponta. Confira os cortes na timeline.</p>
             <label className="flex items-center justify-between gap-3 text-[13px]"><span>No início dos vídeos</span><Switch checked={s.trim_silence.start} onCheckedChange={(start: boolean) => setS(p => ({ ...p, trim_silence: { ...p.trim_silence, start } }))} aria-label="Remover silêncio no início" /></label>
             <label className="flex items-center justify-between gap-3 text-[13px]"><span>No final dos vídeos</span><Switch checked={s.trim_silence.end} onCheckedChange={(end: boolean) => setS(p => ({ ...p, trim_silence: { ...p.trim_silence, end } }))} aria-label="Remover silêncio no final" /></label>
+            <label className="flex items-center justify-between gap-3 text-[13px]"><span>No meio dos vídeos</span><Switch checked={s.trim_silence.middle} onCheckedChange={(middle: boolean) => setS(p => ({ ...p, trim_silence: { ...p.trim_silence, middle } }))} aria-label="Remover pausas no meio" /></label>
+            <p className="text-[12px] text-muted-foreground">No meio: mantém pausas curtas, 0,8 s antes e 1 s depois da fala. Use sem narração externa.</p>
           </section>
           <section aria-labelledby="order-title" className="rounded-xl border border-border bg-surface-2/60 p-4">
             <div className="flex items-start gap-3">
@@ -494,7 +496,7 @@ export function AssemblySheet({
                 className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
               >
                 <option value="">Nenhum asset overlay</option>
-                {assets.filter(a => a.is_favorite).map((asset) => (
+                {assets.filter(a => a.type === 'asset' && a.is_favorite && a.kind !== 'audio').map((asset) => (
                   <option key={asset.id} value={asset.id}>
                     {asset.filename}
                   </option>

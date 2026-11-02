@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useProject } from './useProjects'
-import { patchProjectConfig } from './useScenes'
+import { patchProjectConfig, toSceneInput } from './useScenes'
 import { emptySub, getSubprojects, relayNarration, MAIN_SUB, sceneSub } from '@/lib/subprojects'
 import type { AdjustClip, AudioClip, Asset, OverlayClip, Project, Scene, Subproject } from '@/types/project'
 import type { SyncSettings } from '@/lib/sync/presets'
@@ -79,7 +79,7 @@ export function useTracks(projectId: string, subId: string) {
     await flush()
     if (!settings.overlay_bars.enabled) return
     const favoriteId = settings.overlay_bars.favorite_asset_id
-    const favorite = favoriteId ? assets.find(a => a.id === favoriteId) : undefined
+    const favorite = favoriteId ? assets.find(a => a.id === favoriteId && a.type === 'asset' && a.is_favorite && a.kind !== 'audio') : undefined
     if (favoriteId && !favorite) throw new Error('O asset selecionado não foi encontrado na biblioteca.')
     if (!favorite) throw new Error('Selecione um asset favorito para adicionar as barras sem remontar.')
     const list = read()
@@ -160,6 +160,30 @@ export function useTracks(projectId: string, subId: string) {
     return sub
   }, [read, commitList])
 
+  const duplicateSubproject = useCallback(async (sourceId: string) => {
+    await flush()
+    const list = read(), source = list.find(s => s.id === sourceId)
+    if (!source) throw new Error('Sequência não encontrada')
+    const { data: all, error } = await supabase.from('scenes').select('*').eq('project_id', projectId).order('order_index')
+    if (error) throw error
+    const id = newClipId()
+    const copy = structuredClone(source)
+    copy.id = id
+    let number = list.length + 1
+    while (list.some(s => s.name === `Sequência ${number}`)) number++
+    copy.name = `Sequência ${number}`
+    for (const clips of [copy.overlays, copy.image_overlays, copy.audio_clips, copy.adjustments]) for (const clip of clips) clip.id = newClipId()
+    const start = (all || []).reduce((m, s) => Math.max(m, s.order_index), -1) + 1
+    const originals = (all || []).filter(s => sceneSub(s) === sourceId)
+    const rows = originals.map((s, i) => ({ ...toSceneInput(s), id: newClipId(), project_id: projectId, order_index: start + i, metadata: { ...(s.metadata || {}), sub: id } }))
+    if (rows.length) { const { error } = await supabase.from('scenes').insert(rows); if (error) throw error }
+    try { await patchProjectConfig(projectId, { subprojects: [...list, copy] }) }
+    catch (error) { if (rows.length) await supabase.from('scenes').delete().eq('project_id', projectId).in('id', rows.map(r => r.id)); throw error }
+    queryClient.setQueryData<Project>(['project', projectId], old => old ? { ...old, settings: { ...old.settings, subprojects: [...list, copy] } } : old)
+    await queryClient.invalidateQueries({ queryKey: ['scenes', projectId] })
+    return copy
+  }, [flush, read, projectId, queryClient])
+
   const renameSubproject = useCallback(
     (id: string, name: string) => commitList(read().map((s) => (s.id === id ? { ...s, name: name.trim() || s.name } : s)), true),
     [read, commitList]
@@ -206,6 +230,7 @@ export function useTracks(projectId: string, subId: string) {
     ...api,
     addSubproject,
     renameSubproject,
+    duplicateSubproject,
     removeSubproject,
   }
 }
