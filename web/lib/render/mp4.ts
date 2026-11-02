@@ -4,6 +4,9 @@
  */
 
 import {
+  Input,
+  BlobSource,
+  ALL_FORMATS,
   Output,
   Mp4OutputFormat,
   BufferTarget,
@@ -136,7 +139,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
   }
 
   // Mix audio and add to audio track
-  await mixAndAddAudio(audioSource, input, signal)
+  await mixAndAddAudio(audioSource, input, assetCache, signal)
 
   // Finalize
   await output.finalize()
@@ -548,6 +551,7 @@ function calculateTransform(
 async function mixAndAddAudio(
   audioSource: AudioBufferSource,
   input: RenderInput,
+  assetCache: Map<string, HTMLVideoElement | HTMLImageElement>,
   signal?: AbortSignal
 ): Promise<void> {
   // Create an offline audio context to mix all audio
@@ -555,13 +559,28 @@ async function mixAndAddAudio(
   const duration = Math.ceil(input.duration)
   const audioCtx = new OfflineAudioContext(2, duration * sampleRate, sampleRate)
 
-  let audioCount = 0
+  const decoded = new Map<string, AudioBuffer | null>()
+  const load = async (asset: Asset, required = false) => {
+    if (signal?.aborted) throw new Error('Renderização cancelada')
+    if (!decoded.has(asset.id)) {
+      try {
+        // Video preload already fetched a fresh authorized URL. Reuse its blob.
+        const url = assetCache.get(asset.id)?.src || await mediaUrl(asset)
+        const buffer = await loadAudioBuffer(url, audioCtx, signal)
+        decoded.set(asset.id, buffer)
+      } catch {
+        throw new Error(`Não foi possível carregar o áudio de "${asset.filename}". A exportação foi interrompida para evitar um vídeo sem som. Tente novamente.`)
+      }
+    }
+    const buffer = decoded.get(asset.id)!
+    if (required && !buffer) throw new Error(`O arquivo "${asset.filename}" não contém uma faixa de áudio.`)
+    return buffer
+  }
   for (const narration of input.narration as any[]) {
-    const url = narration.asset?.url
-    if (!url) continue
-    const buffer = await loadAudioBuffer(url, audioCtx)
+    if (!narration.asset) throw new Error('Narração sem arquivo de áudio disponível.')
+    const buffer = (await load(narration.asset, true))!
     const source = audioCtx.createBufferSource(); source.buffer = buffer
-    source.connect(audioCtx.destination); source.start(narration.start, 0, Math.min(narration.duration, buffer.duration)); audioCount++
+    source.connect(audioCtx.destination); source.start(narration.start, 0, Math.min(narration.duration, buffer.duration))
   }
   // Load audio from scenes (áudio de narração ou voz)
   for (const scene of input.timeline) {
@@ -569,10 +588,11 @@ async function mixAndAddAudio(
     
     // Scene audio is specified via audio_asset_id in the Scene object
     const sceneAudio = scene.videoAsset
-    if (!sceneAudio?.url) continue
+    if (!sceneAudio) continue
     
     try {
-      const buffer = await loadAudioBuffer(sceneAudio.url, audioCtx)
+      const buffer = await load(sceneAudio)
+      if (!buffer) continue
       const source = audioCtx.createBufferSource()
       source.buffer = buffer
       
@@ -586,9 +606,9 @@ async function mixAndAddAudio(
       for (const v of (scene.scene.metadata?.voice_mute_intervals || []) as {start: number; end: number}[]) { gain.gain.setValueAtTime(0, scene.start + v.start); gain.gain.setValueAtTime(volume, scene.start + v.end) }
       source.connect(gain).connect(audioCtx.destination)
       const offset = scene.trim || 0
-      if (offset < buffer.duration) { source.start(scene.start, offset, Math.min(scene.duration * source.playbackRate.value, buffer.duration - offset)); audioCount++ }
+      if (offset < buffer.duration) { source.start(scene.start, offset, Math.min(scene.duration * source.playbackRate.value, buffer.duration - offset)) }
     } catch (err) {
-      console.warn('[mixAndAddAudio] Failed to load scene audio:', err)
+      throw err
     }
   }
 
@@ -597,10 +617,10 @@ async function mixAndAddAudio(
     if (signal?.aborted) throw new Error('Aborted')
     
     const asset = (clip as any).asset
-    if (!asset?.url) continue
+    if (!asset) throw new Error('Faixa de áudio sem arquivo disponível.')
     
     try {
-      const buffer = await loadAudioBuffer(asset.url, audioCtx)
+      const buffer = (await load(asset, true))!
       const source = audioCtx.createBufferSource()
       source.buffer = buffer
       source.playbackRate.value = clip.speed || 1
@@ -610,9 +630,9 @@ async function mixAndAddAudio(
       
       source.connect(gain)
       gain.connect(audioCtx.destination)
-      source.start(clip.start, clip.in_point || 0, Math.min(clip.duration * source.playbackRate.value, buffer.duration - (clip.in_point || 0))); audioCount++
+      source.start(clip.start, clip.in_point || 0, Math.min(clip.duration * source.playbackRate.value, buffer.duration - (clip.in_point || 0)))
     } catch (err) {
-      console.warn('[mixAndAddAudio] Failed to load audio clip:', err)
+      throw err
     }
   }
 
@@ -626,9 +646,16 @@ async function mixAndAddAudio(
 /**
  * Loads an audio file and decodes it to an AudioBuffer.
  */
-async function loadAudioBuffer(url: string, audioCtx: BaseAudioContext): Promise<AudioBuffer> {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Failed to fetch audio: ${url}`)
-  const arrayBuffer = await response.arrayBuffer()
-  return await audioCtx.decodeAudioData(arrayBuffer)
+async function loadAudioBuffer(url: string, audioCtx: BaseAudioContext, signal?: AbortSignal): Promise<AudioBuffer | null> {
+  const response = await fetch(url, { signal })
+  if (!response.ok) throw new Error('Falha ao baixar áudio')
+  const blob = await response.blob()
+  const media = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS })
+  try {
+    // A genuinely silent video is valid; a failed download/decode is not.
+    if (!await media.getPrimaryAudioTrack()) return null
+    return await audioCtx.decodeAudioData(await blob.arrayBuffer())
+  } finally {
+    media.dispose()
+  }
 }
