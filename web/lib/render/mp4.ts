@@ -15,6 +15,7 @@ import {
 } from 'mediabunny'
 import type { TimedScene } from '../timeline'
 import { barLayout } from '@/lib/sync/barLayout'
+import { mediaUrl } from '@/lib/storage/media'
 import type { Asset, NarrationSegment, AudioClip, OverlayClip } from '@/types/project'
 
 export interface RenderOptions {
@@ -108,6 +109,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
 
   // Preload all video/image assets
   const assetCache = new Map<string, HTMLVideoElement | HTMLImageElement>()
+  try {
   await preloadAssets(input, assetCache, signal)
 
   // Render frames
@@ -143,6 +145,17 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
   if (!buffer) throw new Error('Output buffer is null')
 
   return new Uint8Array(buffer)
+  } catch (error) {
+    await output.cancel().catch(() => {})
+    throw error
+  } finally {
+    for (const media of assetCache.values()) {
+      const url = media.src
+      if (media instanceof HTMLVideoElement) { media.pause(); media.removeAttribute('src'); media.load() }
+      if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+    }
+    assetCache.clear()
+  }
 }
 
 /**
@@ -153,67 +166,38 @@ async function preloadAssets(
   cache: Map<string, HTMLVideoElement | HTMLImageElement>,
   signal?: AbortSignal
 ): Promise<void> {
-  const promises: Promise<void>[] = []
-  const loadedIds = new Set<string>()
-
-  // Helper to add load promise
-  const addLoadPromise = (asset: { id: string; type: string; url: string; filename: string }) => {
-    if (loadedIds.has(asset.id)) return
-    loadedIds.add(asset.id)
-
+  const assets = new Map<string, Asset>()
+  for (const scene of input.timeline) { const asset = scene.videoAsset || scene.imageAsset; if (asset) assets.set(asset.id, asset) }
+  for (const overlay of input.overlays) { const asset = (overlay as OverlayClip & { asset?: Asset }).asset; if (asset) assets.set(asset.id, asset) }
+  // Load sequentially and use local blobs: avoids simultaneous remote media requests
+  // and lets downloads finish before their signed URLs expire during rendering.
+  for (const asset of assets.values()) {
+    if (signal?.aborted) throw new Error('Renderização cancelada')
+    const url = await mediaUrl(asset)
+    const response = await fetch(url, { signal })
+    if (!response.ok) throw new Error(`Não foi possível baixar ${asset.filename} (HTTP ${response.status}).`)
+    const blob = await response.blob()
+    if (!blob.size) throw new Error(`O arquivo ${asset.filename} está vazio.`)
     const isVideo = asset.type === 'video' || (asset.type === 'asset' && /\.(mp4|mov|webm)$/i.test(asset.filename))
-    if (isVideo) {
-      promises.push(
-        new Promise((resolve, reject) => {
-          if (signal?.aborted) return reject(new Error('Aborted'))
-          const video = document.createElement('video')
-          video.crossOrigin = 'anonymous'
-          video.preload = 'auto'
-          video.src = asset.url
-          video.muted = true
-          video.onloadeddata = () => {
-            cache.set(asset.id, video)
-            resolve()
-          }
-          video.onerror = () => reject(new Error(`Failed to load video: ${asset.filename}`))
-          if (signal) signal.addEventListener('abort', () => reject(new Error('Aborted')))
-        })
-      )
-    } else if (asset.type === 'image' || asset.type === 'asset') {
-      promises.push(
-        new Promise((resolve, reject) => {
-          if (signal?.aborted) return reject(new Error('Aborted'))
-          const img = new Image()
-          img.crossOrigin = 'anonymous'
-          img.src = asset.url
-          img.onload = () => {
-            cache.set(asset.id, img)
-            resolve()
-          }
-          img.onerror = () => reject(new Error(`Failed to load image: ${asset.filename}`))
-          if (signal) signal.addEventListener('abort', () => reject(new Error('Aborted')))
-        })
-      )
-    }
+    const localUrl = URL.createObjectURL(blob)
+    const media = isVideo ? document.createElement('video') : new Image()
+    cache.set(asset.id, media)
+    await new Promise<void>((resolve, reject) => {
+      const finish = (error?: Error) => {
+        clearTimeout(timeout)
+        signal?.removeEventListener('abort', abort)
+        media.onload = null; media.onerror = null
+        if (media instanceof HTMLVideoElement) media.onloadeddata = null
+        error ? reject(error) : resolve()
+      }
+      const abort = () => finish(new Error('Renderização cancelada'))
+      const timeout = setTimeout(() => finish(new Error(`Tempo esgotado ao abrir ${asset.filename}.`)), 30000)
+      signal?.addEventListener('abort', abort, { once: true })
+      media.onerror = () => finish(new Error(`Não foi possível decodificar ${asset.filename}. O arquivo foi baixado; confira o codec ou exporte-o novamente como MP4 H.264.`))
+      if (media instanceof HTMLVideoElement) { media.preload = 'auto'; media.muted = true; media.onloadeddata = () => finish(); media.src = localUrl; media.load() }
+      else { media.onload = () => finish(); media.src = localUrl }
+    })
   }
-
-  // Preload scene assets
-  for (const scene of input.timeline) {
-    const asset = scene.videoAsset || scene.imageAsset
-    if (asset) addLoadPromise(asset)
-  }
-
-  // Preload overlay assets
-  for (const overlay of input.overlays) {
-    if (overlay.kind === 'image' || overlay.kind === 'video') {
-      // Need to find the asset by ID from the scene or somewhere
-      // For now, we'll assume overlays have the asset embedded
-      const overlayAsset = (overlay as any).asset
-      if (overlayAsset) addLoadPromise(overlayAsset)
-    }
-  }
-
-  await Promise.all(promises)
 }
 
 /**
