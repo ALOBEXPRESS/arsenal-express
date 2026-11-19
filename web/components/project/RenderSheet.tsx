@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { renderMp4, type RenderOptions } from '@/lib/render/mp4'
+import type { OutputFormat } from '@/types/project'
 import type { TimelineInput } from '@/lib/capcut/draft'
 
 interface RenderSheetProps {
+  outputFormat?: OutputFormat
   open: boolean
   onOpenChange: (open: boolean) => void
   projectTitle: string
@@ -26,7 +28,7 @@ const PRESETS: Record<PresetKey, { label: string; width: number; height: number;
   '1080p': { label: '1080p (Full HD)', width: 1920, height: 1080, fps: 30 },
 }
 
-export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activeSubId }: RenderSheetProps) {
+export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activeSubId, outputFormat = 'auto' }: RenderSheetProps) {
   const chosen = timelines.find((t) => t.id === activeSubId) || timelines[0]
   if (!chosen) return null
 
@@ -35,11 +37,11 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
   const firstAsset = firstScene?.videoAsset || firstScene?.imageAsset
   const srcWidth = Number(firstAsset?.metadata?.width) || 1920
   const srcHeight = Number(firstAsset?.metadata?.height) || 1080
-  const isVertical = srcHeight > srcWidth
+  const isVertical = outputFormat === '9:16' || (outputFormat === 'auto' && srcHeight > srcWidth)
 
   // Auto-select output format based on source orientation
   const autoPreset: PresetKey = '1080p'
-  const outputPresets = Object.fromEntries(Object.entries(PRESETS).map(([key, value]) => [key, { ...value, width: isVertical ? value.height : value.width, height: isVertical ? value.width : value.height }])) as typeof PRESETS
+  const outputPresets = Object.fromEntries(Object.entries(PRESETS).map(([key, value]) => [key, { ...value, width: outputFormat === '1:1' ? value.height : isVertical ? value.height : value.width, height: outputFormat === '1:1' ? value.height : isVertical ? value.width : value.height }])) as typeof PRESETS
 
   const [preset, setPreset] = useState<PresetKey>(autoPreset)
   const [rendering, setRendering] = useState(false)
@@ -149,7 +151,7 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {isVertical
+              {outputFormat !== 'auto' ? `Proporção do projeto: ${outputFormat}.` : isVertical
                 ? 'A orientação vertical dos clipes será mantida.'
                 : 'A orientação horizontal dos clipes será mantida.'}
             </p>

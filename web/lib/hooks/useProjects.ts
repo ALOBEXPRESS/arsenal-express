@@ -154,3 +154,19 @@ export function useDeleteProject() {
     },
   })
 }
+
+/** Save only the canvas format, preserving timeline and assembly settings. */
+export function useSetOutputFormat() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, format }: { id: string; format: import('@/types/project').OutputFormat }) => {
+      const { patchProjectConfig } = await import('./useScenes')
+      await patchProjectConfig(id, { output_format: format })
+      return { id, format }
+    },
+    onSuccess: ({ id, format }) => {
+      queryClient.setQueryData<Project>(['project', id], previous => previous ? { ...previous, settings: { ...previous.settings, output_format: format } } : previous)
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}

@@ -3,7 +3,7 @@
 import { isConfirmOpen } from '@/components/ui/confirm'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip } from '@/types/project'
+import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip, OutputFormat } from '@/types/project'
 import { barLayout } from '@/lib/sync/barLayout'
 import { Play, Pause, Mic, Clock, Info, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff, Loader2 } from 'lucide-react'
 import {
@@ -39,6 +39,8 @@ interface VideoPreviewProps {
   transitionDuration?: number
   /** Output frame; "auto" follows the clips */
   format?: string
+  onFormatChange?: (format: OutputFormat) => void
+  savingFormat?: boolean
   selectedOverlayId?: string | null
   onSelectOverlay?: (id: string) => void
   /** Overlay moved by dragging it on the monitor (committed on pointer up) */
@@ -110,6 +112,8 @@ export function VideoPreview({
   onSceneChange,
   transitionDuration = TRANSITION_DURATION,
   format = 'auto',
+  onFormatChange,
+  savingFormat,
   selectedOverlayId,
   onSelectOverlay,
   onOverlayChange,
@@ -613,7 +617,7 @@ export function VideoPreview({
                 <div ref={hostRefs[slot]} data-scene={k ?? ''} data-anim-host className="absolute inset-0 will-change-transform">
                   {still ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={still.url} alt={still.filename} className="absolute inset-0 h-full w-full object-contain" />
+                    <img src={still.url} alt={still.filename} className={cn("absolute inset-0 h-full w-full", format === 'auto' ? 'object-contain' : 'object-cover')} />
                   ) : (
                     <video
                       key={`${item?.scene.id}:${item?.trim}:${item?.duration}:${item?.rate}`}
@@ -626,7 +630,7 @@ export function VideoPreview({
                         if (item) v.currentTime = item.trim + Math.max(0, Math.min(item.duration, clockRef.current - item.start)) * item.rate
                         if (v.videoWidth && v.videoHeight) setProbedVertical(v.videoHeight > v.videoWidth)
                       }}
-                      className="absolute inset-0 h-full w-full object-contain"
+                      className={cn("absolute inset-0 h-full w-full", format === 'auto' ? 'object-contain' : 'object-cover')}
                     />
                   )}
                 </div>
@@ -1014,6 +1018,7 @@ export function VideoPreview({
       </div>
 
       <div className="mt-2 flex items-center justify-end gap-1" role="group" aria-label="Controles do monitor">
+        {onFormatChange && <label className="mr-2 text-xs text-muted-foreground">Proporção <select aria-label="Proporção do projeto" disabled={savingFormat} className="ml-1 rounded bg-surface-2 p-1" value={format} onChange={e => onFormatChange(e.target.value as OutputFormat)}><option value="auto">Original</option><option value="16:9">16:9 · Horizontal</option><option value="9:16">9:16 · Vertical</option><option value="1:1">1:1 · Quadrado</option></select></label>}
         {proxyStatus && <span className="text-xs text-muted-foreground" role="status">{proxyStatus}</span>}
         <label className="text-xs text-muted-foreground">Qualidade <select aria-label="Qualidade do preview" className="ml-1 rounded bg-surface-2 p-1" value={previewQuality} onChange={e => { setProxyStatus(''); setPreviewQuality(e.target.value as 'original' | '360' | '720') }}><option value="original">Original</option><option value="360">360p</option><option value="720">720p</option></select></label>
         <button type="button" aria-label="Diminuir zoom do monitor" title="Diminuir zoom" className="rounded p-1.5 hover:bg-white/10" onClick={() => setZoomLevel((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}><ZoomOut className="h-4 w-4" /></button>

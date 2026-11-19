@@ -4,7 +4,7 @@ import { use, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, SlidersHorizontal, FolderDown, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
-import { useProject } from '@/lib/hooks/useProjects'
+import { useProject, useSetOutputFormat } from '@/lib/hooks/useProjects'
 import {
   useScenes,
   useAutoAssemble,
@@ -57,6 +57,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     const saved = localStorage.getItem(`syncexpress.sub.${id}`)
     if (saved) setActiveSubState(saved)
   }, [id])
+  const setOutputFormat = useSetOutputFormat()
   const tracks = useTracks(id, activeSub)
   const subId = tracks.sub.id // falls back to the first subproject if the saved one is gone
   const setActiveSub = useCallback(
@@ -383,6 +384,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             timelines={exportTimelines}
             activeSubId={subId}
             settings={syncSettings}
+            outputFormat={project.settings?.output_format || 'auto'}
             extraAssets={assets?.filter((a) => a.type === 'asset')}
             disabled={!hasTimeline}
           />
@@ -464,6 +466,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                   adjustments={tracks.adjustments}
                   transitionDuration={syncSettings.transition.duration}
                   format={project.settings?.output_format || 'auto'}
+                  savingFormat={setOutputFormat.isPending}
+                  onFormatChange={format => setOutputFormat.mutate({ id, format }, { onError: () => toast.error('Não foi possível salvar a proporção.') })}
                   selectedOverlayId={selection?.kind === 'overlay' ? selection.id : null}
                   onSelectOverlay={(oid) => select({ kind: 'overlay', id: oid })}
                   onOverlayChange={tracks.updateOverlay}

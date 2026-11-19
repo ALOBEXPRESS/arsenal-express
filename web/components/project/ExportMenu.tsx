@@ -13,9 +13,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { CapCutExportSheet } from '@/components/sync/CapCutExportSheet'
 import { RenderSheet } from './RenderSheet'
-import type { Asset } from '@/types/project'
+import { loadAssetAudio } from '@/lib/audio/loadAssetAudio'
+import type { Asset, OutputFormat } from '@/types/project'
 
 interface ExportMenuProps {
+  outputFormat?: OutputFormat
   projectTitle: string
   timelines: any[] // TimelineInput with id
   activeSubId: string
@@ -24,7 +26,7 @@ interface ExportMenuProps {
   disabled?: boolean
 }
 
-export function ExportMenu({ projectTitle, timelines, activeSubId, settings, extraAssets, disabled }: ExportMenuProps) {
+export function ExportMenu({ projectTitle, timelines, activeSubId, settings, extraAssets, disabled, outputFormat = 'auto' }: ExportMenuProps) {
   const [capCutOpen, setCapCutOpen] = useState(false)
   const [renderOpen, setRenderOpen] = useState(false)
   const [isExportingAudio, setIsExportingAudio] = useState(false)
@@ -50,37 +52,36 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
       const audioCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate)
 
       let audioCount = 0
+      const decoded = new Map<string, AudioBuffer | null>()
+      const load = async (asset: Asset | undefined, required = false) => {
+        if (!asset) throw new Error('Uma faixa da sequência está sem arquivo de áudio disponível.')
+        if (!decoded.has(asset.id)) {
+          toast.loading('Exportando áudio...', { id: toastId, description: `Carregando áudio de ${asset.filename}…` })
+          decoded.set(asset.id, await loadAssetAudio(asset, audioCtx))
+        }
+        const buffer = decoded.get(asset.id)!
+        if (required && !buffer) throw new Error(`O arquivo "${asset.filename}" não contém uma faixa de áudio.`)
+        return buffer
+      }
       // Load and schedule narration segments
       for (const narr of chosen.narration || []) {
-        const audioUrl = narr.asset?.url || narr.audio_url
-        if (!audioUrl) {
-          console.warn('Narração sem audio_url:', narr)
-          continue
-        }
-        
         try {
-          const response = await fetch(audioUrl)
-          if (!response.ok) throw new Error(`Falha ao buscar áudio: ${response.status}`)
-          
-          const arrayBuffer = await response.arrayBuffer()
-          const buffer = await audioCtx.decodeAudioData(arrayBuffer)
+          const buffer = (await load(narr.asset, true))!
           const source = audioCtx.createBufferSource()
           source.buffer = buffer
           source.connect(audioCtx.destination)
           source.start(narr.start, 0, Math.min(narr.duration, buffer.duration))
           audioCount++
         } catch (err) {
-          console.error('Erro ao carregar narração:', err)
+          throw err
         }
       }
 
       for (const scene of chosen.timeline || []) {
-        const url = scene.videoAsset?.url
-        if (!url) continue
+        if (!scene.videoAsset) continue
         try {
-          const response = await fetch(url)
-          if (!response.ok) throw new Error(`Falha ao buscar vídeo: ${response.status}`)
-          const buffer = await audioCtx.decodeAudioData(await response.arrayBuffer())
+          const buffer = await load(scene.videoAsset)
+          if (!buffer) continue // Videos without an audio track are valid.
           const source = audioCtx.createBufferSource()
           source.buffer = buffer
           source.playbackRate.value = scene.rate || 1
@@ -102,24 +103,21 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
           source.connect(gain).connect(audioCtx.destination)
           const offset = scene.trim || 0
           if (offset < buffer.duration) { source.start(scene.start, offset, Math.min(scene.duration * source.playbackRate.value, buffer.duration - offset)); audioCount++ }
-        } catch (err) { console.warn('Não foi possível carregar áudio do clipe:', err) }
+        } catch (err) { throw err }
       }
       for (const { clip, asset } of chosen.audioClips || []) {
-        if (!asset?.url) continue
         try {
-          const response = await fetch(asset.url)
-          if (!response.ok) throw new Error(`Falha ao buscar áudio: ${response.status}`)
-          const buffer = await audioCtx.decodeAudioData(await response.arrayBuffer())
+          const buffer = (await load(asset, true))!
           const source = audioCtx.createBufferSource(); source.buffer = buffer; source.playbackRate.value = clip.speed || 1
           const gain = audioCtx.createGain(); gain.gain.value = clip.volume ?? 1
           source.connect(gain).connect(audioCtx.destination)
           const offset = clip.in_point || 0
           if (offset < buffer.duration) { source.start(clip.start, offset, Math.min(clip.duration * source.playbackRate.value, buffer.duration - offset)); audioCount++ }
-        } catch (err) { console.warn('Não foi possível carregar faixa de áudio:', err) }
+        } catch (err) { throw err }
       }
 
       if (audioCount === 0) {
-        toast.error('Nenhum áudio foi carregado.', { id: toastId, description: 'Verifique se os arquivos de mídia estão acessíveis.' })
+        toast.error('Os arquivos desta sequência não contêm faixas de áudio.', { id: toastId })
         return
       }
 
@@ -247,10 +245,12 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
         timelines={timelines}
         activeSubId={activeSubId}
         settings={settings}
+        defaultFormat={outputFormat}
         extraAssets={extraAssets}
       />
 
       <RenderSheet
+        outputFormat={outputFormat}
         open={renderOpen}
         onOpenChange={setRenderOpen}
         projectTitle={projectTitle}
