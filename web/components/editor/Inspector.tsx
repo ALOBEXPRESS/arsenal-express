@@ -3,6 +3,7 @@
 // Right-hand properties panel (CapCut-style): edits the clip selected on the timeline.
 // Every change shows up in the preview immediately and is exported to CapCut.
 import { useMemo } from 'react'
+import { buildScenePropertyEdits } from '@/lib/editor/sceneEdits'
 import {
   Clapperboard,
   Image as ImageIcon,
@@ -107,7 +108,7 @@ export function Inspector(props: InspectorProps) {
 }
 
 function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, onEditScene, overrideSelection }: InspectorProps & { overrideSelection?: NonNullable<import('@/lib/stores/selection').Selection> }) {
-  const { selection: rawSelection, select, allScenes } = useSelection()
+  const { selection: rawSelection, select, allScenes, selectedItems } = useSelection()
   const patchScene = usePatchScene(projectId)
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
@@ -296,17 +297,15 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
     const animation = normalizeAnimation(scene.animation_type)
     const transition = normalizeTransition(scene.transition_in)
     const autoRate = clipRate(item.videoAsset?.duration, item.duration)
-    const editScene = (id: string, patch: Partial<Scene>) => {
-      const targets = allScenes ? timeline.map(t => t.scene) : [scene]
-      for (const target of targets) {
-        const updates = patch.metadata ? { ...patch, metadata: { ...(target.metadata || {}), ...Object.fromEntries(Object.entries(patch.metadata).filter(([key, value]) => (scene.metadata || {})[key] !== value)) } } : patch
-        const before: Partial<Scene> = {}
-        for (const key of Object.keys(updates) as (keyof Scene)[]) Object.assign(before, { [key]: target[key] })
-        window.dispatchEvent(new CustomEvent('scene-property-edit', { detail: { projectId, subId: tracks.sub.id, id: target.id, before, after: updates } }))
-        patchScene(target.id, updates)
-      }
+    const selectedSceneIds = selectedItems.filter(item => item.kind === 'scene').map(item => item.id)
+    const targetIds = allScenes ? timeline.map(t => t.scene.id) : selectedSceneIds.includes(scene.id) ? selectedSceneIds : [scene.id]
+    const editScene = (_id: string, patch: Partial<Scene>) => {
+      const edits = buildScenePropertyEdits(timeline.map(t => t.scene), targetIds, patch)
+      if (!edits.length) return
+      window.dispatchEvent(new CustomEvent('scene-properties-edit', { detail: { projectId, subId: tracks.sub.id, edits } }))
+      for (const edit of edits) patchScene(edit.id, edit.after)
     }
-    const setMeta = (patch: Record<string, unknown>) => editScene(scene.id, { metadata: { ...(scene.metadata || {}), ...patch } })
+    const setMeta = (patch: Record<string, unknown>) => editScene(scene.id, { metadata: patch })
     const consumed = item.duration * item.rate
     const clipLen = item.videoAsset?.duration || 0
     const defaultVolume = narrationTrack.length ? CLIP_VOLUME_UNDER_NARRATION : 1
@@ -315,7 +314,7 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
       <div className="flex h-full flex-col">
           <Header
             icon={isVideo ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-            eyebrow={allScenes ? `${timeline.length} cenas selecionadas` : `Cena ${String(item.index + 1).padStart(2, '0')} · ${formatClock(item.start)} → ${formatClock(item.start + item.duration)}`}
+            eyebrow={targetIds.length > 1 ? `${targetIds.length} cenas selecionadas` : `Cena ${String(item.index + 1).padStart(2, '0')} · ${formatClock(item.start)} → ${formatClock(item.start + item.duration)}`}
             title={media?.filename || scene.narration_text}
           />
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">

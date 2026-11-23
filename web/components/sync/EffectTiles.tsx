@@ -157,6 +157,7 @@ export function FlowPicker({
   noun,
   nounPlural,
   selectedCount,
+  cadence = false,
 }: {
   value: 1 | 2 | 3
   onChange: (v: 1 | 2 | 3) => void
@@ -166,9 +167,10 @@ export function FlowPicker({
   /** "animações" / "transições" */
   nounPlural: string
   selectedCount: number
+  cadence?: boolean
 }) {
   // effect index of each of the 3 scenes in a group, per flow
-  const pattern: Record<1 | 2 | 3, number[]> = { 1: [0, 0, 0], 2: [0, 0, 1], 3: [0, 1, 2] }
+  const pattern: Record<1 | 2 | 3, number[]> = cadence ? { 1: [-1, -1, 0], 2: [-1, 0, 1], 3: [0, 1, 2] } : { 1: [0, 0, 0], 2: [0, 0, 1], 3: [0, 1, 2] }
   const tone = ['bg-brand-pink', 'bg-brand-cyan', 'bg-express']
   const options: { v: 1 | 2 | 3; desc: string }[] = [
     { v: 1, desc: `1 ${noun} a cada 3 cenas` },
@@ -198,7 +200,7 @@ export function FlowPicker({
                 <span className={cn('font-mono text-[13px] font-semibold tabular-nums', on ? 'text-primary' : 'text-foreground')}>{o.v}:3</span>
                 <span className="flex gap-[3px]" aria-hidden>
                   {pattern[o.v].map((k, i) => (
-                    <span key={i} className={cn('h-3.5 w-2.5 rounded-[3px]', tone[k], !on && 'opacity-60')} />
+                    <span key={i} className={cn('h-3.5 w-2.5 rounded-[3px]', k < 0 ? 'bg-surface-3' : tone[k], !on && 'opacity-60')} />
                   ))}
                 </span>
               </span>

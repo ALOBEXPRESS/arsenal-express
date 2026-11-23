@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { AudioLines, Clapperboard, Image as ImageIcon, Upload, Package, X, Trash2 } from 'lucide-react'
-import { useAssets, useUploadAsset, useDeleteAsset } from '@/lib/hooks/useAssets'
+import { useAssets, useUploadAsset, useDeleteAsset, useBatchRegenerateThumbnails } from '@/lib/hooks/useAssets'
 import { AssetCard } from './AssetCard'
 import { AssetUpload } from './AssetUpload'
 import type { Asset, AssetType } from '@/types/project'
@@ -28,6 +28,7 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
   const { data: assets, isLoading } = useAssets(projectId)
   const uploadAsset = useUploadAsset()
   const deleteAsset = useDeleteAsset()
+  const repairThumbnails = useBatchRegenerateThumbnails()
   const [selected, setSelected] = useState<string[]>([])
   useEffect(() => { setSelected([]) }, [projectId])
   const toggle = (id: string) => setSelected(previous => previous.includes(id) ? previous.filter(x => x !== id) : [...previous, id])
@@ -88,6 +89,15 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
           try { for (const asset of projectAssets) { await deleteAsset.mutateAsync(asset); removed++ } setPreviewId(null); toast.success(`${removed} mídias excluídas`) }
           catch (error) { toast.error(`Não foi possível excluir todas. ${removed} mídia(s) removida(s).`, { description: error instanceof Error ? error.message : undefined }) }
         }}><Trash2 className="h-3.5 w-3.5" /> Excluir mídias do projeto</button>
+
+        {(assets || []).some(asset => asset.project_id === projectId && (asset.type === 'video' || asset.type === 'image') && !asset.metadata?.thumbnail) && <button type="button" disabled={repairThumbnails.isPending} className="text-left text-xs text-primary disabled:opacity-50" onClick={async () => {
+          const id = toast.loading('Gerando miniaturas ausentes…')
+          try {
+            const result = await repairThumbnails.mutateAsync({ projectId, onProgress: (current, total) => toast.loading(`Gerando miniatura ${current} de ${total}…`, { id }) })
+            if (result.skipped) toast.warning(`${result.fixed} miniatura(s) recuperada(s); ${result.skipped} não puderam ser geradas.`, { id })
+            else toast.success(`${result.fixed} miniatura(s) recuperada(s).`, { id })
+          } catch (error) { toast.error('Não foi possível recuperar as miniaturas.', { id, description: error instanceof Error ? error.message : undefined }) }
+        }}>{repairThumbnails.isPending ? 'Gerando miniaturas…' : 'Recuperar miniaturas ausentes'}</button>}
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <button type="button" onClick={() => setSelected(filtered.map(a => a.id))} disabled={!filtered.length}>Selecionar visíveis</button>

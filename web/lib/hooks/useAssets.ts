@@ -1,3 +1,4 @@
+import { generateVideoThumbnail } from '@/lib/media/videoThumbnail'
 import { mediaUrl, downloadMedia, deleteMedia } from '@/lib/storage/media'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -214,53 +215,6 @@ async function getMediaDuration(file: File): Promise<number | undefined> {
     }
 
     video.src = URL.createObjectURL(file)
-  })
-}
-
-// Helper: Generate video thumbnail
-async function generateVideoThumbnail(file: File | Blob): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    const video = document.createElement('video')
-    const url = URL.createObjectURL(file)
-    video.preload = 'metadata'
-    video.muted = true
-
-    // Timeout: se thumbnail não gerar em 5s, resolve sem ela
-    const timeoutId = setTimeout(() => {
-      finish(undefined)
-    }, 5000)
-
-    // Detach the element BEFORE revoking the blob URL, otherwise the browser keeps
-    // requesting the revoked blob (ERR_FILE_NOT_FOUND noise in the console)
-    const finish = (thumb?: string) => {
-      clearTimeout(timeoutId)
-      video.onloadeddata = null
-      video.onseeked = null
-      video.onerror = null
-      video.removeAttribute('src')
-      video.load()
-      URL.revokeObjectURL(url)
-      resolve(thumb)
-    }
-
-    video.onloadeddata = () => {
-      // Seek to 1 second or 10% of duration, whichever is smaller
-      video.currentTime = Math.min(1, video.duration * 0.1)
-    }
-
-    video.onseeked = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = 320
-      canvas.height = Math.round((320 * video.videoHeight) / video.videoWidth)
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return finish(undefined)
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      finish(canvas.toDataURL('image/jpeg', 0.7))
-    }
-
-    video.onerror = () => finish(undefined)
-
-    video.src = url
   })
 }
 

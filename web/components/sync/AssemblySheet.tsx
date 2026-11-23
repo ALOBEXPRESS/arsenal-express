@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, Wand2, CircleCheck, ArrowDownUp, Split, Film, Volume2, RectangleHorizontal, Gauge } from 'lucide-react'
+import { useEffect, useMemo, useState, useRef } from 'react'
+import { AudioWaveform, Shuffle, Pin, Sparkles, Blend, Loader2, CircleCheck, ArrowDownUp, Split, Film, Volume2, RectangleHorizontal, Gauge } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
@@ -17,6 +17,7 @@ import {
   type SceneOrderBy,
   type PickMode,
 } from '@/lib/sync/presets'
+import { assemblySheetDefaults, assemblyAction } from '@/lib/sync/assemblyDefaults'
 import { cn } from '@/lib/utils'
 import { useFavoriteSFX } from '@/hooks/useFavoriteSFX'
 import { useSFXManifest } from '@/hooks/useSFXManifest'
@@ -28,6 +29,7 @@ const ORDER_HINT: Record<SceneOrderBy, string> = {
 }
 
 interface AssemblySheetProps {
+  userId?: string
   open: boolean
   onOpenChange: (open: boolean) => void
   settings?: Partial<SyncSettings>
@@ -141,6 +143,7 @@ function FavoriteSFXSelector({ selected, onSelect }: { selected: string | null; 
 }
 
 export function AssemblySheet({
+  userId,
   open,
   onOpenChange,
   settings: initial,
@@ -156,9 +159,22 @@ export function AssemblySheet({
   onAssembleScenes,
 }: AssemblySheetProps) {
   const [s, setS] = useState<SyncSettings>(() => withDefaults(initial))
+  const initialized = useRef(false)
+  const lastAssetKey = userId ? `syncexpress.overlay-asset.${userId}` : null
   useEffect(() => {
-    if (open) setS(withDefaults(initial))
-  }, [open, initial])
+    if (!open) { initialized.current = false; return }
+    if (initialized.current) return
+    initialized.current = true
+    let lastAssetId: string | null = null
+    try { if (lastAssetKey) lastAssetId = localStorage.getItem(lastAssetKey) } catch { /* Storage can be unavailable. */ }
+    const defaults = assemblySheetDefaults(initial, hasScenes, assets, lastAssetId)
+    setS(defaults)
+    try { if (lastAssetKey && defaults.overlay_bars.favorite_asset_id) localStorage.setItem(lastAssetKey, defaults.overlay_bars.favorite_asset_id) } catch { /* Optional account preference cache. */ }
+  }, [open, initial, hasScenes, assets, lastAssetKey])
+  const chooseOverlayAsset = (id: string) => {
+    setS(previous => ({ ...previous, overlay_bars: { ...previous.overlay_bars, favorite_asset_id: id || null } }))
+    try { if (lastAssetKey && id) localStorage.setItem(lastAssetKey, id) } catch { /* Project settings still preserve the choice. */ }
+  }
 
   const images = useMemo(() => assets.filter((a) => a.type === 'image'), [assets])
   const videos = useMemo(() => {
@@ -350,7 +366,7 @@ export function AssemblySheet({
                   Tipo de mídia
                 </h3>
                 <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
-                  Escolha se quer usar imagens, vídeos, ou ambos na montagem das cenas.
+                  Escolha as mídias e se deseja juntar as cenas com a narração.
                 </p>
               </div>
             </div>
@@ -371,6 +387,11 @@ export function AssemblySheet({
                   aria-label="Usar vídeos na montagem"
                 />
               </label>
+              <label className="flex cursor-pointer items-center justify-between gap-3 text-[13px]">
+                <span>Juntar cenas com áudio</span>
+                <Switch checked={s.media.with_audio} onCheckedChange={with_audio => setS(previous => ({ ...previous, media: { ...previous.media, with_audio } }))} aria-label="Juntar cenas com áudio" />
+              </label>
+              {s.media.with_audio && <p className="text-[11px] text-muted-foreground">Usa os áudios marcados como narração. Com imagens e vídeos desligados, mantém os cortes das cenas existentes.</p>}
               {s.media.with_images && s.media.with_videos && (
                 <div className="rounded-lg border border-border bg-surface-0 px-3 py-3 space-y-3">
                   <div className="mb-2.5 flex items-center justify-between text-[12px]">
@@ -492,7 +513,7 @@ export function AssemblySheet({
               </div>
               <select
                 value={s.overlay_bars.favorite_asset_id || ''}
-                onChange={(e) => setS((p) => ({ ...p, overlay_bars: { ...p.overlay_bars, favorite_asset_id: e.target.value || null } }))}
+                onChange={(e) => chooseOverlayAsset(e.target.value)}
                 className="w-full rounded-md border border-border bg-surface-0 px-2 py-1.5 text-[12px] text-foreground focus:border-primary focus:outline-none"
               >
                 <option value="">Nenhum asset overlay</option>
@@ -596,6 +617,7 @@ export function AssemblySheet({
             </div>
             {tr.mode === 'variado' && (
               <FlowPicker
+                cadence
                 label="Fluxo da transição"
                 noun="transição"
                 nounPlural="transições"
@@ -626,33 +648,20 @@ export function AssemblySheet({
 
         <div className="space-y-2 border-t border-border bg-surface-0/60 px-6 py-4">
           {invalid && <p className="text-[12px] text-destructive">Marque pelo menos uma opção no modo variado.</p>}
-          {!s.media.with_images && !s.media.with_videos && <p className="text-[12px] text-muted-foreground">Sem remontar: adiciona barras e aplica animações e transições ativadas. Ordem, ritmo, velocidade, cortes e SFX da montagem não são refeitos.</p>}
+          {!s.media.with_images && !s.media.with_videos && !s.media.with_audio && <p className="text-[12px] text-muted-foreground">Sem remontar: adiciona barras e aplica animações e transições ativadas. Ordem, ritmo, velocidade, cortes e SFX da montagem não são refeitos.</p>}
           {busy && status && (
             <p className="flex items-center gap-2 font-mono text-[12px] text-primary" role="status">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> {status}
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">
-            {onAssembleScenes && (
-              <Button variant="outline" disabled={busy || invalid} onClick={() => onAssembleScenes(s)}>
-                <Film /> Juntar cenas
-              </Button>
-            )}
-            <Button 
-              className={cn("h-11 text-[15px] font-semibold", !onAssembleScenes && "col-span-2")} 
-              disabled={busy || invalid} 
-              onClick={() => onAssemble(s)}
-            >
-              <Wand2 /> Juntar cenas com áudio
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" disabled={busy || invalid || !hasScenes} onClick={() => onApplyEffects(s)}>
-              Aplicar sem remontar
-            </Button>
-            <Button variant="ghost" disabled={busy || invalid} onClick={() => onSave(s)}>
-              Salvar preferências
-            </Button>
+            <Button className="h-11" disabled={busy || invalid || (!hasScenes && assemblyAction(s) === 'effects')} onClick={() => {
+              const action = assemblyAction(s)
+              if (action === 'scenes_with_audio') return onAssemble(s)
+              if (action === 'scenes') return onAssembleScenes ? onAssembleScenes(s) : onAssemble(s)
+              return onApplyEffects(s)
+            }}>Aplicar</Button>
+            <Button variant="outline" className="h-11" disabled={busy || invalid} onClick={() => onSave(s)}>Salvar</Button>
           </div>
         </div>
       </SheetContent>

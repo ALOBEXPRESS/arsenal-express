@@ -600,6 +600,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       />
 
       <AssemblySheet
+        userId={project.user_id}
         open={showAssembly}
         onOpenChange={setShowAssembly}
         settings={project.settings?.sync}

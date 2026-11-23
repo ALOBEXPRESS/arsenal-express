@@ -1,5 +1,7 @@
 'use client'
 
+import { mergeScenePropertyEdits, type ScenePropertyEdit } from '@/lib/editor/sceneEdits'
+
 import { ContextMenu } from 'radix-ui'
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -624,7 +626,7 @@ export function Timeline({
   const [magnetEnabled, setMagnetEnabled] = useState(true)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; sceneEdit?: { before: Partial<Scene>; after: Partial<Scene> }; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; sceneEdit?: { before: Partial<Scene>; after: Partial<Scene> }; sceneEdits?: ScenePropertyEdit[]; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
   useEffect(() => {
     setCutHistory([])
@@ -661,11 +663,24 @@ export function Timeline({
       else next.push({ sceneId: d.id, beforeDuration: 0, afterDuration: 0, beforeTrim: 0, afterTrim: 0, sceneEdit: { before: d.before, after: d.after } })
       historyRef.current = { history: next, index: next.length - 1 }; setCutHistory(next); setCutHistoryIndex(next.length - 1)
     }
+    const batchRecord = (event: Event) => {
+      const d = (event as CustomEvent<{ projectId: string; subId: string; edits: ScenePropertyEdit[] }>).detail
+      if (d.projectId !== projectId || d.subId !== subId || !d.edits.length) return
+      const next = historyRef.current.history.slice(0, historyRef.current.index + 1)
+      const last = next[next.length - 1]
+      if (overlayGesture.current && next.length - 1 >= gestureStart.current && last?.sceneEdits) {
+        next[next.length - 1] = { ...last, sceneEdits: mergeScenePropertyEdits(last.sceneEdits, d.edits) }
+      } else next.push({ sceneId: '', beforeDuration: 0, afterDuration: 0, beforeTrim: 0, afterTrim: 0, sceneEdits: d.edits })
+      historyRef.current = { history: next, index: next.length - 1 }
+      setCutHistory(next)
+      setCutHistoryIndex(next.length - 1)
+    }
+    window.addEventListener('scene-properties-edit', batchRecord)
     window.addEventListener('scene-property-edit', sceneRecord)
     window.addEventListener('overlay-edit-start', start)
     window.addEventListener('overlay-edit-end', end)
     window.addEventListener('overlay-crop-edit', record)
-    return () => { window.removeEventListener('scene-property-edit', sceneRecord); window.removeEventListener('overlay-edit-start', start); window.removeEventListener('overlay-edit-end', end); window.removeEventListener('overlay-crop-edit', record) }
+    return () => { window.removeEventListener('scene-properties-edit', batchRecord); window.removeEventListener('scene-property-edit', sceneRecord); window.removeEventListener('overlay-edit-start', start); window.removeEventListener('overlay-edit-end', end); window.removeEventListener('overlay-crop-edit', record) }
   }, [projectId, subId, cutHistory, cutHistoryIndex])
 
   const timeline = useMemo(() => buildTimeline(scenes, assets), [scenes, assets])
@@ -1124,6 +1139,7 @@ export function Timeline({
     }
 
     const entry = cutHistory[cutHistoryIndex]
+    if (entry.sceneEdits) { for (const edit of entry.sceneEdits) patchScene(edit.id, edit.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.sceneEdit) { patchScene(entry.sceneId, entry.sceneEdit.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.crop) { tracks.restoreCrop(entry.crop.id, entry.crop.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.deletion) {
@@ -1200,6 +1216,7 @@ export function Timeline({
 
     const nextIndex = cutHistoryIndex + 1
     const entry = cutHistory[nextIndex]
+    if (entry.sceneEdits) { for (const edit of entry.sceneEdits) patchScene(edit.id, edit.after); setCutHistoryIndex(nextIndex); return }
     if (entry.sceneEdit) { patchScene(entry.sceneId, entry.sceneEdit.after); setCutHistoryIndex(nextIndex); return }
     if (entry.crop) { tracks.restoreCrop(entry.crop.id, entry.crop.after); setCutHistoryIndex(nextIndex); return }
     if (entry.deletion) {

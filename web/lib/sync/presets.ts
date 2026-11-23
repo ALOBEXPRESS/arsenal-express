@@ -230,6 +230,8 @@ export interface SyncSettings {
     with_images: boolean
     /** Use videos in scene assembly */
     with_videos: boolean
+    /** Join narration audio when applying assembly options. */
+    with_audio: boolean
     /** If both are enabled and images exist, place them as overlays every N scenes */
     images_as_overlay_every: number
     /** Favorite image asset ID to use as overlay (instead of cycling through all images) */
@@ -286,6 +288,7 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   media: {
     with_images: false,
     with_videos: true,
+    with_audio: false,
     images_as_overlay_every: 3,
     favorite_image_id: null,
   },
@@ -308,10 +311,10 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
     params: DEFAULT_ANIMATION_PARAMS,
   },
   // variado: Fusão + Esmaecer alternando (3:3)
-  transition: { enabled: false, mode: 'variado', selected: ['fusao', 'flash_preto'], fixed: 'fusao', flow: 3, duration: 0.5 },
+  transition: { enabled: false, mode: 'variado', selected: ['fusao', 'flash_preto'], fixed: 'fusao', flow: 1, duration: 0.5 },
 }
 
-const normFlow = (v: unknown): FlowCount => (v === 1 || v === 2 || v === 3 ? v : 3)
+const normFlow = (v: unknown, fallback: FlowCount = 3): FlowCount => (v === 1 || v === 2 || v === 3 ? v : fallback)
 
 export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
   const animation = { ...DEFAULT_SYNC_SETTINGS.animation, ...(s?.animation || {}) }
@@ -337,6 +340,7 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
     media: {
       with_images: media.with_images ?? DEFAULT_SYNC_SETTINGS.media.with_images,
       with_videos: media.with_videos ?? DEFAULT_SYNC_SETTINGS.media.with_videos,
+      with_audio: media.with_audio ?? DEFAULT_SYNC_SETTINGS.media.with_audio,
       images_as_overlay_every: Math.max(1, Math.min(10, media.images_as_overlay_every || DEFAULT_SYNC_SETTINGS.media.images_as_overlay_every)),
       favorite_image_id: media.favorite_image_id ?? DEFAULT_SYNC_SETTINGS.media.favorite_image_id,
     },
@@ -351,7 +355,7 @@ export function withDefaults(s?: Partial<SyncSettings> | null): SyncSettings {
       favorite_asset_id: overlay_bars.favorite_asset_id ?? DEFAULT_SYNC_SETTINGS.overlay_bars.favorite_asset_id,
     },
     animation: { ...animation, flow: normFlow(animation.flow), params: normalizeParams(animation.params) },
-    transition: { ...transition, flow: normFlow(transition.flow) },
+    transition: { ...transition, flow: normFlow(transition.flow, 1) },
   }
 }
 
@@ -380,5 +384,12 @@ export function pickTransition(settings: SyncSettings, index: number): Transitio
   const t = settings.transition
   if (index === 0 || !t.enabled) return 'cut'
   if (t.mode === 'fixo' || t.selected.length === 0) return t.fixed
-  return t.selected[flowIndex(index - 1, t.flow, t.selected.length)]
+  // Count transitions, rather than repeating one effect on all three boundaries.
+  // Clear the other boundaries explicitly so changing 3:3 to 1:3 removes old effects.
+  const boundary = index - 1
+  const slot = boundary % FLOW_GROUP
+  const firstActiveSlot = FLOW_GROUP - t.flow
+  if (slot < firstActiveSlot) return 'cut'
+  const effect = Math.floor(boundary / FLOW_GROUP) * t.flow + slot - firstActiveSlot
+  return t.selected[effect % t.selected.length]
 }
