@@ -1,5 +1,6 @@
 "use client"
 import {useState,useRef,useEffect} from 'react'
+import {transcribeAsset} from '@/lib/transcription'
 import {Button} from '@/components/ui/button'
 import {toast} from 'sonner'
 import {confirmDialog} from '@/components/ui/confirm'
@@ -27,8 +28,7 @@ export function CaptionButton({tracks,timeline}:{tracks:Tracks;timeline:TimedSce
  if(!live.current)return
  if(!cache.has(source.assetId)){
  setProgress(`Transcrevendo ${cache.size+1}/${new Set(sources.map(s=>s.assetId)).size}`)
- const response=await fetch('/api/captions/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assetId:source.assetId})})
- const data=await response.json();if(!response.ok)throw Error(data.error||'Falha ao transcrever.');cache.set(source.assetId,data.segments)
+ const data=await transcribeAsset(source.assetId);cache.set(source.assetId,data.segments)
  }
  for(const cue of captionCues(cache.get(source.assetId)!,source,end)){
  // Split at scene boundaries so every scene has independently editable captions.

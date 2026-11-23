@@ -1,4 +1,5 @@
 'use client'
+import {sceneMixVolume} from '@/lib/narrationMix'
 
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -88,17 +89,12 @@ export function ExportMenu({ projectTitle, timelines, activeSubId, settings, ext
           const gain = audioCtx.createGain()
           const explicitVolume = scene.scene.metadata?.volume
           const voiceIntervals = scene.scene.metadata?.voice_mute_intervals as { start: number; end: number }[] | undefined
-          if (voiceIntervals) {
-            const base = Math.max(0, Math.min(1, Number(explicitVolume ?? 1)))
-            gain.gain.setValueAtTime(base, 0)
-            for (const interval of voiceIntervals) { gain.gain.setValueAtTime(0, scene.start + interval.start); gain.gain.setValueAtTime(base, scene.start + interval.end) }
-          } else if (explicitVolume != null) gain.gain.value = Math.max(0, Math.min(1, Number(explicitVolume)))
-          else {
-            const ranges = (chosen.narration || []).map((n: any) => ({ start: Math.max(scene.start, n.start), end: Math.min(scene.start + scene.duration, n.start + n.duration) })).filter((n: any) => n.end > n.start).sort((a: any, b: any) => a.start - b.start)
-            const merged: { start: number; end: number }[] = []
-            for (const range of ranges) { const last = merged[merged.length - 1]; if (last && range.start <= last.end) last.end = Math.max(last.end, range.end); else merged.push({ ...range }) }
-            gain.gain.setValueAtTime(1, 0)
-            for (const range of merged) { gain.gain.setValueAtTime(0.125, range.start); gain.gain.setValueAtTime(1, range.end) }
+          const narration: {start:number;duration:number;volume?:number}[] = chosen.narration || []
+          const points = [scene.start,scene.start+scene.duration,
+            ...narration.flatMap(n=>[n.start,n.start+n.duration]),
+            ...(voiceIntervals||[]).flatMap(v=>[scene.start+v.start,scene.start+v.end])]
+          for (const time of [...new Set(points)].filter(t=>t>=scene.start&&t<=scene.start+scene.duration).sort((a,b)=>a-b)) {
+            gain.gain.setValueAtTime(sceneMixVolume(time,scene.start,explicitVolume,narration,voiceIntervals),time)
           }
           source.connect(gain).connect(audioCtx.destination)
           const offset = scene.trim || 0

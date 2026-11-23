@@ -71,7 +71,7 @@ interface TimelineProps {
   onDuplicateSub: (id: string) => void
   onAddSub: () => void
   onRenameSub: (id: string, name: string) => void
-  onRemoveSub: (id: string) => void
+  onCloseSub: (id: string) => void
   /** metadata.sub for scenes created on this timeline */
   subId: string
 }
@@ -588,7 +588,7 @@ export function Timeline({
   onAddSub,
   onDuplicateSub,
   onRenameSub,
-  onRemoveSub,
+  onCloseSub,
   subId,
 }: TimelineProps) {
   const deleteScene = useDeleteScene()
@@ -724,7 +724,7 @@ export function Timeline({
     return () => ro.disconnect()
   }, [])
 
-  const fitPps = total > 0 ? Math.max(0.001, Math.max(1, viewport) / total) : 24
+  const fitPps = total > 0 ? Math.max(0.001, Math.max(1, viewport * 0.65) / total) : 24
   const scale = pps ?? fitPps
   const contentWidth = pps === null ? viewport + 24 : Math.max(viewport + 24, (total + 10) * scale + 40)
   const step = rulerStep(scale)
@@ -1379,7 +1379,7 @@ export function Timeline({
                       title="Duplo clique pra renomear"
                       className={cn(
                         'flex h-7 cursor-pointer items-center gap-2 rounded-md px-2.5 transition-colors duration-150',
-                        subprojects.length > 1 && 'pr-6',
+                        'pr-6',
                         active ? 'bg-surface-3 text-foreground shadow-[inset_0_-2px_0_hsl(var(--primary))]' : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
                       )}
                     >
@@ -1387,12 +1387,13 @@ export function Timeline({
                       <span className="font-mono text-[10px] tabular-nums opacity-80">{formatTime(dur)}</span>
                     </button>
                   )}
-                  {subprojects.length > 1 && renaming !== sp.id && (
+                  {renaming !== sp.id && (
                     <button
                       type="button"
-                      onClick={() => onRemoveSub(sp.id)}
-                      aria-label={`Excluir ${sp.name}`}
-                      className="absolute right-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive hover:text-white focus-visible:opacity-100 group-hover/tab:opacity-100"
+                      onClick={() => onCloseSub(sp.id)}
+                      aria-label={`Fechar aba ${sp.name}`}
+                      title="Fechar aba (a sequência continua salva no projeto)"
+                      className="absolute right-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-surface-3 hover:text-foreground focus-visible:opacity-100 group-hover/tab:opacity-100"
                     >
                       <X className="h-3 w-3" />
                     </button>

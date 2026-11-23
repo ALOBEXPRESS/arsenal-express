@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, SlidersHorizontal, FolderDown, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProject, useSetOutputFormat } from '@/lib/hooks/useProjects'
@@ -15,6 +16,7 @@ import {
   type AutoAssembleMode,
 } from '@/lib/hooks/useScenes'
 import { useAssets } from '@/lib/hooks/useAssets'
+import { useNarrationSpeechMute } from '@/lib/hooks/useNarrationSpeechMute'
 import { useTracks } from '@/lib/hooks/useTracks'
 import { useProjectStore } from '@/lib/stores/projectStore'
 import { useSelection } from '@/lib/stores/selection'
@@ -49,13 +51,18 @@ const ORDER_LABEL: Record<SyncSettings['order']['by'], string> = {
 
 export default function ProjectPage({ params }: ProjectPageProps) {
   const { id } = use(params)
+  const router = useRouter()
+  const [openSequenceIds, setOpenSequenceIds] = useState<string[]>([])
+  const [closingEditor, setClosingEditor] = useState(false)
   const { data: project, isLoading, error } = useProject(id)
   const { data: scenes, isLoading: scenesLoading } = useScenes(id)
   const { data: assets } = useAssets(id)
   const [activeSub, setActiveSubState] = useState<string>(MAIN_SUB)
   useEffect(() => {
     const saved = new URLSearchParams(window.location.search).get('sequence') || localStorage.getItem(`syncexpress.sub.${id}`)
-    if (saved) setActiveSubState(saved)
+    setActiveSubState(saved || MAIN_SUB)
+    setOpenSequenceIds([saved || MAIN_SUB])
+    setClosingEditor(false)
   }, [id])
   const setOutputFormat = useSetOutputFormat()
   const tracks = useTracks(id, activeSub)
@@ -67,6 +74,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const setActiveSub = useCallback(
     (sid: string) => {
       setActiveSubState(sid)
+      setOpenSequenceIds(ids => ids.includes(sid) ? ids : [...ids, sid])
+      const url = new URL(window.location.href)
+      url.searchParams.set('sequence', sid)
+      window.history.replaceState(null, '', url)
       localStorage.setItem(`syncexpress.sub.${id}`, sid)
     },
     [id]
@@ -126,6 +137,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const subScenes = useMemo(() => scenesOf(scenes || [], subId, knownSubs), [scenes, subId, knownSubs])
   const timeline = useMemo(() => buildTimeline(subScenes, assets || []), [subScenes, assets])
   const narrationTrack = tracks.narrationTrack
+  useNarrationSpeechMute(id, subId, timeline, narrationTrack)
   const syncSettings = useMemo(() => withDefaults(tracks.sub.source_settings?.sync ?? project?.settings?.sync), [project, tracks.sub])
   const assetById = useMemo(() => new Map((assets || []).map((a) => [a.id, a])), [assets])
   const audioCount = useMemo(() => (assets || []).filter((a) => a.type === 'audio').length, [assets])
@@ -320,7 +332,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       : 0
   const previousThumb = timeline[editingIndex - 1]?.videoAsset?.metadata?.thumbnail as string | undefined
 
-  if (isLoading || project?.settings?.archived_into || project?.settings?.sequence_creation_required) {
+  if (closingEditor || isLoading || project?.settings?.archived_into || project?.settings?.sequence_creation_required) {
     return (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-surface-0">
         <LogoMark animated className="h-12 w-12" />
@@ -344,22 +356,19 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const busy = autoAssemble.isPending || applyEffects.isPending
   const hasTimeline = exportTimelines.some((t) => t.timeline.length > 0 || t.narration.length > 0 || (t.overlays?.length ?? 0) > 0)
 
-  const removeSub = async (sid: string) => {
-    const sp = tracks.subprojects.find((x) => x.id === sid)
-    const n = scenesOf(scenes || [], sid, knownSubs).length
-    const ok = await confirmDialog({
-      title: `Excluir ${sp?.name ?? 'a sequência'}?`,
-      description: `${n} cena(s), a narração e as camadas dele saem do projeto. As mídias continuam na biblioteca.`,
-      confirmLabel: 'Excluir sequência',
-      tone: 'danger',
-    })
-    if (!ok) return
-    try {
-      const next = await tracks.removeSubproject(sid)
-      if (next && sid === subId) setActiveSub(next[0].id)
-      toast.success(`${sp?.name ?? 'Sequência'} excluído`)
-    } catch (e) {
-      toast.error('Não foi possível excluir a sequência', { description: e instanceof Error ? e.message : undefined })
+  const closeSequenceTab = (sid: string) => {
+    const open = tracks.subprojects.filter(s => openSequenceIds.includes(s.id) || s.id === subId)
+    const index = open.findIndex(s => s.id === sid)
+    const remaining = open.filter(s => s.id !== sid)
+    setOpenSequenceIds(remaining.map(s => s.id))
+    void tracks.flush()
+    if (sid !== subId) return
+    if (remaining.length) {
+      setActiveSub(remaining[Math.min(index, remaining.length - 1)].id)
+      seek(0)
+    } else {
+      setClosingEditor(true)
+      router.push(`/project/${id}/sequences`)
     }
   }
 
@@ -552,7 +561,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               projectId={id}
               scenes={subScenes}
               subId={subId}
-              subprojects={tracks.subprojects}
+              subprojects={tracks.subprojects.filter(s => openSequenceIds.includes(s.id) || s.id === subId)}
               activeSub={subId}
               onSelectSub={(sid) => {
                 setActiveSub(sid)
@@ -566,7 +575,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               }}
               onDuplicateSub={async (sid) => { try { const copy = await tracks.duplicateSubproject(sid); setActiveSub(copy.id); seek(0); toast.success(`${copy.name} criada`) } catch (error) { toast.error(error instanceof Error ? error.message : 'Falha ao duplicar sequência') } }}
               onRenameSub={tracks.renameSubproject}
-              onRemoveSub={(sid) => void removeSub(sid)}
+              onCloseSub={closeSequenceTab}
               assets={assets || []}
               isLoading={scenesLoading}
               narrationTrack={narrationTrack}

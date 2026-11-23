@@ -346,7 +346,7 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
                 format={pct}
                 onChange={(v) => setMeta({ volume: Math.round(v * 100) / 100 })}
                 onReset={props.volume !== undefined ? () => setMeta({ volume: null }) : undefined}
-                hint={props.volume === undefined && narrationTrack.length ? 'Padrão: baixo (−18 dB) por baixo da narração.' : undefined}
+                hint={props.volume === undefined && narrationTrack.length ? 'Padrão: baixo até concluir a análise das falas.' : scene.metadata?.speech_mute_analysis ? 'Falas silenciadas automaticamente; ambiente preservado nas pausas.' : undefined}
               />
             </Group>
           )}
