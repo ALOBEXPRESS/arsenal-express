@@ -1,3 +1,4 @@
+import { sceneMixVolume } from '@/lib/narrationMix'
 import { audioFade } from '@/lib/audioFade'
 /**
  * Client-side MP4 rendering using mediabunny + WebCodecs.
@@ -381,7 +382,11 @@ async function renderFrame(
   }
 
   // Apply animation (zoom, pan, etc.)
-  const transform = calculateTransform(scene, sceneTime, width, height, asset.metadata?.width, asset.metadata?.height)
+  // Decode dimensions belong to this file; imported metadata may be absent or stale.
+  const nativeW = media instanceof HTMLVideoElement ? media.videoWidth : media.naturalWidth
+  const nativeH = media instanceof HTMLVideoElement ? media.videoHeight : media.naturalHeight
+  if (!(nativeW > 0 && nativeH > 0)) throw new Error(`Dimensões do arquivo indisponíveis: ${asset.filename}`)
+  const transform = calculateTransform(scene, sceneTime, width, height, nativeW, nativeH)
 
   ctx.save()
   ctx.translate(transform.x + (transform.width * transform.scale) / 2, transform.y + (transform.height * transform.scale) / 2)
@@ -606,9 +611,11 @@ async function mixAndAddAudio(
       
       // Connect to destination
       const gain = audioCtx.createGain()
-      const volume = Number(scene.scene.metadata?.volume ?? (input.narration.length ? 0.125 : 1))
-      gain.gain.value = Math.max(0, Math.min(1, volume))
-      for (const v of (scene.scene.metadata?.voice_mute_intervals || []) as {start: number; end: number}[]) { gain.gain.setValueAtTime(0, scene.start + v.start); gain.gain.setValueAtTime(volume, scene.start + v.end) }
+      const intervals=(scene.scene.metadata?.voice_mute_intervals || undefined) as {start:number;end:number}[] | undefined
+      const points=[scene.start,...input.narration.flatMap(n=>[n.start,n.start+n.duration]),...(intervals||[]).flatMap(v=>[scene.start+v.start,scene.start+v.end])]
+      for(const time of [...new Set(points)].filter(t=>t>=scene.start&&t<scene.start+scene.duration).sort((a,b)=>a-b)) {
+        gain.gain.setValueAtTime(sceneMixVolume(time,scene.start,scene.scene.metadata?.volume,input.narration,intervals),time)
+      }
       source.connect(gain).connect(audioCtx.destination)
       const offset = scene.trim || 0
       if (offset < buffer.duration) { source.start(scene.start, offset, Math.min(scene.duration * source.playbackRate.value, buffer.duration - offset)) }

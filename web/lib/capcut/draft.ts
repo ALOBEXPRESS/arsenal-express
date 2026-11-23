@@ -1,3 +1,4 @@
+import { sceneMixVolume } from '@/lib/narrationMix'
 // CapCut (International) draft builder.
 // Output layout (one folder per project, dropped inside com.lveditor.draft):
 //   <Project>/draft_content.json   (Windows reads this)
@@ -438,19 +439,17 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       target_timerange: { start: startUs, duration: durUs },
       common_keyframes: [
         ...animationKeyframes(item.scene.animation_type || 'none', durS, props.anim),
-        ...(Array.isArray(item.scene.metadata?.voice_mute_intervals) ? [{ id: hex(), material_id: '', property_type: 'KFTypeVolume', keyframe_list: (() => {
-          const frames = [{ t: 0, value: 1 }]
-          for (const interval of item.scene.metadata!.voice_mute_intervals as { start: number; end: number }[]) {
-            const start = Math.max(0, Math.min(durS, interval.start)); const end = Math.max(start, Math.min(durS, interval.end))
-            frames.push({ t: Math.max(0, start - 0.01), value: 1 }, { t: start, value: 0 }, { t: end, value: 0 }, { t: Math.min(durS, end + 0.01), value: 1 })
-          }
-          return frames.sort((a, b) => a.t - b.t).map(f => keyframe(toUs(f.t), f.value))
+        ...(input.narration.length ? [{ id: hex(), material_id: '', property_type: 'KFTypeVolume', keyframe_list: (() => {
+          const intervals=item.scene.metadata?.voice_mute_intervals as {start:number;end:number}[] | undefined
+          const points=[0,durS,...input.narration.flatMap(n=>[n.start-item.start,n.start+n.duration-item.start]),...(intervals||[]).flatMap(v=>[v.start,v.end])]
+          const times=[...new Set(points.flatMap(t=>[Math.max(0,t-0.001),t]))].filter(t=>t>=0&&t<=durS).sort((a,b)=>a-b)
+          return times.map(t=>keyframe(toUs(t),sceneMixVolume(item.start+t,item.start,props.volume,input.narration,intervals)))
         })() }] : []),
       ],
       keyframe_refs: [],
       source_timerange: { start: toUs(trimS), duration: sourceUs },
       speed,
-      volume: isPhoto ? 1.0 : props.volume ?? (Array.isArray(item.scene.metadata?.voice_mute_intervals) ? 1 : input.clipVolume),
+      volume: isPhoto || input.narration.length ? 1.0 : props.volume ?? 1,
       extra_material_refs: refs,
       is_tone_modify: false,
       clip: {

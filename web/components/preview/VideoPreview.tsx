@@ -3,6 +3,7 @@
 import { isConfirmOpen } from '@/components/ui/confirm'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { sceneMixVolume } from '@/lib/narrationMix'
 import { audioFadeGain } from '@/lib/audioFade'
 import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip, OutputFormat } from '@/types/project'
 import { barLayout } from '@/lib/sync/barLayout'
@@ -281,7 +282,7 @@ export function VideoPreview({
         const el = host.querySelector('video')
         if (!el) return
         const voiceIntervals = item.scene.metadata?.voice_mute_intervals as { start: number; end: number }[] | undefined
-        el.volume = voiceIntervals ? (voiceIntervals.some(v => since >= v.start && since < v.end) ? 0 : Math.min(1, props.volume ?? 1)) : Math.min(1, props.volume ?? (narrationActive ? CLIP_VOLUME_UNDER_NARRATION : 1))
+        el.volume = sceneMixVolume(t,item.start,props.volume,narrationTrack,voiceIntervals)
         const clipDur = item.videoAsset?.duration || (Number.isFinite(el.duration) ? el.duration : 0)
         const visible = t < sceneEnd && (k === idx || (transitioning && k === idx - 1))
         // item.trim = part of the clip removed by the cut tool (source starts later)
