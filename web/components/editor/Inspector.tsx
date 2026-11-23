@@ -333,7 +333,7 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
                   clipLen && consumed > clipLen + 0.05
                     ? `Usa ${consumed.toFixed(1)}s de um clipe de ${clipLen.toFixed(1)}s — o último frame é segurado.`
                     : item.manualSpeed
-                      ? `Cena mantém ${item.duration.toFixed(1)}s (sincronia com a narração).`
+                      ? `Cena com ${item.duration.toFixed(1)}s, limitada ao fim do vídeo nesta velocidade.`
                       : `Automático: ${times(autoRate)} — desacelera clipes um pouco curtos.`
                 }
               />

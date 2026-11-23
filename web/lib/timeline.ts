@@ -108,13 +108,16 @@ export function buildTimeline(scenes: Scene[], assets: Asset[]): TimedScene[] {
   return scenes.map((scene, index) => {
     const videoAsset = scene.video_asset_id ? byId.get(scene.video_asset_id) : undefined
     const imageAsset = scene.image_asset_id ? byId.get(scene.image_asset_id) : undefined
-    const duration = sceneDuration(scene, videoAsset)
+    let duration = sceneDuration(scene, videoAsset)
     const props = sceneProps(scene)
     const manual = props.speed
     const trim = props.trim ?? 0
     const trimEnd = Number(scene.metadata?.trim_end)
     const sourceEnd = Number.isFinite(trimEnd) && trimEnd > trim ? Math.min(trimEnd, videoAsset?.duration || trimEnd) : videoAsset?.duration
     const available = sourceEnd ? Math.max(0.05, sourceEnd - trim) : sourceEnd
+    // A manual speed must not reserve time beyond the source end (otherwise the
+    // preview/export holds the last frame until the old scene slot finishes).
+    if (manual !== undefined && available && available > 0) duration = Math.min(duration, available / manual)
     const timed: TimedScene = {
       scene,
       index,
