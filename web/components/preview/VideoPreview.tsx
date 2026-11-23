@@ -54,7 +54,7 @@ interface VideoPreviewProps {
 // Clip audio is kept low under narration (config.yaml -> audio.clipes.volume_db: -18)
 export const CLIP_VOLUME_UNDER_NARRATION = 0.125
 const DRIFT_TOLERANCE = 0.3
-const HARD_SEEK = 0.08
+const HARD_SEEK = 0.35
 
 function safePlay(el: HTMLMediaElement) {
   if (!el.paused) return
@@ -74,7 +74,7 @@ function hasTransition(item?: TimedScene) {
  * Keeps a media element on the master clock.
  * local = position inside the source; end = last playable second.
  */
-function syncMedia(el: HTMLMediaElement, local: number, rate: number, playing: boolean, active: boolean, end = Infinity, start = 0) {
+function syncMedia(el: HTMLMediaElement, local: number, rate: number, playing: boolean | null, active: boolean, end = Infinity, start = 0) {
   if (!active || local < start) {
     if (!el.paused) el.pause()
     if (el.readyState > 0 && Math.abs(el.currentTime - start) > 0.001 && local < start) el.currentTime = start
@@ -86,12 +86,14 @@ function syncMedia(el: HTMLMediaElement, local: number, rate: number, playing: b
     if (Number.isFinite(end) && Math.abs(el.currentTime - end) > 0.1 && el.readyState > 0) el.currentTime = end
     return
   }
-  if (el.readyState > 0) {
+  // Buffering is a hold, not a user seek. Do not repeatedly rewind a decoding frame.
+  if (playing === null) { if (!el.paused) el.pause(); return }
+  if (el.readyState > 0 && !el.seeking) {
     const drift = local - el.currentTime
     if (!playing) {
       if (el.playbackRate !== rate) el.playbackRate = rate
       if (Math.abs(drift) > 0.04) el.currentTime = local
-    } else if (Math.abs(drift) > HARD_SEEK) {
+    } else if (Math.abs(drift) > HARD_SEEK * Math.max(1, rate)) {
       el.playbackRate = rate
       el.currentTime = local
     } else if (el.playbackRate !== rate) {
@@ -250,7 +252,7 @@ export function VideoPreview({
 
   // ---- Media + motion sync (runs every animation frame) ----------------------
   const sync = useCallback(
-    (t: number, playing: boolean) => {
+    (t: number, playing: boolean | null) => {
       const idx = timeline.length ? sceneAt(timeline, t) : 0
       const cur = timeline[idx]
       const transitioning = hasTransition(cur) && t - (cur?.start ?? 0) < TRANSITION
@@ -361,7 +363,7 @@ export function VideoPreview({
           audio.playbackRate = seg.speed || 1
           const local = (seg.in_point || 0) + (t - seg.start) * (seg.speed || 1)
           const tolerance = playing ? DRIFT_TOLERANCE : 0.04
-          if (Math.abs(audio.currentTime - local) > tolerance && audio.readyState > 0) audio.currentTime = local
+          if (playing !== null && !audio.seeking && Math.abs(audio.currentTime - local) > tolerance && audio.readyState > 0) audio.currentTime = local
           if (playing) safePlay(audio)
           else if (!audio.paused) audio.pause()
         }
@@ -441,7 +443,7 @@ export function VideoPreview({
           publishTime(t)
         }
       }
-      sync(clockRef.current, playingRef.current && !waiting)
+      sync(clockRef.current, waiting && playingRef.current ? null : playingRef.current)
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
