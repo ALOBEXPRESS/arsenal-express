@@ -310,7 +310,7 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
     flow: 3,
     params: DEFAULT_ANIMATION_PARAMS,
   },
-  // variado: Fusão + Esmaecer alternando (3:3)
+  // variado: Fusão + Esmaecer alternando, uma transição a cada três cenas
   transition: { enabled: false, mode: 'variado', selected: ['fusao', 'flash_preto'], fixed: 'fusao', flow: 1, duration: 0.5 },
 }
 

@@ -10,6 +10,7 @@ export function assemblySheetDefaults(initial: Partial<SyncSettings> | undefined
     || favorites[0]
   return {
     ...settings,
+    transition: { ...settings.transition, flow: 1 },
     media: { ...settings.media, with_videos: hasScenes ? false : settings.media.with_videos },
     overlay_bars: { ...settings.overlay_bars, enabled: !!favorite, favorite_asset_id: favorite?.id || null, position: 'both', height_override: 110 },
   }

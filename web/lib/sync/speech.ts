@@ -31,12 +31,22 @@ export async function createSpeechDetector() {
   }
 }
 
+/** Reuse one model for a sequence; run() resets its state between files. */
+export async function createSpeechIntervalDetector(precise = false) {
+  const vad = await NonRealTimeVAD.new({ modelURL: '/vad/silero_vad_legacy.onnx', ortConfig: ort => { ort.env.wasm.wasmPaths = '/vad/'; ort.env.wasm.numThreads = 1 }, positiveSpeechThreshold: 0.4, negativeSpeechThreshold: 0.25, minSpeechMs: 192, preSpeechPadMs: precise ? 0 : 200, redemptionMs: precise ? 120 : 400 })
+  return async (buffer: AudioBuffer): Promise<{start:number;end:number}[]> => {
+    const samples = new Float32Array(buffer.length)
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const data = buffer.getChannelData(channel)
+      for (let i = 0; i < data.length; i++) samples[i] += data[i] / buffer.numberOfChannels
+    }
+    const intervals: {start:number;end:number}[] = []
+    for await (const segment of vad.run(samples, buffer.sampleRate)) intervals.push({ start: Math.max(0, segment.start / 1000 - (precise ? 0.06 : 0.15)), end: Math.min(buffer.duration, segment.end / 1000 + (precise ? 0.08 : 0.15)) })
+    return intervals
+  }
+}
+
 /** Detect speech intervals in seconds, preserving every interval. */
-export async function detectSpeechIntervals(buffer: AudioBuffer): Promise<{ start: number; end: number }[]> {
-  const vad = await NonRealTimeVAD.new({ modelURL: '/vad/silero_vad_legacy.onnx', ortConfig: ort => { ort.env.wasm.wasmPaths = '/vad/'; ort.env.wasm.numThreads = 1 }, positiveSpeechThreshold: 0.4, negativeSpeechThreshold: 0.25, minSpeechMs: 192, preSpeechPadMs: 200, redemptionMs: 400 })
-  const samples = new Float32Array(buffer.length)
-  for (let channel = 0; channel < buffer.numberOfChannels; channel++) { const data = buffer.getChannelData(channel); for (let i = 0; i < data.length; i++) samples[i] += data[i] / buffer.numberOfChannels }
-  const intervals: { start: number; end: number }[] = []
-  for await (const segment of vad.run(samples, buffer.sampleRate)) intervals.push({ start: Math.max(0, segment.start / 1000 - 0.15), end: Math.min(buffer.duration, segment.end / 1000 + 0.15) })
-  return intervals
+export async function detectSpeechIntervals(buffer: AudioBuffer, precise = false) {
+  return (await createSpeechIntervalDetector(precise))(buffer)
 }

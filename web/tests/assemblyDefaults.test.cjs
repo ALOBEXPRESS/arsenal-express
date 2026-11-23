@@ -36,3 +36,7 @@ test('Apply joins audio only when enabled and otherwise routes to scenes or effe
   assert.equal(assemblyAction(presets.withDefaults({ media: { with_videos: false, with_images: false, with_audio: false } })), 'effects')
   assert.equal(assemblyAction(presets.withDefaults({ media: { with_images: true, with_audio: true } })), 'scenes_with_audio')
 })
+
+test('opening assembly starts transition flow at 1:3 even when an older sequence saved 3:3',()=>{
+ assert.equal(defaults({transition:{flow:3,enabled:true}},true,[]).transition.flow,1)
+})
