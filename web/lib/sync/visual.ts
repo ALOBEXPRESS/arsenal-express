@@ -17,7 +17,7 @@ export function poseToTransform(p: { scale: number; x: number; y?: number; rotat
   // translate3d + rounded scale → composited on the GPU, no sub-pixel shimmer
   const y = p.y !== undefined ? p.y : 0
   const rot = p.rotation !== undefined ? p.rotation : 0
-  const translateY = y !== 0 ? `, ${(y * 50).toFixed(3)}%` : ''
+  const translateY = `, ${(y * 50).toFixed(3)}%`
   const rotate = rot !== 0 ? ` rotate(${rot}deg)` : ''
   return `translate3d(${(p.x * 50).toFixed(3)}%${translateY}, 0) scale(${(p.scale * extraScale).toFixed(4)})${rotate}`
 }

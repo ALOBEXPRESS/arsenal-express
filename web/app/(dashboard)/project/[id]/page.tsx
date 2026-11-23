@@ -469,6 +469,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                   format={project.settings?.output_format || 'auto'}
                   savingFormat={setOutputFormat.isPending}
                   onFormatChange={format => setOutputFormat.mutate({ id, format }, { onError: () => toast.error('Não foi possível salvar a proporção.') })}
+                  onSelectScene={sceneId=>{select({kind:'scene',id:sceneId});setInspectorCollapsed(false)}}
                   selectedOverlayId={selection?.kind === 'overlay' ? selection.id : null}
                   onSelectOverlay={(oid) => select({ kind: 'overlay', id: oid })}
                   onOverlayChange={tracks.updateOverlay}

@@ -37,6 +37,7 @@ interface VideoPreviewProps {
   adjustments?: AdjustClip[]
   /** Change `nonce` to request a seek to `time` (e.g. clicking a scene card) */
   seekRequest?: { time: number; nonce: number }
+  onSelectScene?: (id: string) => void
   onSceneChange?: (index: number) => void
   transitionDuration?: number
   /** Output frame; "auto" follows the clips */
@@ -114,6 +115,7 @@ export function VideoPreview({
   adjustments = [],
   seekRequest,
   onSceneChange,
+  onSelectScene,
   transitionDuration = TRANSITION_DURATION,
   format = 'auto',
   onFormatChange,
@@ -590,7 +592,12 @@ export function VideoPreview({
       <div
         ref={monitorRef}
         className="group relative min-h-0 flex-1 cursor-pointer overflow-hidden rounded-xl border border-border"
-        onClick={togglePlay}
+        onClick={e=>{
+          const box=e.currentTarget.getBoundingClientRect()
+          const distance=Math.hypot(e.clientX-(box.left+box.width/2),e.clientY-(box.top+box.height/2))
+          if(distance<=56)togglePlay()
+          else {const item=timeline[sceneAt(timeline,clockRef.current)];if(item&&clockRef.current<item.start+item.duration)onSelectScene?.(item.scene.id)}
+        }}
       >
         {/* Stage = the actual output frame (9:16, 16:9…). Clips fill it (cover) and animations
             zoom INSIDE it — same framing the CapCut export uses. */}
