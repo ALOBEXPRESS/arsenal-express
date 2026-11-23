@@ -3,6 +3,7 @@
 import { isConfirmOpen } from '@/components/ui/confirm'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { audioFadeGain } from '@/lib/audioFade'
 import type { Scene, Asset, NarrationSegment, OverlayClip, AudioClip, AdjustClip, OutputFormat } from '@/types/project'
 import { barLayout } from '@/lib/sync/barLayout'
 import { Play, Pause, Mic, Clock, Info, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff, Loader2 } from 'lucide-react'
@@ -334,7 +335,7 @@ export function VideoPreview({
         }
         
         const active = t >= c.start && t < c.start + c.duration
-        el.volume = Math.min(1, Math.max(0, c.volume ?? 1))
+        el.volume = Math.min(1, Math.max(0, (c.volume ?? 1) * audioFadeGain(t-c.start,c.duration,c.fade_in,c.fade_out)))
         const end = duration ? duration - 0.02 : Infinity
         if (!active) {
           if (!el.paused) el.pause()

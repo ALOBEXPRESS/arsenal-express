@@ -122,6 +122,8 @@ export interface OverlayClip {
 }
 
 export interface AudioClip {
+  fade_in?: number
+  fade_out?: number
   id: string
   asset_id: string
   start: number

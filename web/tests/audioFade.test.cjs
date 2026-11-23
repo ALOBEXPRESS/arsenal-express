@@ -1,0 +1,4 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs')
+const api={};new Function('exports',ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname,'../lib/audioFade.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(api)
+test('fade envelope starts and ends silently with full volume between ramps',()=>{assert.equal(api.audioFadeGain(0,10,2,2),0);assert.equal(api.audioFadeGain(1,10,2,2),0.5);assert.equal(api.audioFadeGain(5,10,2,2),1);assert.equal(api.audioFadeGain(9,10,2,2),0.5);assert.equal(api.audioFadeGain(10,10,2,2),0)})
+test('overlapping fades are normalized and disabled fades preserve volume',()=>{assert.deepEqual(api.audioFade(4,4,4),{fadeIn:2,fadeOut:2});assert.equal(api.audioFadeGain(1,4),1)})

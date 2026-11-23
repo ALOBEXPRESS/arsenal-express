@@ -959,6 +959,8 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
         />
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
           <Group title="Áudio">
+            <PropSlider label="Fade in (s)" value={c.fade_in ?? 0} min={0} max={c.duration} step={0.1} format={v=>`${v.toFixed(1)} s`} onChange={fade_in=>set({fade_in})} />
+            <PropSlider label="Fade out (s)" value={c.fade_out ?? 0} min={0} max={c.duration} step={0.1} format={v=>`${v.toFixed(1)} s`} onChange={fade_out=>set({fade_out})} />
             <PropSlider
               label="Volume"
               value={c.volume}

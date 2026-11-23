@@ -622,6 +622,17 @@ export function Timeline({
     } catch { /* Storage may be unavailable. */ }
   }, [projectId, pps, zoomLoaded])
   const scroller = useRef<HTMLDivElement>(null)
+  const revealedSequence = useRef('')
+  useEffect(()=>{
+    if(isLoading || !scenes.length) return
+    const key=projectId+':'+activeSub
+    if(revealedSequence.current===key)return
+    const frame=requestAnimationFrame(()=>{
+      const container=scroller.current, lane=container?.querySelector<HTMLElement>('[data-main-lane]')
+      if(container && lane){container.scrollTop+=lane.getBoundingClientRect().top-container.getBoundingClientRect().top-28;revealedSequence.current=key}
+    })
+    return ()=>cancelAnimationFrame(frame)
+  },[projectId,activeSub,isLoading,scenes.length])
   const content = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState(800)
   const [magnetEnabled, setMagnetEnabled] = useState(true)
@@ -1737,6 +1748,7 @@ export function Timeline({
 
                 {/* Main (video) lane */}
                 <div
+                  data-main-lane
                   className={cn(laneClass('main'), 'relative my-2 flex-1 min-h-[100px] rounded-lg bg-gradient-to-b from-neutral-900/50 to-neutral-950/30 border border-white/10 shadow-inner')}
                   onDragOver={laneDragOver('main')}
                   onDragLeave={laneDragLeave}

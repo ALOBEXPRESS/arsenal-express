@@ -1,3 +1,4 @@
+import { audioFade } from '@/lib/audioFade'
 /**
  * Client-side MP4 rendering using mediabunny + WebCodecs.
  * Takes a timeline (scenes + narration + overlays) and renders it to a downloadable MP4 file.
@@ -630,7 +631,12 @@ async function mixAndAddAudio(
       source.playbackRate.value = clip.speed || 1
       
       const gain = audioCtx.createGain()
-      gain.gain.value = clip.volume ?? 1
+      const volume=clip.volume ?? 1
+      const fade=audioFade(clip.duration,clip.fade_in,clip.fade_out)
+      gain.gain.setValueAtTime(fade.fadeIn ? 0 : volume,clip.start)
+      if(fade.fadeIn) gain.gain.linearRampToValueAtTime(volume,clip.start+fade.fadeIn)
+      gain.gain.setValueAtTime(volume,clip.start+clip.duration-fade.fadeOut)
+      if(fade.fadeOut) gain.gain.linearRampToValueAtTime(0,clip.start+clip.duration)
       
       source.connect(gain)
       gain.connect(audioCtx.destination)
