@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { ACCESS_ADMIN_EMAIL, ACCESS_REQUEST_URL } from "@/lib/system-access";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -38,7 +39,13 @@ export default function SignUpPage() {
       if (data.user && !data.session) {
         setSuccess(true);
       } else {
-        // Auto sign-in successful
+        const { data: access, error: accessError } = await supabase.rpc('system_access_status');
+        if (accessError || !access?.allowed) {
+          await supabase.auth.signOut({ scope: 'local' });
+          router.push('/access-pending');
+          router.refresh();
+          return;
+        }
         router.push("/dashboard");
         router.refresh();
       }
@@ -87,10 +94,11 @@ export default function SignUpPage() {
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
         <p className="text-muted-foreground">
-          Comece a usar o SyncExpress
+          Crie sua conta depois que o administrador autorizar seu e-mail.
         </p>
       </div>
 
+      <p className="text-center text-sm text-muted-foreground">Ainda não foi autorizado? Solicite acesso em <a className="text-primary underline" href={ACCESS_REQUEST_URL}>{ACCESS_ADMIN_EMAIL}</a>.</p>
       {/* Form */}
       <form onSubmit={handleSignUp} className="space-y-4">
         {error && (

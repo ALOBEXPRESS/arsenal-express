@@ -18,6 +18,9 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const { data: systemAccess, error: accessError } = await supabase.rpc('system_access_status');
+  if (accessError || !systemAccess?.allowed) redirect('/access-pending');
+
   const handleSignOut = async () => {
     "use server";
     const supabase = await createClient();
@@ -36,6 +39,7 @@ export default async function DashboardLayout({
             <Link href="/tiktok" className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
               TikTok
             </Link>
+            {systemAccess?.isAdmin && <Link href="/admin/users" className="rounded-md px-3 py-2 text-sm text-primary">Autorizar acessos</Link>}
             <span className="hidden font-mono text-xs text-muted-foreground sm:inline">{user.email}</span>
             <form action={handleSignOut}>
               <button

@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { ACCESS_ADMIN_EMAIL, ACCESS_REQUEST_URL } from "@/lib/system-access";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,12 +19,9 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) throw signInError;
+      const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Não foi possível entrar.');
 
       router.push("/dashboard");
       router.refresh();
@@ -39,9 +36,9 @@ export default function LoginPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Entrar no SyncExpress</h1>
         <p className="text-muted-foreground">
-          Sign in to your account to continue
+          Acesso exclusivo para e-mails autorizados pelo administrador.
         </p>
       </div>
 
@@ -70,13 +67,13 @@ export default function LoginPage() {
 
         <div className="space-y-2">
           <label htmlFor="password" className="text-sm font-medium">
-            Password
+            Senha
           </label>
           <input
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => setSenha(e.target.value)}
             required
             className="w-full px-3 py-2 bg-input border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="••••••••"
@@ -88,15 +85,16 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full py-3 bg-primary-fill text-primary-foreground font-semibold rounded-md hover:bg-primary-fill/90 disabled:opacity-50 transition font-medium"
         >
-          {loading ? "Signing in..." : "Sign in"}
+          {loading ? "Entrando…" : "Entrar"}
         </button>
       </form>
 
+      <p className="text-center text-sm text-muted-foreground">Para solicitar acesso, envie seu e-mail para <a className="text-primary underline" href={ACCESS_REQUEST_URL}>{ACCESS_ADMIN_EMAIL}</a>.</p>
       {/* Footer */}
       <div className="text-center text-sm text-muted-foreground">
-        Don't have an account?{" "}
+        Já recebeu autorização?{" "}
         <Link href="/signup" className="text-primary hover:underline">
-          Sign up
+          Criar conta
         </Link>
       </div>
     </div>
