@@ -603,24 +603,8 @@ export function Timeline({
   const [dropHint, setDropHint] = useState<{ lane: Lane; time: number } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [pps, setPps] = useState<number | null>(null) // null = fit
-  const [zoomLoaded, setZoomLoaded] = useState<string | null>(null)
-  useEffect(() => {
-    setZoomLoaded(null)
-    try {
-      const saved = localStorage.getItem(`syncexpress:timeline-zoom:${projectId}`)
-      const value = saved === null ? null : Number(saved)
-      setPps(value !== null && Number.isFinite(value) && value >= MIN_PPS && value <= MAX_PPS ? value : null)
-    } catch { setPps(null) }
-    setZoomLoaded(projectId)
-  }, [projectId])
-  useEffect(() => {
-    if (zoomLoaded !== projectId) return
-    try {
-      const key = `syncexpress:timeline-zoom:${projectId}`
-      if (pps === null) localStorage.removeItem(key)
-      else localStorage.setItem(key, String(pps))
-    } catch { /* Storage may be unavailable. */ }
-  }, [projectId, pps, zoomLoaded])
+  // Always open a project/sequence in fit mode. Manual zoom lasts for this visit.
+  useEffect(() => { setPps(null) }, [projectId, activeSub])
   const scroller = useRef<HTMLDivElement>(null)
   const revealedSequence = useRef('')
   useEffect(()=>{
@@ -629,7 +613,7 @@ export function Timeline({
     if(revealedSequence.current===key)return
     const frame=requestAnimationFrame(()=>{
       const container=scroller.current, lane=container?.querySelector<HTMLElement>('[data-main-lane]')
-      if(container && lane){container.scrollTop+=lane.getBoundingClientRect().top-container.getBoundingClientRect().top-28;revealedSequence.current=key}
+      if(container && lane){container.scrollLeft=0;container.scrollTop+=lane.getBoundingClientRect().top-container.getBoundingClientRect().top-28;revealedSequence.current=key}
     })
     return ()=>cancelAnimationFrame(frame)
   },[projectId,activeSub,isLoading,scenes.length])
@@ -739,9 +723,9 @@ export function Timeline({
     return () => ro.disconnect()
   }, [])
 
-  const fitPps = total > 0 ? Math.min(MAX_PPS, Math.max(MIN_PPS, viewport / total)) : 24
+  const fitPps = total > 0 ? Math.max(0.001, Math.max(1, viewport) / total) : 24
   const scale = pps ?? fitPps
-  const contentWidth = Math.max(viewport, (total + 10) * scale + 40)
+  const contentWidth = pps === null ? viewport + 24 : Math.max(viewport + 24, (total + 10) * scale + 40)
   const step = rulerStep(scale)
   const zoom = (factor: number) => setPps(Math.min(MAX_PPS, Math.max(MIN_PPS, scale * factor)))
 
