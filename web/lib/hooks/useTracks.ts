@@ -131,6 +131,7 @@ export function useTracks(projectId: string, subId: string) {
       updateImageOverlay: (id: string, patch: Partial<OverlayClip>) => updateOverlay(id, patch, true),
       addImageOverlay: (clip: OverlayClip) => commit((s) => ({ image_overlays: [...s.image_overlays, clip] })),
       removeImageOverlay: (id: string) => commit((s) => ({ image_overlays: s.image_overlays.filter((o) => o.id !== id) })),
+      replaceAudioParts: (ids: string[], clips: AudioClip[]) => commit(s => ({ audio_clips: [...s.audio_clips.filter(c => !ids.includes(c.id)), ...clips].sort((a, b) => a.start - b.start) })),
       updateAudio: (id: string, patch: Partial<AudioClip>) =>
         commit((s) => ({ audio_clips: s.audio_clips.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
       addAudio: (clip: AudioClip) => commit((s) => ({ audio_clips: [...s.audio_clips, clip] })),

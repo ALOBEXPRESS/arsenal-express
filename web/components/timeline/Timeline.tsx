@@ -43,6 +43,7 @@ import { usePlayhead } from '@/lib/stores/playhead'
 import { useDragAsset, ASSET_MIME } from '@/lib/stores/drag'
 import { useSelection } from '@/lib/stores/selection'
 import type { AdjustClip, Asset, AudioClip, NarrationSegment, OverlayClip, Scene, Subproject } from '@/types/project'
+import { splitAudioClip } from '@/lib/sync/splitAudio'
 import { splitSceneData } from '@/lib/sync/splitScene'
 import { LOOK_BY_ID, LOOKS, matchesLook } from '@/lib/sync/adjust'
 import { cn } from '@/lib/utils'
@@ -626,7 +627,7 @@ export function Timeline({
   const [magnetEnabled, setMagnetEnabled] = useState(true)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; split?: { original: Scene; right: Scene; rate: number }; sceneEdit?: { before: Partial<Scene>; after: Partial<Scene> }; sceneEdits?: ScenePropertyEdit[]; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; audioSplit?: { original: AudioClip; parts: [AudioClip, AudioClip] }; split?: { original: Scene; right: Scene; rate: number }; sceneEdit?: { before: Partial<Scene>; after: Partial<Scene> }; sceneEdits?: ScenePropertyEdit[]; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
   useEffect(() => {
     setCutHistory([])
@@ -766,7 +767,7 @@ export function Timeline({
   )
 
   const snapPoints = useMemo(() => {
-    const pts = [0, ...timeline.map((t) => t.start), totalDuration(timeline)]
+    const pts = [0, ...timeline.flatMap(t => [t.start, t.start + t.duration]), totalDuration(timeline)]
     overlays.forEach((o) => pts.push(o.start, o.start + o.duration))
     regularAudioClips.forEach((c) => pts.push(c.start, c.start + c.duration))
     sfxClips.forEach((c) => pts.push(c.start, c.start + c.duration))
@@ -774,7 +775,7 @@ export function Timeline({
     narrationTrack.forEach((n) => pts.push(n.start, n.start + n.duration))
     return pts
   }, [timeline, overlays, regularAudioClips, sfxClips, adjustments, narrationTrack])
-  const snapWithPlayhead = () => [...snapPoints, usePlayhead.getState().time]
+  const snapWithPlayhead = () => magnetEnabled ? [...snapPoints, usePlayhead.getState().time] : []
 
   // ---- Delete -------------------------------------------------------------------------
   const removeScene = useCallback(
@@ -1002,7 +1003,7 @@ export function Timeline({
     const isAudio = dragAsset?.type === 'audio'
     const effectiveLane: Lane = isAsset && isAudio ? (lane === 'narration' ? 'narration' : 'audio') : lane === 'narration' ? 'main' : lane
     const target =
-      effectiveLane === 'narration' ? narrationEndT : isScene || effectiveLane === 'main' ? boundaryTime(insertIndexAt(t)) : t
+      effectiveLane === 'narration' ? narrationEndT : isAsset && isAudio ? 0 : isScene || effectiveLane === 'main' ? boundaryTime(insertIndexAt(t)) : t
     if (dropHint?.lane !== effectiveLane || Math.abs((dropHint?.time ?? -1) - target) > 1e-3) setDropHint({ lane: effectiveLane, time: target })
   }
 
@@ -1032,7 +1033,7 @@ export function Timeline({
     // Media from the library
     const asset = assetById.get(e.dataTransfer.getData(ASSET_MIME)) || dragAsset
     if (!asset) return
-    if (asset.type === 'audio') return lane === 'narration' ? appendNarration(asset) : addAudioClip(asset, t)
+    if (asset.type === 'audio') return lane === 'narration' ? appendNarration(asset) : addAudioClip(asset, 0)
     if (lane === 'audio') {
       toast.info('Essa faixa é só de áudio', { description: 'Solte vídeos e imagens na faixa Mídia ou Sobreposição.' })
       return
@@ -1055,9 +1056,9 @@ export function Timeline({
   const laneClass = (lane: Lane) =>
     cn('relative rounded-md transition-colors', accepting(lane) && 'bg-primary/[0.06] outline outline-1 outline-dashed outline-primary/40')
 
-  const sourceMax = (assetId: string, speed: number) => {
+  const sourceMax = (assetId: string, speed: number, inPoint = 0) => {
     const a = assetById.get(assetId)
-    return a?.type === 'image' || !a?.duration ? undefined : a.duration / (speed || 1)
+    return a?.type === 'image' || !a?.duration ? undefined : Math.max(0.2, (a.duration - inPoint) / (speed || 1))
   }
 
   // ---- Split scene at playhead ----------------------------------------------------
@@ -1077,6 +1078,18 @@ export function Timeline({
       return
     }
     
+    if (selection?.kind === 'audio') {
+      const original = audioClips.find(c => c.id === selection.id)
+      const parts = original && splitAudioClip(original, activeSceneIndex, crypto.randomUUID())
+      if (!original || !parts) { toast.info('Posicione a agulha dentro do áudio para dividir.'); return }
+      tracks.replaceAudioParts([original.id], parts)
+      const nextHistory = cutHistory.slice(0, cutHistoryIndex + 1)
+      nextHistory.push({ sceneId: original.id, beforeDuration: original.duration, afterDuration: parts[0].duration, beforeTrim: original.in_point || 0, afterTrim: original.in_point || 0, audioSplit: { original, parts } })
+      setCutHistory(nextHistory)
+      setCutHistoryIndex(nextHistory.length - 1)
+      select({ kind: 'audio', id: parts[1].id })
+      return
+    }
     if (selection?.kind === 'overlay') {
       const selected = overlays.find(o => o.id === selection.id)
       if (!selected || activeSceneIndex <= selected.start + 0.05 || activeSceneIndex >= selected.start + selected.duration - 0.05) { toast.info('Posicione a agulha dentro da overlay para dividir.'); return }
@@ -1128,7 +1141,7 @@ export function Timeline({
       console.error('[Cut] Failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
     }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene, cutHistory, cutHistoryIndex, selection, overlays, tracks])
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene, cutHistory, cutHistoryIndex, selection, overlays, tracks, audioClips])
 
   // Undo last cut
   const handleUndo = useCallback(async () => {
@@ -1139,6 +1152,7 @@ export function Timeline({
     }
 
     const entry = cutHistory[cutHistoryIndex]
+    if (entry.audioSplit) { tracks.replaceAudioParts(entry.audioSplit.parts.map(c => c.id), [entry.audioSplit.original]); select({kind:'audio',id:entry.audioSplit.original.id}); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.sceneEdits) { for (const edit of entry.sceneEdits) patchScene(edit.id, edit.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.sceneEdit) { patchScene(entry.sceneId, entry.sceneEdit.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.crop) { tracks.restoreCrop(entry.crop.id, entry.crop.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
@@ -1216,6 +1230,7 @@ export function Timeline({
 
     const nextIndex = cutHistoryIndex + 1
     const entry = cutHistory[nextIndex]
+    if (entry.audioSplit) { tracks.replaceAudioParts([entry.audioSplit.original.id], entry.audioSplit.parts); select({kind:'audio',id:entry.audioSplit.parts[1].id}); setCutHistoryIndex(nextIndex); return }
     if (entry.sceneEdits) { for (const edit of entry.sceneEdits) patchScene(edit.id, edit.after); setCutHistoryIndex(nextIndex); return }
     if (entry.sceneEdit) { patchScene(entry.sceneId, entry.sceneEdit.after); setCutHistoryIndex(nextIndex); return }
     if (entry.crop) { tracks.restoreCrop(entry.crop.id, entry.crop.after); setCutHistoryIndex(nextIndex); return }
@@ -1400,7 +1415,7 @@ export function Timeline({
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleUndo} disabled={busy || splitScene.isPending || undoSplit.isPending || deleteScene.isPending || insertScene.isPending || cutHistoryIndex < 0} aria-label="Desfazer edição" title="Desfazer edição (Ctrl+Z)"><Undo2 /></Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleRedo} disabled={busy || splitScene.isPending || undoSplit.isPending || deleteScene.isPending || insertScene.isPending || cutHistoryIndex >= cutHistory.length - 1} aria-label="Refazer edição" title="Refazer edição (Ctrl+Y ou Ctrl+Shift+Z)"><Redo2 /></Button>
           </div>
-          <Button variant={magnetEnabled ? "secondary" : "ghost"} size="icon" className="h-8 w-8" aria-label="Ímã das cenas" aria-pressed={magnetEnabled} title={magnetEnabled ? "Desativar ímã" : "Ativar ímã"} onClick={() => setMagnetEnabled(v => !v)}><Magnet /></Button>
+          <Button variant={magnetEnabled ? "secondary" : "ghost"} size="icon" className="h-8 w-8" aria-label="Ímã da timeline" aria-pressed={magnetEnabled} title={magnetEnabled ? "Desativar ímã" : "Ativar ímã"} onClick={() => setMagnetEnabled(v => !v)}><Magnet /></Button>
           <div className="mr-1 flex items-center rounded-md border border-border" role="group" aria-label="Zoom da timeline">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => zoom(1 / 1.5)} aria-label="Diminuir zoom">
               <ZoomOut />
@@ -1427,8 +1442,8 @@ export function Timeline({
             size="sm" 
             variant="outline" 
             onClick={handleSplitAtPlayhead} 
-            disabled={busy || splitScene.isPending || (!selectedSceneAtPlayhead && selection?.kind !== 'overlay')}
-            title="Cortar cena na posição atual (Ctrl+B)"
+            disabled={busy || splitScene.isPending || (!selectedSceneAtPlayhead && selection?.kind !== 'overlay' && selection?.kind !== 'audio')}
+            title="Cortar clipe na posição atual (Ctrl+B)"
           >
             <Scissors /> Cortar
           </Button>
@@ -1875,7 +1890,7 @@ export function Timeline({
                         label={a?.filename || 'áudio removido'}
                         meta={`${Math.round(c.volume * 100)}%${c.speed !== 1 ? ` · ${c.speed.toFixed(2)}×` : ''}`}
                         selected={isSelected('audio', c.id)}
-                        maxDuration={sourceMax(c.asset_id, c.speed)}
+                        maxDuration={sourceMax(c.asset_id, c.speed, c.in_point)}
                         snapTo={snapWithPlayhead()}
                         onSelect={() => select({ kind: 'audio', id: c.id })}
                         onCommit={(p) => tracks.updateAudio(c.id, p)}
@@ -1912,7 +1927,7 @@ export function Timeline({
                         label={sfxName}
                         meta={`${Math.round(c.volume * 100)}%`}
                         selected={isSelected('audio', c.id)}
-                        maxDuration={sourceMax(c.asset_id, c.speed)}
+                        maxDuration={sourceMax(c.asset_id, c.speed, c.in_point)}
                         snapTo={snapWithPlayhead()}
                         onSelect={() => select({ kind: 'audio', id: c.id })}
                         onCommit={(p) => tracks.updateAudio(c.id, p)}
