@@ -21,7 +21,6 @@ import { useSelection } from '@/lib/stores/selection'
 import { usePlayhead } from '@/lib/stores/playhead'
 import { Button } from '@/components/ui/button'
 import { confirmDialog } from '@/components/ui/confirm'
-import { CaptionButton } from '@/components/editor/CaptionButton'
 import { AssetLibrary } from '@/components/assets/AssetLibrary'
 import { SoundEffectsLibrary } from '@/components/sfx/SoundEffectsLibrary'
 import { Timeline } from '@/components/timeline/Timeline'
@@ -378,7 +377,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <CaptionButton key={`${id}:${subId}`} tracks={tracks} timeline={timeline} />
           <Button variant="outline" size="sm" onClick={() => setShowAssembly(true)}>
             <SlidersHorizontal /> Montagem
           </Button>
