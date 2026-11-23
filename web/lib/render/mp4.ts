@@ -400,7 +400,7 @@ async function renderFrame(
     if (time < overlay.start || time >= overlay.start + overlay.duration) continue
 
     if (overlay.kind === 'text' && overlay.auto_caption && overlay.text_content) {
-      ctx.save();const size=height/34;ctx.font=`bold ${size}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.globalAlpha=overlay.opacity
+      ctx.save();const size=height*(overlay.text_style?.font_size??48)/1920;ctx.font=`${overlay.text_style?.font_weight||'bold'} ${size}px ${overlay.text_style?.font_family||'Arial'}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.globalAlpha=overlay.opacity
       const words=overlay.text_content.split(/\s+/),lines:string[]=[];let line=''
       for(const word of words){const next=line?line+' '+word:word;if(line&&ctx.measureText(next).width>width*0.88){lines.push(line);line=word}else line=next}if(line)lines.push(line)
       lines.forEach((text,i)=>{const y=height*0.8+(i-(lines.length-1)/2)*size*1.25;const w=ctx.measureText(text).width;ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect((width-w)/2-size*0.2,y-size*0.65,w+size*0.4,size*1.3);ctx.fillStyle=overlay.text_style?.color||'#fff';ctx.fillText(text,width/2,y)})

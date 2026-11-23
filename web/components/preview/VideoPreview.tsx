@@ -662,7 +662,7 @@ export function VideoPreview({
           {/* Overlay layers (Sobreposição) — text bars on top */}
           {overlays.map((o, i) => {
             // Text overlay bars (no asset needed)
-            if (o.kind === 'text' && o.auto_caption) return <div key={o.id} ref={el=>{if(el)overlayEls.current.set(o.id,el);else overlayEls.current.delete(o.id)}} className="absolute left-[5%] w-[90%] cursor-pointer text-center" style={{top:'76%',zIndex:100+i,opacity:o.opacity,visibility:time>=o.start&&time<o.start+o.duration?'visible':'hidden',fontSize:Math.max(12,stage.h/34),fontWeight:'bold',color:o.text_style?.color||'#fff',textShadow:'0 2px 3px #000, 1px 0 2px #000'}} onClick={e=>{e.stopPropagation();onSelectOverlay?.(o.id)}}><span className="rounded bg-black/65 px-2 py-1" style={{boxDecorationBreak:'clone'}}>{o.text_content}</span></div>
+            if (o.kind === 'text' && o.auto_caption) return <div key={o.id} ref={el=>{if(el)overlayEls.current.set(o.id,el);else overlayEls.current.delete(o.id)}} className="absolute left-[5%] w-[90%] cursor-pointer text-center" style={{top:'76%',zIndex:100+i,opacity:o.opacity,visibility:time>=o.start&&time<o.start+o.duration?'visible':'hidden',fontSize:Math.max(10,stage.h*(o.text_style?.font_size??48)/1920),fontFamily:o.text_style?.font_family||'Arial',fontWeight:o.text_style?.font_weight||'bold',color:o.text_style?.color||'#fff',textShadow:'0 2px 3px #000, 1px 0 2px #000'}} onClick={e=>{if((e.target as HTMLElement).closest('[data-caption-text]')){e.stopPropagation();onSelectOverlay?.(o.id)}}}><span data-caption-text className="rounded bg-black/65 px-2 py-1" style={{boxDecorationBreak:'clone'}}>{o.text_content}</span></div>
             if (o.kind === 'text') {
               const barHeight = overlayBarHeight > 0 
                 ? overlayBarHeight 
@@ -699,18 +699,18 @@ export function VideoPreview({
                     overflow: 'hidden',
                   }}
                   onClick={(e) => {
-                    e.stopPropagation()
-                    onSelectOverlay?.(o.id)
+                    if((e.target as HTMLElement).closest('[data-text-content]')){e.stopPropagation();onSelectOverlay?.(o.id)}
                   }}
                 >
-                  <span
+                  <span data-text-content
                     style={{
                       fontFamily: o.text_style?.font_family || 'Arial',
                       fontSize: `${actualFontSize}px`,
                       fontWeight: o.text_style?.font_weight || 'bold',
                       color: o.text_style?.color || '#FFFFFF',
                       textAlign: o.text_style?.alignment || 'center',
-                      width: '100%',
+                      width: 'fit-content',
+                      maxWidth: '100%',
                       lineHeight: '1.3',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
