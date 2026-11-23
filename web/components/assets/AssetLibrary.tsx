@@ -37,9 +37,9 @@ export function AssetLibrary({ projectId, onSelectAsset, onNarrationAsset }: Ass
   const [activeTab, setActiveTab] = useState<AssetType | 'all'>('all')
   const [showUpload, setShowUpload] = useState<AssetType | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
-  const previewAsset = assets?.find((asset) => asset.id === previewId && asset.type === 'video')
+  const previewAsset = assets?.find((asset) => asset.id === previewId && (asset.type === 'video' || asset.type === 'audio'))
 
-  const projectAssets = (assets || []).filter(a => a.type !== 'asset')
+  const projectAssets = (assets || []).filter(a => a.type !== 'asset' && !a.library_user_id)
   const sorted = sortByModificationDate(assets || [])
   const filtered = activeTab === 'all' ? sorted : sorted.filter((a) => a.type === activeTab)
   const count = (t: AssetType) => sorted.filter((a) => a.type === t).length
@@ -169,9 +169,9 @@ export function AssetLibrary({ projectId, onSelectAsset, onNarrationAsset }: Ass
             </div>
             <button type="button" onClick={() => setPreviewId(null)} className="rounded p-1 text-muted-foreground hover:bg-white/10 hover:text-foreground" aria-label="Fechar prévia da mídia"><X className="h-4 w-4" /></button>
           </div>
-          <video key={previewAsset.id} src={previewAsset.url} controls autoPlay playsInline preload="metadata" className="max-h-48 w-full rounded-md bg-black" aria-label={`Prévia de ${previewAsset.filename}`}>
+          {previewAsset.type === 'audio' ? <audio key={previewAsset.id} src={previewAsset.url} controls autoPlay preload="metadata" className="w-full" aria-label={`Prévia de ${previewAsset.filename}`} /> : <video key={previewAsset.id} src={previewAsset.url} controls autoPlay playsInline preload="metadata" className="max-h-48 w-full rounded-md bg-black" aria-label={`Prévia de ${previewAsset.filename}`}>
             Seu navegador não consegue reproduzir este vídeo.
-          </video>
+          </video>}
         </section>
       )}
 
@@ -193,7 +193,7 @@ export function AssetLibrary({ projectId, onSelectAsset, onNarrationAsset }: Ass
             {filtered.map((asset) => (
               <div key={asset.id} className={cn('relative rounded-lg', selected.includes(asset.id) && 'ring-2 ring-brand-cyan')} onClickCapture={e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggle(asset.id) } }}>
               <input type="checkbox" aria-label={`Selecionar ${asset.filename}`} checked={selected.includes(asset.id)} onClick={e => e.stopPropagation()} onChange={() => toggle(asset.id)} className="absolute right-2 top-10 z-20 h-4 w-4 accent-primary" />
-              <AssetCard asset={asset} onDelete={(a) => { if (a.id === previewId) setPreviewId(null); deleteAsset.mutate(a) }} onSelect={(a) => { if (a.type === 'video') setPreviewId(a.id); onSelectAsset?.(a) }} />
+              <AssetCard asset={asset} onPreview={(a) => setPreviewId(a.id)} onDelete={(a) => { if (a.id === previewId) setPreviewId(null); deleteAsset.mutate(a) }} onSelect={(a) => { if (a.type === 'video') setPreviewId(a.id); onSelectAsset?.(a) }} />
               </div>
             ))}
           </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic, Package, Heart } from 'lucide-react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic, Package, Heart, Pin } from 'lucide-react'
 import type { Asset } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
 import { confirmDialog } from '@/components/ui/confirm'
@@ -13,12 +13,13 @@ import { cn } from '@/lib/utils'
 interface AssetCardProps {
   asset: Asset
   onDelete?: (asset: Asset) => void
+  onPreview?: (asset: Asset) => void
   onSelect?: (asset: Asset) => void
 }
 
 const ICONS = { video: Clapperboard, audio: AudioLines, image: ImageIcon, asset: Package }
 
-export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
+export function AssetCard({ asset, onDelete, onSelect, onPreview }: AssetCardProps) {
   const confirmingDelete = useRef(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -101,6 +102,7 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
       }}
       onDragEnd={() => setDragAsset(null)}
       className="group relative cursor-grab overflow-hidden rounded-lg border border-border bg-surface-2 transition-all duration-200 hover:border-primary/50 hover:shadow-[0_0_20px_-5px_rgba(123,97,255,0.3)] active:cursor-grabbing"
+      onDoubleClick={(e) => { if (asset.type === 'audio' && !(e.target as HTMLElement).closest('button, input, label')) { e.stopPropagation(); onPreview?.(asset) } }}
       onClick={() => {
         videoRef.current?.pause()
         onSelect?.(asset)
@@ -163,6 +165,12 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
           </span>
         ) : null}
 
+        {asset.type === 'audio' && <button type="button" disabled={isUpdating || !!asset.library_user_id} onPointerDown={e=>e.stopPropagation()} onDoubleClick={e=>e.stopPropagation()} onClick={async e=>{
+          e.stopPropagation();setIsUpdating(true)
+          try { await updateAsset.mutateAsync({id:asset.id,patch:{metadata:{...asset.metadata,original_type:'asset',shared_audio:true}}});toast.success('Áudio fixado na biblioteca da conta.') }
+          catch(error){toast.error(error instanceof Error?error.message:'Não foi possível fixar o áudio.')}
+          finally{setIsUpdating(false)}
+        }} aria-label={asset.library_user_id?'Áudio fixado em todos os projetos':'Fixar áudio em todos os projetos'} title={asset.library_user_id?'Áudio fixado em todos os projetos':'Fixar áudio em todos os projetos'} className="absolute right-1.5 top-1.5 rounded bg-black/70 p-1.5 text-white"><Pin className={cn('h-3.5 w-3.5',asset.library_user_id&&'fill-current text-primary')} /></button>}
         {/* Favorite Button - Neon Style */}
         {(asset.type === 'video' || asset.type === 'image' || asset.type === 'asset') && (
           <button
@@ -199,7 +207,7 @@ export function AssetCard({ asset, onDelete, onSelect }: AssetCardProps) {
               if (confirmingDelete.current) return
               confirmingDelete.current = true
               try {
-                const ok = await confirmDialog({ title: `Excluir "${asset.filename}"?`, description: asset.type === 'asset' ? 'Este asset sai da biblioteca da conta e deixa de estar disponível em todos os seus projetos.' : 'O arquivo sai da biblioteca. Cenas que usam essa mídia ficam sem clipe.', confirmLabel: 'Excluir', tone: 'danger' })
+                const ok = await confirmDialog({ title: `Excluir "${asset.filename}"?`, description: asset.library_user_id || asset.type === 'asset' ? 'Este asset sai da biblioteca da conta e deixa de estar disponível em todos os seus projetos.' : 'O arquivo sai da biblioteca. Cenas que usam essa mídia ficam sem clipe.', confirmLabel: 'Excluir', tone: 'danger' })
                 if (ok === true) onDelete(asset)
               } finally { confirmingDelete.current = false }
             }}

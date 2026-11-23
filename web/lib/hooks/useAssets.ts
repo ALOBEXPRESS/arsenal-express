@@ -47,7 +47,7 @@ export function useAssets(projectId: string) {
       // Restore original_type from metadata if it was 'asset'
       const mapped = rows.map((asset) => ({
         ...asset,
-        type: (asset.metadata as any)?.original_type || asset.kind,
+        type: asset.kind === 'audio' && asset.metadata?.shared_audio === true ? 'audio' : (asset.metadata as any)?.original_type || asset.kind,
         duration: asset.duration_seconds,
         is_narration: (asset.metadata?.is_narration ?? asset.is_narration) === true,
         url: urlByPath.get(asset.storage_path) || '',
