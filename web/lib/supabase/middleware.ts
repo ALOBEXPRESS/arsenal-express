@@ -15,7 +15,7 @@ export async function updateSession(request: NextRequest) {
   })
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
-  const protectedApi = path.startsWith('/api/') && path !== '/api/auth/login' && path !== '/api/tiktok/webhook'
+  const protectedApi = path.startsWith('/api/') && path !== '/api/auth/login' && path !== '/api/access-requests' && path !== '/api/tiktok/webhook'
   const protectedPage = ['/dashboard', '/project', '/admin', '/tiktok'].some(prefix => path === prefix || path.startsWith(prefix + '/'))
   if (user && (protectedApi || protectedPage)) {
     const { data, error } = await supabase.rpc('system_access_status')

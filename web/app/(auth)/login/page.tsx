@@ -89,7 +89,7 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground">Para solicitar acesso, envie seu e-mail para <a className="text-primary underline" href={ACCESS_REQUEST_URL}>{ACCESS_ADMIN_EMAIL}</a>.</p>
+      <Link href={ACCESS_REQUEST_URL} className="block rounded-md border border-primary p-3 text-center font-semibold text-primary">Solicitar acesso ou consultar pedido</Link>
       {/* Footer */}
       <div className="text-center text-sm text-muted-foreground">
         Já recebeu autorização?{" "}

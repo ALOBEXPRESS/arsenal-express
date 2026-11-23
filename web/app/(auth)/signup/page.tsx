@@ -98,7 +98,7 @@ export default function SignUpPage() {
         </p>
       </div>
 
-      <p className="text-center text-sm text-muted-foreground">Ainda não foi autorizado? Solicite acesso em <a className="text-primary underline" href={ACCESS_REQUEST_URL}>{ACCESS_ADMIN_EMAIL}</a>.</p>
+      <p className="text-center text-sm text-muted-foreground">Ainda não foi autorizado? Solicite acesso <a className="text-primary underline" href={ACCESS_REQUEST_URL}>aqui</a>.</p>
       {/* Form */}
       <form onSubmit={handleSignUp} className="space-y-4">
         {error && (
