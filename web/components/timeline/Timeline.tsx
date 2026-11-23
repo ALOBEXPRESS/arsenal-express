@@ -627,7 +627,7 @@ export function Timeline({
   const [magnetEnabled, setMagnetEnabled] = useState(true)
 
   // Undo/Redo history for cuts
-  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; audioSplit?: { original: AudioClip; parts: [AudioClip, AudioClip] }; split?: { original: Scene; right: Scene; rate: number }; sceneEdit?: { before: Partial<Scene>; after: Partial<Scene> }; sceneEdits?: ScenePropertyEdit[]; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
+  const [cutHistory, setCutHistory] = useState<Array<{ sceneId: string; beforeDuration: number; afterDuration: number; beforeTrim: number; afterTrim: number; narrationSplit?: { before: NarrationSegment[]; after: NarrationSegment[] }; audioSplit?: { original: AudioClip; parts: [AudioClip, AudioClip] }; split?: { original: Scene; right: Scene; rate: number }; sceneEdit?: { before: Partial<Scene>; after: Partial<Scene> }; sceneEdits?: ScenePropertyEdit[]; crop?: { id: string; before: Partial<OverlayClip>; after: Partial<OverlayClip> }; deletion?: { scene: Scene; index: number; previousId?: string; nextId?: string } }>>([])
   const [cutHistoryIndex, setCutHistoryIndex] = useState(-1)
   useEffect(() => {
     setCutHistory([])
@@ -875,7 +875,7 @@ export function Timeline({
       asset_id: asset.id,
       start: Math.round(start * 1000) / 1000,
       duration: asset.duration || 5,
-      volume: 1,
+      volume: 0.3,
       speed: 1,
     }
     tracks.addAudio(clip)
@@ -1078,6 +1078,17 @@ export function Timeline({
       return
     }
     
+    if (selection?.kind === 'narration') {
+      const index = Number(selection.id), original = narrationTrack[index]
+      if (!original) return
+      const parts = splitAudioClip({...original,id:'narration',volume:original.volume ?? 1,speed:original.speed || 1},activeSceneIndex,'right')
+      if (!parts) { toast.info('Posicione a agulha dentro da narração para dividir.'); return }
+      const after = narrationTrack.flatMap((n,i)=>i===index ? parts.map(({id,...part})=>part) : [n])
+      tracks.replaceNarration(after)
+      const history = cutHistory.slice(0,cutHistoryIndex+1)
+      history.push({sceneId:'narration',beforeDuration:original.duration,afterDuration:parts[0].duration,beforeTrim:0,afterTrim:0,narrationSplit:{before:narrationTrack,after}})
+      setCutHistory(history);setCutHistoryIndex(history.length-1);select({kind:'narration',id:String(index+1)});return
+    }
     if (selection?.kind === 'audio') {
       const original = audioClips.find(c => c.id === selection.id)
       const parts = original && splitAudioClip(original, activeSceneIndex, crypto.randomUUID())
@@ -1141,7 +1152,7 @@ export function Timeline({
       console.error('[Cut] Failed:', err)
       toast.error('Falha ao cortar', { description: err instanceof Error ? err.message : 'Erro desconhecido' })
     }
-  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene, cutHistory, cutHistoryIndex, selection, overlays, tracks, audioClips])
+  }, [selectedSceneAtPlayhead, timeline, activeSceneIndex, projectId, scenes, select, patchScene, splitScene, cutHistory, cutHistoryIndex, selection, overlays, tracks, audioClips, narrationTrack])
 
   // Undo last cut
   const handleUndo = useCallback(async () => {
@@ -1152,6 +1163,7 @@ export function Timeline({
     }
 
     const entry = cutHistory[cutHistoryIndex]
+    if (entry.narrationSplit) { tracks.replaceNarration(entry.narrationSplit.before); select(null); setCutHistoryIndex(cutHistoryIndex-1); return }
     if (entry.audioSplit) { tracks.replaceAudioParts(entry.audioSplit.parts.map(c => c.id), [entry.audioSplit.original]); select({kind:'audio',id:entry.audioSplit.original.id}); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.sceneEdits) { for (const edit of entry.sceneEdits) patchScene(edit.id, edit.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
     if (entry.sceneEdit) { patchScene(entry.sceneId, entry.sceneEdit.before); setCutHistoryIndex(cutHistoryIndex - 1); return }
@@ -1230,6 +1242,7 @@ export function Timeline({
 
     const nextIndex = cutHistoryIndex + 1
     const entry = cutHistory[nextIndex]
+    if (entry.narrationSplit) { tracks.replaceNarration(entry.narrationSplit.after); select(null); setCutHistoryIndex(nextIndex); return }
     if (entry.audioSplit) { tracks.replaceAudioParts([entry.audioSplit.original.id], entry.audioSplit.parts); select({kind:'audio',id:entry.audioSplit.parts[1].id}); setCutHistoryIndex(nextIndex); return }
     if (entry.sceneEdits) { for (const edit of entry.sceneEdits) patchScene(edit.id, edit.after); setCutHistoryIndex(nextIndex); return }
     if (entry.sceneEdit) { patchScene(entry.sceneId, entry.sceneEdit.after); setCutHistoryIndex(nextIndex); return }
@@ -1442,7 +1455,7 @@ export function Timeline({
             size="sm" 
             variant="outline" 
             onClick={handleSplitAtPlayhead} 
-            disabled={busy || splitScene.isPending || (!selectedSceneAtPlayhead && selection?.kind !== 'overlay' && selection?.kind !== 'audio')}
+            disabled={busy || splitScene.isPending || (!selectedSceneAtPlayhead && selection?.kind !== 'overlay' && selection?.kind !== 'audio' && selection?.kind !== 'narration')}
             title="Cortar clipe na posição atual (Ctrl+B)"
           >
             <Scissors /> Cortar

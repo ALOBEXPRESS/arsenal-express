@@ -155,6 +155,8 @@ export interface SceneProps {
 }
 
 export interface NarrationSegment {
+  volume?: number
+  in_point?: number
   asset_id: string
   /** Global start time on the project timeline (seconds) */
   start: number

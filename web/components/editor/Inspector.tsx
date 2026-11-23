@@ -923,7 +923,8 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
                 ? `${covered} cena(s) por cima deste trecho.`
                 : 'Nenhuma cena neste trecho ainda — arraste clipes da biblioteca pra faixa Mídia.'}
             </p>
-            <p>A narração toca contínua: os arquivos ficam colados um depois do outro.</p>
+            <PropSlider label="Volume deste trecho" value={seg.volume ?? 1} min={0} max={2} step={0.01} format={pct} onChange={volume=>tracks.updateNarration(i,{volume})} />
+            <p>Use Ctrl+B com a agulha dentro da narração para dividir e ajustar o volume de cada trecho.</p>
             <Button
               variant="outline"
               className="w-full hover:border-destructive/60 hover:text-destructive"

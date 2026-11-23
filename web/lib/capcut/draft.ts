@@ -34,7 +34,7 @@ export interface MediaInfo {
 export interface TimelineInput {
   name: string
   timeline: TimedScene[]
-  narration: { asset: Asset; start: number; duration: number }[]
+  narration: { asset: Asset; start: number; duration: number; volume?: number; speed?: number; in_point?: number }[]
   /** image/video layers above the main track */
   overlays?: { clip: OverlayClip; asset: Asset }[]
   /** music / SFX */
@@ -474,7 +474,7 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
 
   // ---- Narration track ------------------------------------------------------
   const audioSegments = input.narration.map((n) => {
-    const speedMat = speedMaterial(1.0)
+    const speedMat = speedMaterial(n.speed || 1)
     mat.speeds.push(speedMat)
     const startUs = toUs(n.start)
     const durUs = Math.min(toUs(n.duration), Math.max(0, totalUs - startUs))
@@ -485,9 +485,9 @@ function buildTimelineContent(tl: TimelineInput, shared: Shared) {
       target_timerange: { start: startUs, duration: durUs },
       common_keyframes: [],
       keyframe_refs: [],
-      source_timerange: { start: 0, duration: durUs },
-      speed: 1.0,
-      volume: 1.0,
+      source_timerange: { start: toUs(n.in_point || 0), duration: Math.round(durUs * (n.speed || 1)) },
+      speed: n.speed || 1,
+      volume: n.volume ?? 1,
       extra_material_refs: [speedMat.id],
       is_tone_modify: false,
       clip: null,

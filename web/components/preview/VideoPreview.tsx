@@ -355,7 +355,9 @@ export function VideoPreview({
             audio.dataset.asset = seg.asset_id
             audio.src = url
           }
-          const local = t - seg.start
+          audio.volume = Math.min(1, Math.max(0, seg.volume ?? 1))
+          audio.playbackRate = seg.speed || 1
+          const local = (seg.in_point || 0) + (t - seg.start) * (seg.speed || 1)
           const tolerance = playing ? DRIFT_TOLERANCE : 0.04
           if (Math.abs(audio.currentTime - local) > tolerance && audio.readyState > 0) audio.currentTime = local
           if (playing) safePlay(audio)
@@ -413,7 +415,7 @@ export function VideoPreview({
         const audio = audioRef.current
         const seg = narrationAt(narrationTrack, clockRef.current)
         if (audio && seg && !audio.paused && audio.readyState >= 3 && audio.dataset.asset === seg.asset_id) {
-          const err = seg.start + audio.currentTime - next
+          const err = seg.start + (audio.currentTime - (seg.in_point || 0)) / (seg.speed || 1) - next
           if (Math.abs(err) > 0.08 && Math.abs(err) < 0.5) next += err * 0.05
         }
         clockRef.current = Math.min(total, Math.max(clockRef.current, next))

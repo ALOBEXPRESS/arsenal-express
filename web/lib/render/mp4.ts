@@ -580,7 +580,11 @@ async function mixAndAddAudio(
     if (!narration.asset) throw new Error('Narração sem arquivo de áudio disponível.')
     const buffer = (await load(narration.asset, true))!
     const source = audioCtx.createBufferSource(); source.buffer = buffer
-    source.connect(audioCtx.destination); source.start(narration.start, 0, Math.min(narration.duration, buffer.duration))
+    const gain = audioCtx.createGain(); gain.gain.value = narration.volume ?? 1
+    source.playbackRate.value = narration.speed || 1
+    source.connect(gain); gain.connect(audioCtx.destination)
+    const offset = narration.in_point || 0
+    source.start(narration.start, offset, Math.min(narration.duration * source.playbackRate.value, buffer.duration - offset))
   }
   // Load audio from scenes (áudio de narração ou voz)
   for (const scene of input.timeline) {

@@ -74,10 +74,10 @@ export function globalInsertIndex(all: Scene[], subScenes: Scene[], index: numbe
 export const narrationEnd = (track: NarrationSegment[]) => track.reduce((m, s) => Math.max(m, s.start + s.duration), 0)
 
 /** Narration segments laid back-to-back (after removing / appending a file) */
-export function relayNarration(track: { asset_id: string; duration: number }[]): NarrationSegment[] {
+export function relayNarration(track: { asset_id: string; duration: number; volume?: number; speed?: number; in_point?: number }[]): NarrationSegment[] {
   let t = 0
   return track.map((s) => {
-    const seg = { asset_id: s.asset_id, start: Math.round(t * 1000) / 1000, duration: s.duration }
+    const seg = { ...s, asset_id: s.asset_id, start: Math.round(t * 1000) / 1000, duration: s.duration }
     t += s.duration
     return seg
   })

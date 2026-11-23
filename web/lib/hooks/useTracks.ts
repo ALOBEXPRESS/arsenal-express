@@ -141,10 +141,12 @@ export function useTracks(projectId: string, subId: string) {
       addAdjust: (clip: AdjustClip) => commit((s) => ({ adjustments: [...s.adjustments, clip] })),
       removeAdjust: (id: string) => commit((s) => ({ adjustments: s.adjustments.filter((a) => a.id !== id) })),
       /** Appends a narration file at the end of the subproject's narration */
+      replaceNarration: (track: Subproject['narration_track']) => commit(() => ({ narration_track: track })),
+      updateNarration: (index: number, patch: Partial<Subproject['narration_track'][number]>) => commit(s => ({ narration_track: s.narration_track.map((n,i) => i===index ? {...n,...patch} : n) })),
       setNarration: (assets: Asset[]) => commit((s) => ({ narration_track: relayNarration(assets.map(asset => ({ asset_id: asset.id, duration: asset.duration || 0 }))) })),
       appendNarration: (asset: Asset) =>
         commit((s) => ({
-          narration_track: relayNarration([...s.narration_track, { asset_id: asset.id, duration: asset.duration || 0 }]),
+          narration_track: [...s.narration_track, { asset_id: asset.id, start: s.narration_track.reduce((end,n)=>Math.max(end,n.start+n.duration),0), duration: asset.duration || 0 }],
         })),
       /** Removes narration file #index (the next ones move back to close the gap) */
       removeNarration: (index: number) =>
