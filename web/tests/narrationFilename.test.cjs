@@ -1,0 +1,3 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),ts=require('typescript'),fs=require('node:fs')
+const api={};new Function('exports',ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname,'../lib/narrationFilename.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(api)
+test('recognizes ElevenLabs export prefix without classifying background music',()=>{for(const name of ['ElevenLabs_2026.mp3','elevenlabs narration.wav',' ElevenLabs-test.mp3'])assert(api.isNarrationFilename(name));for(const name of ['music.mp3','my_ElevenLabs.mp3','ElevenLabsMusic.mp3'])assert(!api.isNarrationFilename(name))})

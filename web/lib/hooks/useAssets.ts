@@ -1,3 +1,4 @@
+import { isNarrationFilename } from '@/lib/narrationFilename'
 import { generateVideoThumbnail } from '@/lib/media/videoThumbnail'
 import { mediaUrl, downloadMedia, deleteMedia } from '@/lib/storage/media'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -134,7 +135,7 @@ export function useUploadAsset() {
       if (signal?.aborted) throw new DOMException('Importação cancelada', 'AbortError')
       const complete = await fetch('/api/media/uploads/complete', { signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reservationId: upload.reservationId, asset: {
         kind: dbKind, filename: file.name, duration_seconds,
-        metadata: { mime_type: file.type, thumbnail, last_modified: file.lastModified, ...(dims || {}), original_type: type === 'asset' ? 'asset' : undefined }
+        metadata: { is_narration: type === 'audio' && isNarrationFilename(file.name), mime_type: file.type, thumbnail, last_modified: file.lastModified, ...(dims || {}), original_type: type === 'asset' ? 'asset' : undefined }
       } }) })
       const asset = await complete.json()
       if (!complete.ok) throw new Error(asset.error || 'Falha ao registrar mídia')

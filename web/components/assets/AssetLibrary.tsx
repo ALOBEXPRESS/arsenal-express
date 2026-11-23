@@ -10,21 +10,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { sortByModificationDate } from '@/lib/timeline'
 import { cn } from '@/lib/utils'
 import { confirmDialog } from '@/components/ui/confirm'
+import { isNarrationFilename } from '@/lib/narrationFilename'
 import { toast } from 'sonner'
 
 interface AssetLibraryProps {
   projectId: string
+  onNarrationAsset?: (asset: Asset) => void
   onSelectAsset?: (asset: Asset) => void
 }
 
 const UPLOAD_COPY: Record<AssetType, { title: string; text: string }> = {
   video: { title: 'Clipes de vídeo', text: 'Selecione vários de uma vez. A ordem na timeline segue a data de modificação.' },
-  audio: { title: 'Áudio', text: 'Um ou mais áudios. Marque como narração se for narração de fato.' },
+  audio: { title: 'Áudio', text: 'Arquivos com nome iniciado por ElevenLabs entram automaticamente na faixa Narração. Para outros áudios, você pode marcar a opção manualmente.' },
   image: { title: 'Imagens', text: 'Fotos ou artes pra cenas estáticas (com animação de câmera).' },
   asset: { title: 'Assets Extras', text: 'Biblioteca da sua conta, disponível em todos os projetos. Favorite uma imagem, GIF ou vídeo para usar nas barras de overlay.' },
 }
 
-export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
+export function AssetLibrary({ projectId, onSelectAsset, onNarrationAsset }: AssetLibraryProps) {
   const { data: assets, isLoading } = useAssets(projectId)
   const uploadAsset = useUploadAsset()
   const deleteAsset = useDeleteAsset()
@@ -144,7 +146,12 @@ export function AssetLibrary({ projectId, onSelectAsset }: AssetLibraryProps) {
                 projectId={projectId}
                 type={showUpload}
                 onUpload={async (file, signal) => {
-                  await uploadAsset.mutateAsync({ project_id: projectId, type: showUpload, file, signal })
+                  const asset = await uploadAsset.mutateAsync({ project_id: projectId, type: showUpload, file, signal })
+                  if (showUpload === 'audio' && isNarrationFilename(file.name)) {
+                    const duration = asset.duration ?? (asset as Asset & { duration_seconds?: number }).duration_seconds
+                    if (duration && duration > 0) { onNarrationAsset?.({...asset,type:'audio',duration,is_narration:true}); toast.success('Narração ElevenLabs adicionada à timeline.') }
+                    else toast.info('Narração identificada, mas não foi possível ler a duração. Confira o arquivo antes de adicioná-lo à timeline.')
+                  }
                 }}
                 onComplete={() => setShowUpload(null)}
               />
