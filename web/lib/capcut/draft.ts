@@ -35,6 +35,7 @@ export interface MediaInfo {
 export interface TimelineInput {
   name: string
   timeline: TimedScene[]
+  textOverlays?: OverlayClip[]
   narration: { asset: Asset; start: number; duration: number; volume?: number; speed?: number; in_point?: number }[]
   /** image/video layers above the main track */
   overlays?: { clip: OverlayClip; asset: Asset }[]

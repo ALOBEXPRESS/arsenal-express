@@ -489,7 +489,7 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
         <Header
           icon={o.kind === 'text' ? <ImageIcon className="h-4 w-4" /> : o.kind === 'video' ? <Clapperboard className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
           eyebrow={`${isImageOverlay ? 'Overlay' : 'Sobrepor'} · ${formatClock(o.start)} → ${formatClock(o.start + o.duration)}`}
-          title={o.kind === 'text' ? 'Barra de texto' : (a?.filename || 'Mídia removida')}
+          title={o.kind === 'text' ? (o.auto_caption ? 'Legenda' : 'Barra de texto') : (a?.filename || 'Mídia removida')}
           onDelete={remove}
         />
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">

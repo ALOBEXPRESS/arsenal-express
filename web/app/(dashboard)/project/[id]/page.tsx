@@ -21,6 +21,7 @@ import { useSelection } from '@/lib/stores/selection'
 import { usePlayhead } from '@/lib/stores/playhead'
 import { Button } from '@/components/ui/button'
 import { confirmDialog } from '@/components/ui/confirm'
+import { CaptionButton } from '@/components/editor/CaptionButton'
 import { AssetLibrary } from '@/components/assets/AssetLibrary'
 import { SoundEffectsLibrary } from '@/components/sfx/SoundEffectsLibrary'
 import { Timeline } from '@/components/timeline/Timeline'
@@ -171,6 +172,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         .map((seg) => ({ ...seg, asset: assetById.get(seg.asset_id)! }))
         .filter((n) => n.asset),
       overlays: resolve([...sp.overlays, ...sp.image_overlays]),
+      textOverlays: sp.overlays.filter(o=>o.kind==='text'),
       audioClips: resolve(sp.audio_clips),
       adjustments: sp.adjustments,
     }))
@@ -376,6 +378,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <CaptionButton key={`${id}:${subId}`} tracks={tracks} timeline={timeline} />
           <Button variant="outline" size="sm" onClick={() => setShowAssembly(true)}>
             <SlidersHorizontal /> Montagem
           </Button>

@@ -222,6 +222,13 @@ export function useTracks(projectId: string, subId: string) {
 
   return {
     flush,
+    saveAutomaticCaptions: async (clips: OverlayClip[]) => {
+      await flush()
+      const list=read(), next=list.map(s=>s.id===subId?{...s,overlays:[...s.overlays.filter(o=>!o.auto_caption),...clips]}:s)
+      if(!list.some(s=>s.id===subId))throw new Error('Sequência não encontrada.')
+      await patchProjectConfig(projectId,{subprojects:next})
+      queryClient.setQueryData<Project>(['project',projectId],old=>old?{...old,settings:{...old.settings,subprojects:next}}:old)
+    },
     applyAssemblyBars,
     subprojects,
     sub,

@@ -76,7 +76,7 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
           timeline: chosen.timeline,
           narration: chosen.narration as any,
           audioClips: (chosen.audioClips || []).map(({ clip, asset }) => ({ ...clip, asset })) as any,
-          overlays: (chosen.overlays || []).map(({ clip, asset }) => ({ ...clip, asset })) as any,
+          overlays: [...(chosen.overlays || []).map(({ clip, asset }) => ({ ...clip, asset })), ...(chosen.textOverlays || [])] as any,
           duration: totalDuration,
         },
         options

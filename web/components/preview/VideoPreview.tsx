@@ -655,6 +655,7 @@ export function VideoPreview({
           {/* Overlay layers (Sobreposição) — text bars on top */}
           {overlays.map((o, i) => {
             // Text overlay bars (no asset needed)
+            if (o.kind === 'text' && o.auto_caption) return <div key={o.id} ref={el=>{if(el)overlayEls.current.set(o.id,el);else overlayEls.current.delete(o.id)}} className="absolute left-[5%] w-[90%] cursor-pointer text-center" style={{top:'76%',zIndex:100+i,opacity:o.opacity,visibility:time>=o.start&&time<o.start+o.duration?'visible':'hidden',fontSize:Math.max(12,stage.h/34),fontWeight:'bold',color:o.text_style?.color||'#fff',textShadow:'0 2px 3px #000, 1px 0 2px #000'}} onClick={e=>{e.stopPropagation();onSelectOverlay?.(o.id)}}><span className="rounded bg-black/65 px-2 py-1" style={{boxDecorationBreak:'clone'}}>{o.text_content}</span></div>
             if (o.kind === 'text') {
               const barHeight = overlayBarHeight > 0 
                 ? overlayBarHeight 
