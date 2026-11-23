@@ -63,13 +63,13 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
         height: config.height,
         frameRate: config.fps,
         videoCodec: 'avc',
-        videoQuality: 2_000_000, // 2 Mbps
+        videoQuality: preset === '1080p' ? 8_000_000 : 4_000_000,
         audioCodec: 'aac',
         audioQuality: 128_000, // 128 kbps
         onProgress: (p) => setProgress(Math.round(p * 100)),
       }
 
-      const totalDuration = Math.max(...chosen.timeline.map((s) => s.start + s.duration), 0)
+      const totalDuration = Math.max(...chosen.timeline.map((s) => s.start + s.duration), ...chosen.narration.map(n=>n.start+n.duration), ...(chosen.audioClips||[]).map(({clip})=>clip.start+clip.duration), 0)
 
       const mp4 = await renderMp4(
         {

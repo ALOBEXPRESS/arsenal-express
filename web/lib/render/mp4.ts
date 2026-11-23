@@ -13,6 +13,7 @@ import {
   Mp4OutputFormat,
   BufferTarget,
   CanvasSource,
+  CanvasSink,
   AudioBufferSource,
   Quality,
   type VideoEncodingConfig,
@@ -22,6 +23,17 @@ import type { TimedScene } from '../timeline'
 import { barLayout } from '@/lib/sync/barLayout'
 import { mediaUrl } from '@/lib/storage/media'
 import type { Asset, NarrationSegment, AudioClip, OverlayClip } from '@/types/project'
+
+const videoFrames = new WeakMap<HTMLVideoElement, { input: Input; frames: ReturnType<CanvasSink['canvasesAtTimestamps']> }>()
+
+/** Decode the requested frame; never capture a stale HTML video after a timer. */
+async function decodedFrame(video: HTMLVideoElement, time: number): Promise<CanvasImageSource> {
+  const decoder = videoFrames.get(video)
+  if (!decoder) throw new Error('Decodificador de vídeo indisponível.')
+  const frame = (await decoder.frames.next()).value
+  if (!frame) throw new Error(`Não foi possível decodificar o quadro em ${time.toFixed(3)}s.`)
+  return frame.canvas
+}
 
 export interface RenderOptions {
   /** Width of the output video */
@@ -115,7 +127,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
   // Preload all video/image assets
   const assetCache = new Map<string, HTMLVideoElement | HTMLImageElement>()
   try {
-  await preloadAssets(input, assetCache, signal)
+  await preloadAssets(input, assetCache, frameRate, signal)
 
   // Render frames
   const frameDuration = 1 / frameRate
@@ -123,7 +135,8 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
   let frameIndex = 0
   let lastProgress = -1
 
-  for (let t = 0; t < input.duration; t += frameDuration) {
+  for (let frame = 0; frame < totalFrames; frame++) {
+    const t = frame / frameRate
     if (signal?.aborted) {
       await output.cancel()
       throw new Error('Render aborted')
@@ -133,7 +146,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
     await renderFrame(ctx, input, assetCache, t, width, height)
 
     // Capture canvas state and add to video track
-    await videoSource.add(t, frameDuration)
+    await videoSource.add(t, Math.min(frameDuration, input.duration - t))
 
     frameIndex++
     const progress = Math.floor(frameIndex * 100 / totalFrames)
@@ -156,7 +169,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
   } finally {
     for (const media of assetCache.values()) {
       const url = media.src
-      if (media instanceof HTMLVideoElement) { media.pause(); media.removeAttribute('src'); media.load() }
+      if (media instanceof HTMLVideoElement) { void videoFrames.get(media)?.frames.return(undefined).catch(() => {}); videoFrames.get(media)?.input.dispose(); videoFrames.delete(media); media.pause(); media.removeAttribute('src'); media.load() }
       if (url.startsWith('blob:')) URL.revokeObjectURL(url)
     }
     assetCache.clear()
@@ -169,6 +182,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
 async function preloadAssets(
   input: RenderInput,
   cache: Map<string, HTMLVideoElement | HTMLImageElement>,
+  frameRate: number,
   signal?: AbortSignal
 ): Promise<void> {
   const assets = new Map<string, Asset>()
@@ -202,6 +216,30 @@ async function preloadAssets(
       if (media instanceof HTMLVideoElement) { media.preload = 'auto'; media.muted = true; media.onloadeddata = () => finish(); media.src = localUrl; media.load() }
       else { media.onload = () => finish(); media.src = localUrl }
     })
+    if (media instanceof HTMLVideoElement) {
+      const decoder = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS })
+      try {
+        const track = await decoder.getPrimaryVideoTrack()
+        if (!track || !await track.canDecode()) throw new Error(`Não foi possível decodificar ${asset.filename}.`)
+        const timestamps: number[] = []
+        for (let frame = 0; frame < Math.ceil(input.duration * frameRate); frame++) {
+          const time = frame / frameRate
+          const last = input.timeline[input.timeline.length - 1]
+          const scene = input.timeline.find(s => time >= s.start && time < s.start + s.duration)
+            || (last && time >= last.start + last.duration ? last : undefined)
+          if (!scene) continue
+          const clamp = (t: number) => Math.max(0, Math.min(t, media.duration - 0.000001))
+          if (scene.videoAsset?.id === asset.id) timestamps.push(clamp(scene.trim + Math.min(time - scene.start, Math.max(0, scene.duration - 0.000001)) * scene.rate))
+          for (const overlay of input.overlays) {
+            if (overlay.asset_id === asset.id && time >= overlay.start && time < overlay.start + overlay.duration && overlay.kind === 'video') {
+              timestamps.push(clamp((overlay.in_point || 0) + (time - overlay.start) * overlay.speed))
+            }
+          }
+        }
+        const sink = new CanvasSink(track, { poolSize: 2 })
+        videoFrames.set(media, { input: decoder, frames: sink.canvasesAtTimestamps(timestamps) })
+      } catch (error) { decoder.dispose(); throw error }
+    }
   }
 }
 
@@ -299,7 +337,7 @@ function applyFiltersToImageData(
  */
 async function drawImageWithFilters(
   ctx: OffscreenCanvasRenderingContext2D,
-  image: HTMLVideoElement | HTMLImageElement,
+  image: CanvasImageSource,
   x: number,
   y: number,
   width: number,
@@ -357,7 +395,9 @@ async function renderFrame(
   ctx.fillRect(0, 0, width, height)
 
   // Find the active scene
+  const lastScene = input.timeline[input.timeline.length - 1]
   const scene = input.timeline.find((s) => time >= s.start && time < s.start + s.duration)
+    || (lastScene && time >= lastScene.start + lastScene.duration ? lastScene : undefined)
   if (!scene) return
 
   const asset = scene.videoAsset || scene.imageAsset
@@ -367,19 +407,10 @@ async function renderFrame(
   if (!media) return
 
   // Calculate time within the scene
-  const sceneTime = time - scene.start
+  const sceneTime = Math.min(time - scene.start, Math.max(0, scene.duration - 0.000001))
   const clipTime = scene.trim + sceneTime * scene.rate
 
-  // Seek video if needed
-  if (media instanceof HTMLVideoElement) {
-    if (Math.abs(media.currentTime - clipTime) > 0.05) {
-      media.currentTime = clipTime
-      await new Promise((resolve) => {
-        media.onseeked = () => resolve(undefined)
-        setTimeout(resolve, 100) // fallback
-      })
-    }
-  }
+  const drawingMedia = media instanceof HTMLVideoElement ? await decodedFrame(media, clipTime) : media
 
   // Apply animation (zoom, pan, etc.)
   // Decode dimensions belong to this file; imported metadata may be absent or stale.
@@ -392,7 +423,7 @@ async function renderFrame(
   ctx.translate(transform.x + (transform.width * transform.scale) / 2, transform.y + (transform.height * transform.scale) / 2)
   if (transform.rotation) ctx.rotate((transform.rotation * Math.PI) / 180)
   ctx.scale(transform.scale, transform.scale)
-  ctx.drawImage(media, -transform.width / 2, -transform.height / 2, transform.width, transform.height)
+  ctx.drawImage(drawingMedia, -transform.width / 2, -transform.height / 2, transform.width, transform.height)
   ctx.restore()
 
   // Draw overlays (images, videos, text)
@@ -447,18 +478,10 @@ async function renderFrame(
       const overlayAsset = cache.get(overlay.asset_id)
       if (!overlayAsset) continue
       
-      // Seek video if needed
-      if (overlayAsset instanceof HTMLVideoElement) {
-        const overlayTime = (time - overlay.start) * overlay.speed + (overlay.in_point || 0)
-        if (Math.abs(overlayAsset.currentTime - overlayTime) > 0.05) {
-          overlayAsset.currentTime = overlayTime
-          await new Promise((resolve) => {
-            overlayAsset.onseeked = () => resolve(undefined)
-            setTimeout(resolve, 50)
-          })
-        }
-      }
-      
+      const overlayFrame = overlayAsset instanceof HTMLVideoElement
+        ? await decodedFrame(overlayAsset, (time - overlay.start) * overlay.speed + (overlay.in_point || 0))
+        : overlayAsset
+
       ctx.save()
       ctx.globalAlpha = overlay.opacity
       
@@ -478,7 +501,7 @@ async function renderFrame(
           const cover = Math.max(width / nativeW, bh / nativeH) * overlay.scale
           const iw = nativeW * cover, ih = nativeH * cover
           const pos = Math.max(0, Math.min(1, overlay.crop_position_y ?? 0))
-          await drawImageWithFilters(ctx, overlayAsset, (width - iw) / 2 + overlay.x * width / 2, by - (ih - bh) * pos, iw, ih, overlay.brightness ?? 0, overlay.contrast ?? 0, overlay.saturation ?? 0)
+          await drawImageWithFilters(ctx, overlayFrame, (width - iw) / 2 + overlay.x * width / 2, by - (ih - bh) * pos, iw, ih, overlay.brightness ?? 0, overlay.contrast ?? 0, overlay.saturation ?? 0)
           ctx.restore(); continue
         }
       }
@@ -496,7 +519,7 @@ async function renderFrame(
       
       await drawImageWithFilters(
         ctx,
-        overlayAsset,
+        overlayFrame,
         overlayX - overlayW / 2,
         overlayY - overlayH / 2,
         overlayW,
@@ -568,8 +591,8 @@ async function mixAndAddAudio(
 ): Promise<void> {
   // Create an offline audio context to mix all audio
   const sampleRate = 48000
-  const duration = Math.ceil(input.duration)
-  const audioCtx = new OfflineAudioContext(2, duration * sampleRate, sampleRate)
+  const duration = input.duration
+  const audioCtx = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate)
 
   const decoded = new Map<string, AudioBuffer | null>()
   const load = async (asset: Asset, required = false) => {
