@@ -869,7 +869,7 @@ export function Timeline({
       id: newClipId(),
       asset_id: asset.id,
       start: Math.round(start * 1000) / 1000,
-      duration: asset.duration || 5,
+      duration: Math.min(asset.duration || 5, sceneEnd > start ? sceneEnd - start : Infinity),
       volume: 0.3,
       speed: 1,
     }

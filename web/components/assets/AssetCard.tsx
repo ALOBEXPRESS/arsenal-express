@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic, Package, Heart, Pin } from 'lucide-react'
+import { AudioLines, Clapperboard, Image as ImageIcon, Trash2, Mic, Package, Heart, Pin, Music2 } from 'lucide-react'
 import type { Asset } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
 import { confirmDialog } from '@/components/ui/confirm'
@@ -24,7 +24,7 @@ export function AssetCard({ asset, onDelete, onSelect, onPreview }: AssetCardPro
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const thumb = asset.metadata?.thumbnail as string | undefined
-  const Icon = ICONS[asset.type] || Clapperboard
+  const Icon = asset.type === 'audio' ? (asset.is_narration ? Mic : Music2) : ICONS[asset.type] || Clapperboard
   const setDragAsset = useDragAsset((s) => s.setAsset)
   const updateAsset = useUpdateAsset()
 
@@ -122,11 +122,11 @@ export function AssetCard({ asset, onDelete, onSelect, onPreview }: AssetCardPro
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumb || asset.url} alt={asset.filename} className="absolute inset-0 h-full w-full object-cover" />
         ) : asset.type === 'audio' ? (
-          <div className="absolute inset-0 flex items-center justify-center gap-[3px] bg-track-audio/25 px-4" aria-hidden>
+          <div className={cn('absolute inset-0 flex items-center justify-center gap-[3px] px-4',asset.is_narration?'bg-violet-500/20':'bg-emerald-500/20')} aria-hidden>
             {Array.from({ length: 22 }, (_, i) => (
               <span
                 key={i}
-                className="w-[3px] rounded-full bg-track-audio"
+                className={cn('w-[3px] rounded-full',asset.is_narration?'bg-violet-400':'bg-emerald-400')}
                 style={{ height: `${(20 + Math.abs(Math.sin(i * 0.8 + asset.id.charCodeAt(i % asset.id.length))) * 55).toFixed(2)}%` }}
               />
             ))}
@@ -153,6 +153,7 @@ export function AssetCard({ asset, onDelete, onSelect, onPreview }: AssetCardPro
           />
         )}
         
+        {asset.type === 'audio' && <span className={cn('pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/20',asset.is_narration?'text-violet-100':'text-emerald-100')}><Icon className="h-7 w-7 rounded-full bg-black/60 p-1" /><span className="rounded bg-black/70 px-1 text-[9px] font-semibold">{asset.is_narration?'Narração':'Música'}</span></span>}
         {/* Type Badge */}
         <span className="absolute left-1.5 top-1.5 rounded bg-black/65 p-1 text-white/90 backdrop-blur-sm">
           <Icon className="h-3 w-3" aria-hidden />
