@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { Trash2, Mic } from 'lucide-react'
+import { Trash2, Layers } from 'lucide-react'
 import type { Project } from '@/types/project'
 import { formatTime } from '@/lib/timeline'
 import { confirmDialog } from '@/components/ui/confirm'
-import { totalNarration } from '@/lib/subprojects'
+import { getSubprojects, totalNarration } from '@/lib/subprojects'
 
 interface ProjectCardProps {
   project: Project
@@ -28,11 +28,11 @@ function rhythm(id: string, n = 9) {
 
 export function ProjectCard({ project, onDelete }: ProjectCardProps) {
   const date = new Date(project.updated_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-  const { files: narrationFiles, seconds: narrationTotal } = totalNarration(project.settings)
+  const { seconds: narrationTotal } = totalNarration(project.settings)
 
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border bg-surface-1 transition-colors duration-200 hover:border-primary/50">
-      <Link href={`/project/${project.id}`} className="block cursor-pointer">
+      <Link href={`/project/${project.id}/sequences`} className="block cursor-pointer">
         <div className="grain relative aspect-[16/8] overflow-hidden bg-surface-0 p-4">
           <div className="ruler absolute inset-x-4 top-3 h-3 [--major:48px]" aria-hidden />
           <div className="absolute inset-x-4 top-9 flex h-10 gap-[3px]" aria-hidden>
@@ -62,7 +62,7 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
           {project.description && <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{project.description}</p>}
           <div className="mt-3 flex items-center justify-between font-mono text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Mic className="h-3 w-3" aria-hidden /> {narrationFiles} narração{narrationFiles === 1 ? '' : 'ões'}
+              <Layers className="h-3 w-3" aria-hidden /> {project.settings?.sequence_creation_required ? 0 : getSubprojects(project.settings).length} sequências
             </span>
             <span>{date}</span>
           </div>

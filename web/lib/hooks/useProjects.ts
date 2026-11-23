@@ -21,7 +21,7 @@ export function useProjects() {
       if (error) throw error
       
       // Map database fields to frontend type
-      return (data || []).map(project => ({
+      return (data || []).filter(project=>!project.config?.archived_into).map(project => ({
         ...project,
         title: project.name,
         mode: project.mode_id === 'news' ? 'script-to-prompt' : 'upload',
@@ -76,7 +76,7 @@ export function useCreateProject() {
         mode_id: input.mode === 'upload' ? 'custom' : 'news', // map mode
         aspect_ratio: input.settings.output_format === '9:16' ? '9:16' : '16:9', // DB only allows 16:9|9:16; real frame lives in config.output_format
         status: 'draft',
-        config: input.settings, // 'settings' -> 'config' no schema
+        config: {...input.settings,sequence_creation_required:true,subprojects:[]}, // 'settings' -> 'config' no schema
       }
 
       const { data, error } = await supabase
@@ -159,13 +159,21 @@ export function useDeleteProject() {
 export function useSetOutputFormat() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, format }: { id: string; format: import('@/types/project').OutputFormat }) => {
+    mutationFn: async ({ id, format, subId }: { id: string; format: import('@/types/project').OutputFormat; subId?: string }) => {
       const { patchProjectConfig } = await import('./useScenes')
-      await patchProjectConfig(id, { output_format: format })
+      if (subId) {
+        const { data, error } = await supabase.from('projects').select('config').eq('id', id).single()
+        if (error) throw error
+        const { getSubprojects } = await import('@/lib/subprojects')
+        await patchProjectConfig(id, {
+          subprojects: getSubprojects(data.config).map(s => s.id === subId
+            ? { ...s, source_settings: { ...s.source_settings, output_format: format } } : s),
+        })
+      } else await patchProjectConfig(id, { output_format: format })
       return { id, format }
     },
-    onSuccess: ({ id, format }) => {
-      queryClient.setQueryData<Project>(['project', id], previous => previous ? { ...previous, settings: { ...previous.settings, output_format: format } } : previous)
+    onSuccess: ({ id }) => {
+      queryClient.invalidateQueries({queryKey:['project',id]})
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
   })

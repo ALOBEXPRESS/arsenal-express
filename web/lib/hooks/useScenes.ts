@@ -7,7 +7,7 @@ import { callRpc } from '@/lib/supabase/rpc'
 import type { Scene, CreateSceneInput, Asset, Subproject, OverlayClip, AudioClip } from '@/types/project'
 import { sortByModificationDate, sortAssets, clipRate, DEFAULT_SCENE_DURATION, STILL_DURATION } from '@/lib/timeline'
 import { allocateClips, canCover } from '@/lib/sync/assemble'
-import { emptySub, getSubprojects, globalInsertIndex, mergeSubOrder, narrationEnd, relayNarration, sceneSub, MAIN_SUB } from '@/lib/subprojects'
+import { assemblySequenceTargets, assetInSequence, sequenceAssetIds, scenesOf, emptySub, getSubprojects, globalInsertIndex, mergeSubOrder, narrationEnd, relayNarration, sceneSub, MAIN_SUB } from '@/lib/subprojects'
 import { withDefaults, pickAnimation, pickTransition, type SyncSettings } from '@/lib/sync/presets'
 import { decodeAudio, detectPauses, planVariableRhythm, type Pause } from '@/lib/sync/rhythm'
 import { splitSceneData } from '@/lib/sync/splitScene'
@@ -363,7 +363,10 @@ export function useAutoAssemble() {
       if (projectError) throw projectError
       if (scenesError) throw scenesError
 
-      const assets = (rows || []).map((a) => ({ ...a, type: a.kind, duration: a.duration_seconds, is_narration: a.metadata?.is_narration === true, url: '' })) as Asset[]
+      const sourceSubs = getSubprojects(projectRow?.config)
+      const sourceSub = sourceSubs.find(s => s.id === subId) || emptySub(subId, 0)
+      const referenced = sequenceAssetIds(sourceSub, scenesOf(sceneRows || [], subId, new Set(sourceSubs.map(s => s.id))))
+      const assets = (rows || []).filter(a => assetInSequence(a, subId, referenced)).map((a) => ({ ...a, type: a.kind, duration: a.duration_seconds, is_narration: a.metadata?.is_narration === true, url: '' })) as Asset[]
       
       // Filter media by user settings
       const allowedTypes: string[] = []
@@ -475,7 +478,7 @@ export function useAutoAssemble() {
       const active = subsNow.find((s) => s.id === subId) || subsNow[0]
       const perAudio = mode === 'scenes_with_audio' && settings.narration.split === 'per_audio' && narration.length > 1
       const targets: { sub: Subproject; audios: Asset[] }[] = perAudio
-        ? narration.map((a, i) => ({ sub: subsNow[i] || emptySub(i === 0 ? MAIN_SUB : crypto.randomUUID(), i), audios: [a] }))
+        ? assemblySequenceTargets(subsNow, active.id, narration.length, () => crypto.randomUUID()).map((sub, i) => ({ sub, audios: [narration[i]] }))
         : [{ sub: active, audios: narration }]
 
       const counts = allocateClips(
@@ -746,12 +749,10 @@ export function useAutoAssemble() {
 
       // Subproject list: rebuilt targets replace theirs, the rest stay untouched
       const targetIds = new Set(built.map((b) => b.sub.id))
-      let nextSubs: Subproject[]
-      if (perAudio) {
-        nextSubs = [...built.map((b) => b.sub), ...subsNow.slice(built.length).filter((s) => !targetIds.has(s.id))]
-      } else {
-        nextSubs = subsNow.map((s) => built.find((b) => b.sub.id === s.id)?.sub || s)
-      }
+      let nextSubs: Subproject[] = [
+        ...subsNow.map(s => built.find(b => b.sub.id === s.id)?.sub || s),
+        ...built.filter(b => !subsNow.some(s => s.id === b.sub.id)).map(b => b.sub),
+      ]
       const keptIds = new Set(nextSubs.map((s) => s.id))
 
       // Scenes: other subprojects preserved (re-sent so the replace stays atomic)
@@ -762,6 +763,7 @@ export function useAutoAssemble() {
         order_index: i,
       }))
 
+      nextSubs = nextSubs.map(s => targetIds.has(s.id) ? { ...s, source_settings: { ...s.source_settings, sync: settings } } : s)
       const configPatch = { subprojects: nextSubs, narration_track: nextSubs[0].narration_track, sync: settings }
 
       // Preferred: replace scenes + merge config in ONE transaction (no half-written timeline)
@@ -815,8 +817,15 @@ export async function patchProjectConfig(projectId: string, patch: Record<string
 export function useSaveSyncSettings() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ projectId, settings }: { projectId: string; settings: SyncSettings }) => {
-      await patchProjectConfig(projectId, { sync: settings })
+    mutationFn: async ({ projectId, settings, subId }: { projectId: string; settings: SyncSettings; subId?: string }) => {
+      if (subId) {
+        const { data, error } = await supabase.from('projects').select('config').eq('id', projectId).single()
+        if (error) throw error
+        await patchProjectConfig(projectId, {
+          subprojects: getSubprojects(data.config).map(s => s.id === subId
+            ? { ...s, source_settings: { ...s.source_settings, sync: settings } } : s),
+        })
+      } else await patchProjectConfig(projectId, { sync: settings })
       return settings
     },
     onSuccess: (_, { projectId }) => {

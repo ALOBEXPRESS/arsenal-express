@@ -17,6 +17,7 @@ export function getSubprojects(settings?: Partial<ProjectSettings> | null): Subp
   const list = settings?.subprojects
   if (list && list.length) {
     return list.map((s, i) => ({
+      ...s,
       id: s.id || (i === 0 ? MAIN_SUB : `sub-${i}`),
       name: !s.name || /^Subprojeto\s*\d+$/i.test(s.name) ? subName(i) : s.name,
       narration_track: s.narration_track || [],
@@ -90,4 +91,34 @@ export function totalNarration(settings?: Partial<ProjectSettings> | null) {
     files: subs.reduce((n, s) => n + s.narration_track.length, 0),
     seconds: subs.reduce((n, s) => n + s.narration_track.reduce((a, x) => a + x.duration, 0), 0),
   }
+}
+
+/** Include referenced media after duplicating or promoting a sequence as well. */
+export function sequenceAssetIds(sub: Subproject, scenes: Scene[]): Set<string> {
+  const ids = new Set<string>()
+  for (const scene of scenes) {
+    for (const id of [scene.video_asset_id, scene.image_asset_id, scene.audio_asset_id]) if (id) ids.add(id)
+  }
+  for (const clip of [...sub.narration_track, ...sub.overlays, ...sub.image_overlays, ...sub.audio_clips]) {
+    if (clip.asset_id) ids.add(clip.asset_id)
+  }
+  return ids
+}
+
+export function assetInSequence(
+  asset: {id: string; library_user_id?: string | null; metadata?: Record<string, any> | null},
+  sequenceId?: string,
+  referenced?: Set<string>
+) {
+  return !!asset.library_user_id || !sequenceId || !asset.metadata?.sequence_id ||
+    asset.metadata.sequence_id === sequenceId || !!referenced?.has(asset.id)
+}
+
+/** Split narration starting from the active sequence, without rebuilding other episodes. */
+export function assemblySequenceTargets(list: Subproject[], activeId: string, count: number, newId: () => string): Subproject[] {
+  const active = list.find(s => s.id === activeId) || list[0]
+  return Array.from({ length: count }, (_, i) => i === 0 ? active : {
+    ...emptySub(newId(), list.length + i - 1),
+    source_settings: active.source_settings,
+  })
 }

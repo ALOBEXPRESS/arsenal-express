@@ -49,7 +49,7 @@ export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
       setTitle('')
       setDescription('')
       onOpenChange(false)
-      router.push(`/project/${project.id}`)
+      router.push(`/project/${project.id}/sequences`)
     } catch {
       /* hook shows the error */
     }
@@ -62,14 +62,14 @@ export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
           <p className="eyebrow flex items-center gap-2">
             <span className="tally" aria-hidden /> Novo projeto
           </p>
-          <DialogTitle className="font-display text-2xl">Qual vídeo vamos montar?</DialogTitle>
-          <DialogDescription>Depois você sobe os clipes + narração e o SyncExpress faz o resto.</DialogDescription>
+          <DialogTitle className="font-display text-2xl">Crie um espaço para suas sequências</DialogTitle>
+          <DialogDescription>Depois de criar o projeto, crie sua primeira sequência para começar a edição.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="mt-5 space-y-5">
           <div className="space-y-2">
             <Label htmlFor="np-title">Nome</Label>
-            <Input id="np-title" autoFocus placeholder="ex: Vice City — episódio 12" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input id="np-title" autoFocus placeholder="Ex.: Mestre da Montanha" value={title} onChange={(e) => setTitle(e.target.value)} />
             {error && <p className="text-[12px] text-destructive">{error}</p>}
           </div>
 

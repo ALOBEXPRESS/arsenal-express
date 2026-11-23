@@ -22,6 +22,9 @@ export interface Project {
 }
 
 export interface ProjectSettings {
+  sequence_creation_required?: boolean
+  archived_into?: string
+  archived_sequence?: string
   output_format: OutputFormat
   target_duration?: number
   default_transition: TransitionType
@@ -41,6 +44,7 @@ export interface ProjectSettings {
 }
 
 export interface Subproject {
+  source_settings?: Partial<ProjectSettings>
   id: string
   name: string
   narration_track: NarrationSegment[]
@@ -251,6 +255,7 @@ export interface CreateSceneInput {
 }
 
 export interface UploadAssetInput {
+  sequenceId?: string
   signal?: AbortSignal
   project_id: string
   type: AssetType

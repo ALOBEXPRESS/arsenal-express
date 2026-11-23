@@ -12,8 +12,11 @@ import { cn } from '@/lib/utils'
 import { confirmDialog } from '@/components/ui/confirm'
 import { isNarrationFilename } from '@/lib/narrationFilename'
 import { toast } from 'sonner'
+import { assetInSequence } from '@/lib/subprojects'
 
 interface AssetLibraryProps {
+  sequenceId?: string
+  referencedAssetIds?: Set<string>
   projectId: string
   onNarrationAsset?: (asset: Asset) => void
   onSelectAsset?: (asset: Asset) => void
@@ -26,21 +29,22 @@ const UPLOAD_COPY: Record<AssetType, { title: string; text: string }> = {
   asset: { title: 'Assets Extras', text: 'Biblioteca da sua conta, disponível em todos os projetos. Favorite uma imagem, GIF ou vídeo para usar nas barras de overlay.' },
 }
 
-export function AssetLibrary({ projectId, onSelectAsset, onNarrationAsset }: AssetLibraryProps) {
+export function AssetLibrary({ projectId, sequenceId, referencedAssetIds, onSelectAsset, onNarrationAsset }: AssetLibraryProps) {
   const { data: assets, isLoading } = useAssets(projectId)
   const uploadAsset = useUploadAsset()
   const deleteAsset = useDeleteAsset()
   const repairThumbnails = useBatchRegenerateThumbnails()
   const [selected, setSelected] = useState<string[]>([])
-  useEffect(() => { setSelected([]) }, [projectId])
+  useEffect(() => { setSelected([]) }, [projectId, sequenceId])
   const toggle = (id: string) => setSelected(previous => previous.includes(id) ? previous.filter(x => x !== id) : [...previous, id])
   const [activeTab, setActiveTab] = useState<AssetType | 'all'>('all')
   const [showUpload, setShowUpload] = useState<AssetType | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
   const previewAsset = assets?.find((asset) => asset.id === previewId && (asset.type === 'video' || asset.type === 'audio'))
 
-  const projectAssets = (assets || []).filter(a => a.type !== 'asset' && !a.library_user_id)
-  const sorted = sortByModificationDate(assets || [])
+  const visibleAssets = (assets || []).filter(a => assetInSequence(a, sequenceId, referencedAssetIds))
+  const projectAssets = visibleAssets.filter(a => a.type !== 'asset' && !a.library_user_id)
+  const sorted = sortByModificationDate(visibleAssets)
   const filtered = activeTab === 'all' ? sorted : sorted.filter((a) => a.type === activeTab)
   const count = (t: AssetType) => sorted.filter((a) => a.type === t).length
 
@@ -146,7 +150,7 @@ export function AssetLibrary({ projectId, onSelectAsset, onNarrationAsset }: Ass
                 projectId={projectId}
                 type={showUpload}
                 onUpload={async (file, signal) => {
-                  const asset = await uploadAsset.mutateAsync({ project_id: projectId, type: showUpload, file, signal })
+                  const asset = await uploadAsset.mutateAsync({ project_id: projectId, type: showUpload, file, signal, sequenceId })
                   if (showUpload === 'audio' && isNarrationFilename(file.name)) {
                     const duration = asset.duration ?? (asset as Asset & { duration_seconds?: number }).duration_seconds
                     if (duration && duration > 0) { onNarrationAsset?.({...asset,type:'audio',duration,is_narration:true}); toast.success('Narração ElevenLabs adicionada à timeline.') }

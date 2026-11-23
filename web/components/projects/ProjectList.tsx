@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 export function ProjectList() {
   const { data: projects, isLoading, error } = useProjects()
   const deleteProject = useDeleteProject()
+  const [search,setSearch]=useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const handleDelete = async (id: string) => {
@@ -62,14 +63,15 @@ export function ProjectList() {
   }
 
   return (
+    <div><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{projects.length} projetos · Escolha uma coleção para abrir suas sequências</p><input aria-label="Buscar projeto" placeholder="Buscar projeto…" value={search} onChange={e=>setSearch(e.target.value)} className="rounded-md border border-border bg-surface-1 px-3 py-2 text-sm"/></div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {projects.map((project) => (
+      {projects.filter(p=>p.title.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map((project) => (
         <ProjectCard
           key={project.id}
           project={project}
           onDelete={deletingId === project.id ? undefined : handleDelete}
         />
       ))}
-    </div>
+    </div></div>
   )
 }

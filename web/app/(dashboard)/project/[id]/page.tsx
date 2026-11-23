@@ -33,7 +33,7 @@ import { LogoMark } from '@/components/brand/Logo'
 import { buildTimeline, formatTime, sortByModificationDate } from '@/lib/timeline'
 import { withDefaults, type SyncSettings } from '@/lib/sync/presets'
 import type { Asset, Scene, Subproject } from '@/types/project'
-import { MAIN_SUB, scenesOf } from '@/lib/subprojects'
+import { sequenceAssetIds, MAIN_SUB, scenesOf } from '@/lib/subprojects'
 import type { TimelineInput } from '@/lib/capcut/draft'
 import { cn } from '@/lib/utils'
 
@@ -54,11 +54,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const { data: assets } = useAssets(id)
   const [activeSub, setActiveSubState] = useState<string>(MAIN_SUB)
   useEffect(() => {
-    const saved = localStorage.getItem(`syncexpress.sub.${id}`)
+    const saved = new URLSearchParams(window.location.search).get('sequence') || localStorage.getItem(`syncexpress.sub.${id}`)
     if (saved) setActiveSubState(saved)
   }, [id])
   const setOutputFormat = useSetOutputFormat()
   const tracks = useTracks(id, activeSub)
+  useEffect(()=>{
+    if(project?.settings?.archived_into)window.location.replace(`/project/${project.settings.archived_into}?sequence=${encodeURIComponent(project.settings.archived_sequence||'main')}`)
+    else if(project?.settings?.sequence_creation_required)window.location.replace(`/project/${id}/sequences`)
+  },[project,id])
   const subId = tracks.sub.id // falls back to the first subproject if the saved one is gone
   const setActiveSub = useCallback(
     (sid: string) => {
@@ -122,7 +126,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const subScenes = useMemo(() => scenesOf(scenes || [], subId, knownSubs), [scenes, subId, knownSubs])
   const timeline = useMemo(() => buildTimeline(subScenes, assets || []), [subScenes, assets])
   const narrationTrack = tracks.narrationTrack
-  const syncSettings = useMemo(() => withDefaults(project?.settings?.sync), [project])
+  const syncSettings = useMemo(() => withDefaults(tracks.sub.source_settings?.sync ?? project?.settings?.sync), [project, tracks.sub])
   const assetById = useMemo(() => new Map((assets || []).map((a) => [a.id, a])), [assets])
   const audioCount = useMemo(() => (assets || []).filter((a) => a.type === 'audio').length, [assets])
 
@@ -204,7 +208,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     try {
       await tracks.applyAssemblyBars(s, assets || [], timeline.reduce((end, item) => Math.max(end, item.start + item.duration), 0))
       await applyEffects.mutateAsync({ projectId: id, scenes: subScenes, settings: s })
-      await saveSettings.mutateAsync({ projectId: id, settings: s })
+      await saveSettings.mutateAsync({ projectId: id, subId, settings: s })
       toast.success('Opções aplicadas às cenas existentes', { description: 'Barras, animações e transições ativadas foram aplicadas. Cortes e outras camadas foram preservados; ordem, ritmo, velocidade e SFX não foram refeitos.' })
       setShowAssembly(false)
     } catch (e) {
@@ -246,7 +250,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         await patchScene.flush(true)
         tracks.setNarration(narration)
         await tracks.flush()
-        await saveSettings.mutateAsync({ projectId: id, settings: s })
+        await saveSettings.mutateAsync({ projectId: id, subId, settings: s })
         toast.success('Narração adicionada às cenas existentes', { id: loading, description: 'Os cortes foram preservados. Confira o sincronismo no visor.' })
         setShowAssembly(false)
       } catch (e) { toast.error('Falha ao juntar com áudio', { id: loading, description: e instanceof Error ? e.message : undefined }) }
@@ -289,7 +293,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       if (r.heldFrameScenes > 0) lines.push(`${r.heldFrameScenes} cena(s) com clipe mais curto que a fala — adicione mais clipes pra evitar frame congelado.`)
       if (r.skippedDuplicateAudios.length) lines.push(`Áudios idênticos ignorados: ${r.skippedDuplicateAudios.join(', ')}`)
       const title = `${r.totalScenes} cenas organizadas ${ORDER_LABEL[s.order.by]}${s.order.reverse ? ' (invertida)' : ''}${
-        r.subs.length > 1 ? ` em ${r.subs.length} subprojetos` : ''
+        r.subs.length > 1 ? ` em ${r.subs.length} sequências` : ''
       }`
       const warn = r.heldFrameScenes > 0 || r.skippedDuplicateAudios.length > 0
       ;(warn ? toast.warning : toast.success)(title, { id: loading, description: lines.join('\n'), duration: 8000 })
@@ -316,7 +320,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       : 0
   const previousThumb = timeline[editingIndex - 1]?.videoAsset?.metadata?.thumbnail as string | undefined
 
-  if (isLoading) {
+  if (isLoading || project?.settings?.archived_into || project?.settings?.sequence_creation_required) {
     return (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-surface-0">
         <LogoMark animated className="h-12 w-12" />
@@ -344,18 +348,18 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     const sp = tracks.subprojects.find((x) => x.id === sid)
     const n = scenesOf(scenes || [], sid, knownSubs).length
     const ok = await confirmDialog({
-      title: `Excluir ${sp?.name ?? 'o subprojeto'}?`,
+      title: `Excluir ${sp?.name ?? 'a sequência'}?`,
       description: `${n} cena(s), a narração e as camadas dele saem do projeto. As mídias continuam na biblioteca.`,
-      confirmLabel: 'Excluir subprojeto',
+      confirmLabel: 'Excluir sequência',
       tone: 'danger',
     })
     if (!ok) return
     try {
       const next = await tracks.removeSubproject(sid)
       if (next && sid === subId) setActiveSub(next[0].id)
-      toast.success(`${sp?.name ?? 'Subprojeto'} excluído`)
+      toast.success(`${sp?.name ?? 'Sequência'} excluído`)
     } catch (e) {
-      toast.error('Não foi possível excluir o subprojeto', { description: e instanceof Error ? e.message : undefined })
+      toast.error('Não foi possível excluir a sequência', { description: e instanceof Error ? e.message : undefined })
     }
   }
 
@@ -365,7 +369,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       {/* Top bar */}
       <header className="flex items-center justify-between gap-4 border-b border-border bg-surface-1 px-3 py-2">
         <div className="flex min-w-0 items-center gap-3">
-          <Link href="/dashboard" aria-label="Voltar aos projetos">
+          <Link href={`/project/${id}/sequences`} aria-label="Voltar às sequências">
             <Button variant="ghost" size="icon">
               <ArrowLeft />
             </Button>
@@ -373,7 +377,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           <LogoMark className="h-7 w-7" />
           <div className="min-w-0">
             <p className="eyebrow !text-[9px]">SyncExpress</p>
-            <h1 className="truncate font-display text-[15px] font-bold leading-tight">{project.title}</h1>
+            <h1 className="truncate font-display text-[15px] font-bold leading-tight">{project.title}<span className="mx-2 text-muted-foreground">/</span><span className="text-primary">{tracks.sub.name}</span></h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -385,7 +389,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             timelines={exportTimelines}
             activeSubId={subId}
             settings={syncSettings}
-            outputFormat={project.settings?.output_format || 'auto'}
+            outputFormat={tracks.sub.source_settings?.output_format || project.settings?.output_format || 'auto'}
             extraAssets={assets?.filter((a) => a.type === 'asset')}
             disabled={!hasTimeline}
           />
@@ -444,7 +448,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           {/* Tab content */}
           <div className="flex-1 overflow-y-auto">
             {sidebarTab === 'assets' ? (
-              <AssetLibrary projectId={id} onNarrationAsset={asset => tracks.appendNarration(asset)} onSelectAsset={(a) => select({ kind: 'asset', id: a.id })} />
+              <AssetLibrary projectId={id} sequenceId={subId} referencedAssetIds={sequenceAssetIds(tracks.sub, subScenes)} onNarrationAsset={asset => tracks.appendNarration(asset)} onSelectAsset={(a) => select({ kind: 'asset', id: a.id })} />
             ) : (
               <SoundEffectsLibrary projectId={id} />
             )}
@@ -466,9 +470,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                   audioClips={tracks.audioClips}
                   adjustments={tracks.adjustments}
                   transitionDuration={syncSettings.transition.duration}
-                  format={project.settings?.output_format || 'auto'}
+                  format={tracks.sub.source_settings?.output_format || project.settings?.output_format || 'auto'}
                   savingFormat={setOutputFormat.isPending}
-                  onFormatChange={format => setOutputFormat.mutate({ id, format }, { onError: () => toast.error('Não foi possível salvar a proporção.') })}
+                  onFormatChange={format => setOutputFormat.mutate({ id, format, subId }, { onError: () => toast.error('Não foi possível salvar a proporção.') })}
                   onSelectScene={sceneId=>{select({kind:'scene',id:sceneId});setInspectorCollapsed(false)}}
                   selectedOverlayId={selection?.kind === 'overlay' ? selection.id : null}
                   onSelectOverlay={(oid) => select({ kind: 'overlay', id: oid })}
@@ -605,7 +609,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         userId={project.user_id}
         open={showAssembly}
         onOpenChange={setShowAssembly}
-        settings={project.settings?.sync}
+        settings={tracks.sub.source_settings?.sync ?? project.settings?.sync}
         thumbs={thumbs}
         hasScenes={timeline.length > 0}
         audioCount={audioCount}
@@ -613,7 +617,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         busy={busy || saveSettings.isPending}
         status={status}
         onSave={async (s) => {
-          await saveSettings.mutateAsync({ projectId: id, settings: s })
+          await saveSettings.mutateAsync({ projectId: id, subId, settings: s })
           toast.success('Preferências de montagem salvas')
           setShowAssembly(false)
         }}

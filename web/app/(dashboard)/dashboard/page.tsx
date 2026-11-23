@@ -18,7 +18,7 @@ export default function DashboardPage() {
             <span className="tally" aria-hidden /> SyncExpress
           </p>
           <h1 className="mt-3 font-display text-4xl font-extrabold tracking-tight">Seus projetos</h1>
-          <p className="mt-1 text-muted-foreground">Cada projeto vira uma timeline pronta pro CapCut.</p>
+          <p className="mt-1 text-muted-foreground">Organize suas séries em projetos. Edite cada episódio em uma sequência.</p>
         </div>
         <Button size="lg" onClick={() => setShowNewProjectModal(true)}>
           <Plus /> Novo projeto

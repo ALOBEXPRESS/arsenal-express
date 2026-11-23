@@ -35,7 +35,7 @@ export function AssetCard({ asset, onDelete, onSelect, onPreview }: AssetCardPro
     setIsUpdating(true)
     try {
       await updateAsset.mutateAsync(
-        { id: asset.id, patch: { is_favorite: !asset.is_favorite } },
+        { id: asset.id, patch: { is_favorite: !asset.is_favorite, ...(asset.type==='image' && !asset.library_user_id && !asset.is_favorite ? {metadata:{...asset.metadata,original_type:'asset',shared_image:true}} : {}) } },
         {
           onSuccess: () => {
             toast.success(
