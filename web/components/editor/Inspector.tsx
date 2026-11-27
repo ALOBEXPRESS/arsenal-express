@@ -210,6 +210,7 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
           
           {isVideo && (
             <Group title="Vídeo">
+              <SlowMotionControls speed={firstProps.speed ?? 1} onChange={speed => setBulk({ speed })} />
               <PropSlider
                 label="Velocidade"
                 value={firstProps.speed ?? 1}
@@ -320,6 +321,7 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4">
           {isVideo && (
             <Group title="Vídeo">
+              <SlowMotionControls speed={item.rate} onChange={speed => setMeta({ speed })} />
               <PropSlider
                 label="Velocidade"
                 value={item.rate}
@@ -997,3 +999,30 @@ function InspectorSingle({ projectId, scenes, assets, narrationTrack, tracks, on
       </div>
     )
   }
+
+/** Explicit slow-motion presets share the existing preview/export speed property. */
+function SlowMotionControls({ speed, onChange }: { speed: number; onChange: (speed: number) => void }) {
+  const active = speed < 1
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3">
+      <button type="button" role="switch" aria-checked={active} aria-label="Câmera lenta"
+        onClick={() => onChange(active ? 1 : 0.5)}
+        className="flex w-full items-center justify-between gap-2 text-left text-xs font-medium">
+        <span>Câmera lenta</span>
+        <span className={cn('rounded-full px-2 py-1', active ? 'bg-primary text-primary-foreground' : 'bg-surface-3 text-muted-foreground')}>
+          {active ? 'Ativada' : 'Desativada'}
+        </span>
+      </button>
+      <div className="flex gap-1" role="group" aria-label="Velocidade da câmera lenta">
+        {[0.25, 0.5, 0.75].map(rate => (
+          <button key={rate} type="button" aria-pressed={Math.abs(speed - rate) < 0.001}
+            onClick={() => onChange(rate)}
+            className={cn('flex-1 rounded-md border px-2 py-1.5 text-xs transition-colors', Math.abs(speed - rate) < 0.001 ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-surface-3')}>
+            {rate.toFixed(2)}×
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground">Ativar aplica 0,50×. Desativar volta a 1×. A narração mantém sua velocidade.</p>
+    </div>
+  )
+}
