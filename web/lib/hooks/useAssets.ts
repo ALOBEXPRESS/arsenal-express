@@ -80,7 +80,7 @@ export function useUploadAsset() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ project_id, type, file, signal, sequenceId }: UploadAssetInput) => {
+    mutationFn: async ({ project_id, type, file, signal, sequenceId, narration }: UploadAssetInput) => {
       // Generate unique filename
       // Storage keys must be ASCII-safe ("…", accents etc. → "Invalid key").
       // The original name is kept in assets.filename.
@@ -135,7 +135,7 @@ export function useUploadAsset() {
       if (signal?.aborted) throw new DOMException('Importação cancelada', 'AbortError')
       const complete = await fetch('/api/media/uploads/complete', { signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reservationId: upload.reservationId, asset: {
         kind: dbKind, filename: file.name, duration_seconds,
-        metadata: { sequence_id: sequenceId, is_narration: type === 'audio' && isNarrationFilename(file.name), mime_type: file.type, thumbnail, last_modified: file.lastModified, ...(dims || {}), original_type: type === 'asset' ? 'asset' : undefined }
+        metadata: { sequence_id: sequenceId, is_narration: type === 'audio' && (narration ?? isNarrationFilename(file.name)), mime_type: file.type, thumbnail, last_modified: file.lastModified, ...(dims || {}), original_type: type === 'asset' ? 'asset' : undefined }
       } }) })
       const asset = await complete.json()
       if (!complete.ok) throw new Error(asset.error || 'Falha ao registrar mídia')

@@ -220,15 +220,18 @@ export function useTracks(projectId: string, subId: string) {
     [read, commitList, queryClient, projectId]
   )
 
-  return {
-    flush,
-    saveAutomaticCaptions: async (clips: OverlayClip[]) => {
+  async function saveSequenceEdit(edit: (sequence: Subproject) => Partial<Subproject>) {
       await flush()
-      const list=read(), next=list.map(s=>s.id===subId?{...s,overlays:[...s.overlays.filter(o=>!o.auto_caption),...clips]}:s)
+      const list=read(), next=list.map(s=>s.id===subId?{...s,...edit(s)}:s)
       if(!list.some(s=>s.id===subId))throw new Error('Sequência não encontrada.')
       await patchProjectConfig(projectId,{subprojects:next})
       queryClient.setQueryData<Project>(['project',projectId],old=>old?{...old,settings:{...old.settings,subprojects:next}}:old)
-    },
+  }
+
+  return {
+    flush,
+    saveAutomaticCaptions: (clips: OverlayClip[]) => saveSequenceEdit(s => ({ overlays: [...s.overlays.filter(o => !o.auto_caption), ...clips] })),
+    saveGeneratedNarration: (clips: Subproject['narration_track']) => saveSequenceEdit(() => ({ narration_track: clips })),
     applyAssemblyBars,
     subprojects,
     sub,

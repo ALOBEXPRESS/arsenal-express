@@ -255,6 +255,7 @@ export interface CreateSceneInput {
 }
 
 export interface UploadAssetInput {
+  narration?: boolean
   sequenceId?: string
   signal?: AbortSignal
   project_id: string

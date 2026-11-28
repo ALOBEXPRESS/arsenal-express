@@ -10,7 +10,7 @@ type Provider='openai'|'google'
 type KeyStatus={provider:Provider;last_four:string;updated_at:string}
 const providers:{id:Provider;title:string;description:string;url:string}[]=[
  {id:'openai',title:'OpenAI · ChatGPT',description:'Transcrição das falas e geração automática de legendas com Whisper.',url:'https://platform.openai.com/api-keys'},
- {id:'google',title:'Google · Gemini',description:'Chave preparada para a geração de áudio de narração. Esse recurso será disponibilizado em uma próxima atualização.',url:'https://aistudio.google.com/api-keys'},
+ {id:'google',title:'Google · Gemini',description:'Gera a voz das cenas na faixa de narração da sequência.',url:'https://aistudio.google.com/api-keys'},
 ]
 export default function ApiKeysPage(){
  const [keys,setKeys]=useState<KeyStatus[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[serverAvailable,setServerAvailable]=useState(false)
@@ -37,7 +37,7 @@ export default function ApiKeysPage(){
    <header><p className="eyebrow">Configurações da conta</p><h1 className="mt-2 font-display text-3xl font-bold">Suas chaves de API</h1><p className="mt-3 text-muted-foreground">Conecte suas contas para usar os serviços de inteligência artificial em todos os seus projetos.</p></header>
    {error&&<div role="alert" className="rounded-lg border border-destructive p-4 text-sm"><p>{error}</p><Button variant="outline" className="mt-3" onClick={()=>{setLoading(true);void load().catch(e=>setError(e.message)).finally(()=>setLoading(false))}}>Tentar novamente</Button></div>}
    {providers.map(provider=>{const saved=keys.find(k=>k.provider===provider.id);return <section key={provider.id} className="space-y-4 rounded-xl border border-border bg-surface-1 p-5">
-     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="flex items-center gap-2 font-display text-xl font-semibold"><KeyRound className="h-5 w-5 text-primary"/>{provider.title}</h2><span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">{loading?'Carregando…':saved?'Chave configurada':'Não configurada'}{provider.id==='google'?' · Narração em breve':''}</span></div>
+     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="flex items-center gap-2 font-display text-xl font-semibold"><KeyRound className="h-5 w-5 text-primary"/>{provider.title}</h2><span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">{loading?'Carregando…':saved?'Chave configurada':'Não configurada'}</span></div>
      <p className="text-sm text-muted-foreground">{provider.description}</p>
      {saved&&<p className="font-mono text-xs text-muted-foreground">Chave salva: ••••{saved.last_four} · Atualizada em {new Date(saved.updated_at).toLocaleDateString('pt-BR')}</p>}
      {provider.id==='openai'&&serverAvailable&&!saved&&<p className="text-xs text-muted-foreground">Sua conta de administrador está usando a chave padrão do servidor. Ao salvar uma chave pessoal, ela terá prioridade.</p>}

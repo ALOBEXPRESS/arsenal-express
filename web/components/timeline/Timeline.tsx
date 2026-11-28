@@ -3,6 +3,7 @@
 import { mergeScenePropertyEdits, type ScenePropertyEdit } from '@/lib/editor/sceneEdits'
 
 import { CaptionButton } from '@/components/editor/CaptionButton'
+import { NarrationButton } from '@/components/editor/NarrationButton'
 import { ContextMenu } from 'radix-ui'
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -1440,6 +1441,7 @@ export function Timeline({
           <Button size="sm" variant={allScenes ? "secondary" : "ghost"} onClick={() => { if (timeline.length) selectAllScenes(timeline[0].scene.id) }} disabled={!timeline.length} title="Selecionar todas as cenas (Ctrl+A)">Selecionar todas</Button>
           {selection?.kind === 'scene' && <Button size="sm" variant="ghost" onClick={() => { const scene = scenes.find(s => s.id === selection.id); if (scene) onEditScene?.(scene) }} aria-label="Editar cena selecionada" title="Editar cena selecionada"><Pencil /> Editar cena</Button>}
           <CaptionButton key={`${projectId}:${subId}`} tracks={tracks} timeline={timeline} />
+          <NarrationButton key={`voice:${projectId}:${subId}`} projectId={projectId} sequenceId={subId} tracks={tracks} timeline={timeline} />
           <Button size="sm" variant="ghost" onClick={onOpenAssembly} disabled={busy}>
             <SlidersHorizontal /> Montagem
           </Button>

@@ -1,0 +1,2159 @@
+{
+  "downloaded": 358,
+  "listed": 358,
+  "missing": [],
+  "invalid": [],
+  "size_mb": 556.9,
+  "first": "20251125_7576459130324421906.mp4",
+  "last": "20261012_7695236079170915592.mp4",
+  "files": [
+    {
+      "file": "20251125_7576459130324421906.mp4",
+      "valid": true,
+      "duration": 40.843991,
+      "audio": true
+    },
+    {
+      "file": "20251127_7577377471331454215.mp4",
+      "valid": true,
+      "duration": 15.033333,
+      "audio": true
+    },
+    {
+      "file": "20251130_7578665446753275154.mp4",
+      "valid": true,
+      "duration": 15.11,
+      "audio": true
+    },
+    {
+      "file": "20251203_7579777665532464402.mp4",
+      "valid": true,
+      "duration": 15.033333,
+      "audio": true
+    },
+    {
+      "file": "20251204_7579824623643053330.mp4",
+      "valid": true,
+      "duration": 15.033333,
+      "audio": true
+    },
+    {
+      "file": "20251204_7580133618740251922.mp4",
+      "valid": true,
+      "duration": 49.533333,
+      "audio": true
+    },
+    {
+      "file": "20251205_7580505504116378888.mp4",
+      "valid": true,
+      "duration": 15.11,
+      "audio": true
+    },
+    {
+      "file": "20251206_7580717661722643730.mp4",
+      "valid": true,
+      "duration": 8.009002,
+      "audio": true
+    },
+    {
+      "file": "20251213_7583366594684914952.mp4",
+      "valid": true,
+      "duration": 15.033333,
+      "audio": true
+    },
+    {
+      "file": "20251217_7584848311333522696.mp4",
+      "valid": true,
+      "duration": 18.319002,
+      "audio": true
+    },
+    {
+      "file": "20251218_7585180613418749202.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20251222_7586675471228734738.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20251223_7587027791850343688.mp4",
+      "valid": true,
+      "duration": 14.166667,
+      "audio": true
+    },
+    {
+      "file": "20251224_7587515447088663816.mp4",
+      "valid": true,
+      "duration": 8.010907,
+      "audio": true
+    },
+    {
+      "file": "20251225_7587845597688794376.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260105_7591860630655683848.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260105_7591960181169261832.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260106_7592241565096004872.mp4",
+      "valid": true,
+      "duration": 14.7,
+      "audio": true
+    },
+    {
+      "file": "20260108_7592983842030488839.mp4",
+      "valid": true,
+      "duration": 13.166667,
+      "audio": true
+    },
+    {
+      "file": "20260119_7597027181713198343.mp4",
+      "valid": true,
+      "duration": 13.566667,
+      "audio": true
+    },
+    {
+      "file": "20260119_7597078459260669192.mp4",
+      "valid": true,
+      "duration": 9.9,
+      "audio": true
+    },
+    {
+      "file": "20260120_7597237519649901831.mp4",
+      "valid": true,
+      "duration": 14.905011,
+      "audio": true
+    },
+    {
+      "file": "20260120_7597416288729779464.mp4",
+      "valid": true,
+      "duration": 9.912993,
+      "audio": true
+    },
+    {
+      "file": "20260120_7597476088503127303.mp4",
+      "valid": true,
+      "duration": 14.905011,
+      "audio": true
+    },
+    {
+      "file": "20260121_7597797669418962184.mp4",
+      "valid": true,
+      "duration": 13.4,
+      "audio": true
+    },
+    {
+      "file": "20260121_7597837415092342024.mp4",
+      "valid": true,
+      "duration": 14.881995,
+      "audio": true
+    },
+    {
+      "file": "20260122_7598180365836012808.mp4",
+      "valid": true,
+      "duration": 14.9,
+      "audio": true
+    },
+    {
+      "file": "20260122_7598210890407644423.mp4",
+      "valid": true,
+      "duration": 15.486009,
+      "audio": true
+    },
+    {
+      "file": "20260122_7598301782233615624.mp4",
+      "valid": true,
+      "duration": 14.951995,
+      "audio": true
+    },
+    {
+      "file": "20260123_7598597023431953682.mp4",
+      "valid": true,
+      "duration": 14.866667,
+      "audio": true
+    },
+    {
+      "file": "20260123_7598666678251080968.mp4",
+      "valid": true,
+      "duration": 14.952993,
+      "audio": true
+    },
+    {
+      "file": "20260124_7598997364195462408.mp4",
+      "valid": true,
+      "duration": 9.703991,
+      "audio": true
+    },
+    {
+      "file": "20260124_7599057692157545746.mp4",
+      "valid": true,
+      "duration": 9.518005,
+      "audio": true
+    },
+    {
+      "file": "20260125_7599101651085036818.mp4",
+      "valid": true,
+      "duration": 20.6,
+      "audio": true
+    },
+    {
+      "file": "20260126_7599663465271446791.mp4",
+      "valid": true,
+      "duration": 9.966667,
+      "audio": true
+    },
+    {
+      "file": "20260126_7599788605116026130.mp4",
+      "valid": true,
+      "duration": 19.833333,
+      "audio": true
+    },
+    {
+      "file": "20260127_7600068446654680327.mp4",
+      "valid": true,
+      "duration": 9.380884,
+      "audio": true
+    },
+    {
+      "file": "20260127_7600163587247623431.mp4",
+      "valid": true,
+      "duration": 9.821995,
+      "audio": true
+    },
+    {
+      "file": "20260128_7600437979089308936.mp4",
+      "valid": true,
+      "duration": 14.139002,
+      "audio": true
+    },
+    {
+      "file": "20260128_7600526750791126279.mp4",
+      "valid": true,
+      "duration": 14.952993,
+      "audio": true
+    },
+    {
+      "file": "20260129_7600820212019039495.mp4",
+      "valid": true,
+      "duration": 18.180998,
+      "audio": true
+    },
+    {
+      "file": "20260129_7600909274138578184.mp4",
+      "valid": true,
+      "duration": 14.952993,
+      "audio": true
+    },
+    {
+      "file": "20260130_7601201322624306440.mp4",
+      "valid": true,
+      "duration": 14.881995,
+      "audio": true
+    },
+    {
+      "file": "20260130_7601263068391148807.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260131_7601557121062358280.mp4",
+      "valid": true,
+      "duration": 14.743991,
+      "audio": true
+    },
+    {
+      "file": "20260131_7601642146826898696.mp4",
+      "valid": true,
+      "duration": 14.952993,
+      "audio": true
+    },
+    {
+      "file": "20260201_7601927162970524935.mp4",
+      "valid": true,
+      "duration": 10.842993,
+      "audio": true
+    },
+    {
+      "file": "20260202_7602324348828912904.mp4",
+      "valid": true,
+      "duration": 8.775011,
+      "audio": true
+    },
+    {
+      "file": "20260203_7602670545829629192.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260203_7602757651902057736.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260205_7603416519460080904.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260205_7603502615879617799.mp4",
+      "valid": true,
+      "duration": 10.936009,
+      "audio": true
+    },
+    {
+      "file": "20260209_7604888941694586130.mp4",
+      "valid": true,
+      "duration": 7.755011,
+      "audio": true
+    },
+    {
+      "file": "20260211_7605591163357105426.mp4",
+      "valid": true,
+      "duration": 11.7,
+      "audio": true
+    },
+    {
+      "file": "20260216_7607531533028609288.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260218_7608336281642290439.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260324_7620803098935627016.mp4",
+      "valid": true,
+      "duration": 10.309002,
+      "audio": true
+    },
+    {
+      "file": "20260326_7621579002112724232.mp4",
+      "valid": true,
+      "duration": 14.743991,
+      "audio": true
+    },
+    {
+      "file": "20260406_7625672912455929106.mp4",
+      "valid": true,
+      "duration": 10.260998,
+      "audio": true
+    },
+    {
+      "file": "20260406_7625673331903106312.mp4",
+      "valid": true,
+      "duration": 12.318005,
+      "audio": true
+    },
+    {
+      "file": "20260408_7626394393657740551.mp4",
+      "valid": true,
+      "duration": 13.589002,
+      "audio": true
+    },
+    {
+      "file": "20260408_7626394543935687944.mp4",
+      "valid": true,
+      "duration": 15.060998,
+      "audio": true
+    },
+    {
+      "file": "20260415_7629111212977999111.mp4",
+      "valid": true,
+      "duration": 14.271995,
+      "audio": true
+    },
+    {
+      "file": "20260418_7630113907457133840.mp4",
+      "valid": true,
+      "duration": 14.976893,
+      "audio": true
+    },
+    {
+      "file": "20260418_7630124760902421777.mp4",
+      "valid": true,
+      "duration": 14.976893,
+      "audio": true
+    },
+    {
+      "file": "20260419_7630132519442140417.mp4",
+      "valid": true,
+      "duration": 14.976893,
+      "audio": true
+    },
+    {
+      "file": "20260419_7630202445733301521.mp4",
+      "valid": true,
+      "duration": 14.549002,
+      "audio": true
+    },
+    {
+      "file": "20260419_7630203775109598480.mp4",
+      "valid": true,
+      "duration": 15.018005,
+      "audio": true
+    },
+    {
+      "file": "20260419_7630207648704498961.mp4",
+      "valid": true,
+      "duration": 12.236939,
+      "audio": true
+    },
+    {
+      "file": "20260420_7630207936626756865.mp4",
+      "valid": true,
+      "duration": 14.233333,
+      "audio": true
+    },
+    {
+      "file": "20260420_7630208732730871057.mp4",
+      "valid": true,
+      "duration": 14.605011,
+      "audio": true
+    },
+    {
+      "file": "20260421_7630209272067951888.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260421_7630211087627046161.mp4",
+      "valid": true,
+      "duration": 9.938005,
+      "audio": true
+    },
+    {
+      "file": "20260421_7630993766924422421.mp4",
+      "valid": true,
+      "duration": 15.1,
+      "audio": true
+    },
+    {
+      "file": "20260421_7631293226669837569.mp4",
+      "valid": true,
+      "duration": 10.842993,
+      "audio": true
+    },
+    {
+      "file": "20260422_7631294998838840592.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260422_7631301721075059984.mp4",
+      "valid": true,
+      "duration": 14.372993,
+      "audio": true
+    },
+    {
+      "file": "20260423_7631303560344407313.mp4",
+      "valid": true,
+      "duration": 15.278005,
+      "audio": true
+    },
+    {
+      "file": "20260423_7631304691879644417.mp4",
+      "valid": true,
+      "duration": 13.280998,
+      "audio": true
+    },
+    {
+      "file": "20260424_7631306692269051153.mp4",
+      "valid": true,
+      "duration": 12.282993,
+      "audio": true
+    },
+    {
+      "file": "20260424_7631310935667330305.mp4",
+      "valid": true,
+      "duration": 15.278005,
+      "audio": true
+    },
+    {
+      "file": "20260425_7631312329132510465.mp4",
+      "valid": true,
+      "duration": 12.933333,
+      "audio": true
+    },
+    {
+      "file": "20260425_7631313162658139409.mp4",
+      "valid": true,
+      "duration": 12.201995,
+      "audio": true
+    },
+    {
+      "file": "20260425_7631316332935531792.mp4",
+      "valid": true,
+      "duration": 11.84,
+      "audio": true
+    },
+    {
+      "file": "20260426_7631313637059169553.mp4",
+      "valid": true,
+      "duration": 14.349955,
+      "audio": true
+    },
+    {
+      "file": "20260426_7631317851374177537.mp4",
+      "valid": true,
+      "duration": 11.412993,
+      "audio": true
+    },
+    {
+      "file": "20260426_7631318489071963409.mp4",
+      "valid": true,
+      "duration": 15.65,
+      "audio": true
+    },
+    {
+      "file": "20260426_7631319412536118545.mp4",
+      "valid": true,
+      "duration": 14.837007,
+      "audio": true
+    },
+    {
+      "file": "20260427_7633518466221296913.mp4",
+      "valid": true,
+      "duration": 17.368005,
+      "audio": true
+    },
+    {
+      "file": "20260427_7633585470785506561.mp4",
+      "valid": true,
+      "duration": 14.720998,
+      "audio": true
+    },
+    {
+      "file": "20260428_7633172195140799745.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260428_7633176278467677441.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260429_7633177638663621905.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260429_7633178961735847185.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260429_7633180225177685249.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260430_7633183409455582465.mp4",
+      "valid": true,
+      "duration": 14.9,
+      "audio": true
+    },
+    {
+      "file": "20260430_7633185227250093313.mp4",
+      "valid": true,
+      "duration": 13.978005,
+      "audio": true
+    },
+    {
+      "file": "20260501_7633189509554834704.mp4",
+      "valid": true,
+      "duration": 14.813991,
+      "audio": true
+    },
+    {
+      "file": "20260501_7633193426367810832.mp4",
+      "valid": true,
+      "duration": 15.046009,
+      "audio": true
+    },
+    {
+      "file": "20260502_7633235664431058177.mp4",
+      "valid": true,
+      "duration": 14.605011,
+      "audio": true
+    },
+    {
+      "file": "20260502_7633242944211864833.mp4",
+      "valid": true,
+      "duration": 11.749002,
+      "audio": true
+    },
+    {
+      "file": "20260504_7636167502992526612.mp4",
+      "valid": true,
+      "duration": 15.046009,
+      "audio": true
+    },
+    {
+      "file": "20260505_7636170332751088916.mp4",
+      "valid": true,
+      "duration": 15.046009,
+      "audio": true
+    },
+    {
+      "file": "20260506_7636574967814966549.mp4",
+      "valid": true,
+      "duration": 7.870998,
+      "audio": true
+    },
+    {
+      "file": "20260506_7636575588802678037.mp4",
+      "valid": true,
+      "duration": 8.010907,
+      "audio": true
+    },
+    {
+      "file": "20260506_7636576368561589525.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260506_7636577585975102740.mp4",
+      "valid": true,
+      "duration": 8.033991,
+      "audio": true
+    },
+    {
+      "file": "20260506_7636578742223113492.mp4",
+      "valid": true,
+      "duration": 7.918005,
+      "audio": true
+    },
+    {
+      "file": "20260507_7636963700905528596.mp4",
+      "valid": true,
+      "duration": 8.010884,
+      "audio": true
+    },
+    {
+      "file": "20260507_7636964580937223445.mp4",
+      "valid": true,
+      "duration": 7.940998,
+      "audio": true
+    },
+    {
+      "file": "20260507_7636966395963641108.mp4",
+      "valid": true,
+      "duration": 8.010884,
+      "audio": true
+    },
+    {
+      "file": "20260508_7637495032647306516.mp4",
+      "valid": true,
+      "duration": 15.0,
+      "audio": true
+    },
+    {
+      "file": "20260508_7637502602690710805.mp4",
+      "valid": true,
+      "duration": 8.033991,
+      "audio": true
+    },
+    {
+      "file": "20260510_7638242136625892628.mp4",
+      "valid": true,
+      "duration": 8.033991,
+      "audio": true
+    },
+    {
+      "file": "20260510_7638243656326991124.mp4",
+      "valid": true,
+      "duration": 8.033991,
+      "audio": true
+    },
+    {
+      "file": "20260510_7638245193711521045.mp4",
+      "valid": true,
+      "duration": 10.368005,
+      "audio": true
+    },
+    {
+      "file": "20260511_7638781250924285205.mp4",
+      "valid": true,
+      "duration": 12.747007,
+      "audio": true
+    },
+    {
+      "file": "20260512_7638783363234434325.mp4",
+      "valid": true,
+      "duration": 14.9,
+      "audio": true
+    },
+    {
+      "file": "20260512_7639134738057301268.mp4",
+      "valid": true,
+      "duration": 8.637007,
+      "audio": true
+    },
+    {
+      "file": "20260513_7639137704143326485.mp4",
+      "valid": true,
+      "duration": 8.010884,
+      "audio": true
+    },
+    {
+      "file": "20260525_7643523542537047317.mp4",
+      "valid": true,
+      "duration": 8.010884,
+      "audio": true
+    },
+    {
+      "file": "20260525_7643531597735562516.mp4",
+      "valid": true,
+      "duration": 7.918005,
+      "audio": true
+    },
+    {
+      "file": "20260525_7643550345544731924.mp4",
+      "valid": true,
+      "duration": 8.010884,
+      "audio": true
+    },
+    {
+      "file": "20260526_7643527722110602516.mp4",
+      "valid": true,
+      "duration": 9.0,
+      "audio": true
+    },
+    {
+      "file": "20260526_7643540741150526741.mp4",
+      "valid": true,
+      "duration": 14.535011,
+      "audio": true
+    },
+    {
+      "file": "20260527_7643530950973902101.mp4",
+      "valid": true,
+      "duration": 6.733333,
+      "audio": true
+    },
+    {
+      "file": "20260527_7643542132724190485.mp4",
+      "valid": true,
+      "duration": 8.0,
+      "audio": true
+    },
+    {
+      "file": "20260528_7643545702865308948.mp4",
+      "valid": true,
+      "duration": 7.940998,
+      "audio": true
+    },
+    {
+      "file": "20260528_7643547247879228692.mp4",
+      "valid": true,
+      "duration": 8.010884,
+      "audio": true
+    },
+    {
+      "file": "20260529_7643548790745484564.mp4",
+      "valid": true,
+      "duration": 7.870998,
+      "audio": true
+    },
+    {
+      "file": "20260529_7643553453221907733.mp4",
+      "valid": true,
+      "duration": 7.569002,
+      "audio": true
+    },
+    {
+      "file": "20260530_7643562109107752212.mp4",
+      "valid": true,
+      "duration": 15.905011,
+      "audio": true
+    },
+    {
+      "file": "20260530_7643565148547878165.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260531_7643568573222259989.mp4",
+      "valid": true,
+      "duration": 11.866667,
+      "audio": true
+    },
+    {
+      "file": "20260531_7643570496268717332.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260601_7643572523363355924.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260601_7643573997871009044.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260602_7643575780760390933.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260602_7643577579521199380.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260603_7643581634352123156.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260603_7643584212892765460.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260604_7643585665069796628.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260604_7646067864759192848.mp4",
+      "valid": true,
+      "duration": 18.533333,
+      "audio": true
+    },
+    {
+      "file": "20260605_7646068415882366209.mp4",
+      "valid": true,
+      "duration": 15.066667,
+      "audio": true
+    },
+    {
+      "file": "20260605_7646069323466951937.mp4",
+      "valid": true,
+      "duration": 16.4,
+      "audio": true
+    },
+    {
+      "file": "20260606_7647686611202886929.mp4",
+      "valid": true,
+      "duration": 21.433333,
+      "audio": true
+    },
+    {
+      "file": "20260606_7647689843929025809.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260606_7647692497300229377.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260607_7647695085072583937.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260608_7648356061744876816.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260608_7648359656913407248.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260609_7648358526724754689.mp4",
+      "valid": true,
+      "duration": 15.278005,
+      "audio": true
+    },
+    {
+      "file": "20260609_7648362470528011521.mp4",
+      "valid": true,
+      "duration": 15.30195,
+      "audio": true
+    },
+    {
+      "file": "20260610_7648364476030340368.mp4",
+      "valid": true,
+      "duration": 14.535011,
+      "audio": true
+    },
+    {
+      "file": "20260610_7648365399112682768.mp4",
+      "valid": true,
+      "duration": 14.907007,
+      "audio": true
+    },
+    {
+      "file": "20260611_7648366639515290896.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260611_7648367504389131537.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260613_7648357280177540368.mp4",
+      "valid": true,
+      "duration": 8.010884,
+      "audio": true
+    },
+    {
+      "file": "20260613_7650956752309013776.mp4",
+      "valid": true,
+      "duration": 14.117007,
+      "audio": true
+    },
+    {
+      "file": "20260613_7650957747629870352.mp4",
+      "valid": true,
+      "duration": 9.535986,
+      "audio": true
+    },
+    {
+      "file": "20260615_7651428840035650817.mp4",
+      "valid": true,
+      "duration": 14.549002,
+      "audio": true
+    },
+    {
+      "file": "20260615_7651429646013189393.mp4",
+      "valid": true,
+      "duration": 9.535986,
+      "audio": true
+    },
+    {
+      "file": "20260615_7651431158395178257.mp4",
+      "valid": true,
+      "duration": 12.073991,
+      "audio": true
+    },
+    {
+      "file": "20260616_7651432822342782224.mp4",
+      "valid": true,
+      "duration": 14.866667,
+      "audio": true
+    },
+    {
+      "file": "20260617_7651433307770588433.mp4",
+      "valid": true,
+      "duration": 11.178005,
+      "audio": true
+    },
+    {
+      "file": "20260617_7652330842123013392.mp4",
+      "valid": true,
+      "duration": 15.046009,
+      "audio": true
+    },
+    {
+      "file": "20260617_7652331824714124561.mp4",
+      "valid": true,
+      "duration": 14.549002,
+      "audio": true
+    },
+    {
+      "file": "20260618_7652763977881079057.mp4",
+      "valid": true,
+      "duration": 12.050998,
+      "audio": true
+    },
+    {
+      "file": "20260619_7652914423820045584.mp4",
+      "valid": true,
+      "duration": 7.569002,
+      "audio": true
+    },
+    {
+      "file": "20260619_7653139404302667025.mp4",
+      "valid": true,
+      "duration": 18.97,
+      "audio": true
+    },
+    {
+      "file": "20260620_7653566922558065921.mp4",
+      "valid": true,
+      "duration": 17.02,
+      "audio": true
+    },
+    {
+      "file": "20260621_7653939881697217808.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260621_7653988987496975633.mp4",
+      "valid": true,
+      "duration": 15.4,
+      "audio": true
+    },
+    {
+      "file": "20260622_7654036030525377793.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260622_7654261230093258000.mp4",
+      "valid": true,
+      "duration": 16.766667,
+      "audio": true
+    },
+    {
+      "file": "20260623_7654622992646917377.mp4",
+      "valid": true,
+      "duration": 11.006009,
+      "audio": true
+    },
+    {
+      "file": "20260624_7654745585253174529.mp4",
+      "valid": true,
+      "duration": 13.133333,
+      "audio": true
+    },
+    {
+      "file": "20260624_7654769797728570625.mp4",
+      "valid": true,
+      "duration": 14.233333,
+      "audio": true
+    },
+    {
+      "file": "20260625_7655306847452187920.mp4",
+      "valid": true,
+      "duration": 17.901995,
+      "audio": true
+    },
+    {
+      "file": "20260626_7655682385240984849.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260626_7655692796866612496.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260626_7655733180837678337.mp4",
+      "valid": true,
+      "duration": 23.966667,
+      "audio": true
+    },
+    {
+      "file": "20260627_7656202886182997249.mp4",
+      "valid": true,
+      "duration": 11.980998,
+      "audio": true
+    },
+    {
+      "file": "20260627_7656204625716006161.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260628_7656214111977540880.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260628_7656225313029967105.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260628_7656254702262242561.mp4",
+      "valid": true,
+      "duration": 14.302993,
+      "audio": true
+    },
+    {
+      "file": "20260628_7656538053334404368.mp4",
+      "valid": true,
+      "duration": 12.966667,
+      "audio": true
+    },
+    {
+      "file": "20260628_7656552815715814672.mp4",
+      "valid": true,
+      "duration": 10.216009,
+      "audio": true
+    },
+    {
+      "file": "20260629_7656578731888119041.mp4",
+      "valid": true,
+      "duration": 12.066667,
+      "audio": true
+    },
+    {
+      "file": "20260629_7656841736190233857.mp4",
+      "valid": true,
+      "duration": 14.767891,
+      "audio": true
+    },
+    {
+      "file": "20260629_7656901156152642817.mp4",
+      "valid": true,
+      "duration": 22.011995,
+      "audio": true
+    },
+    {
+      "file": "20260630_7657324605866036481.mp4",
+      "valid": true,
+      "duration": 18.166667,
+      "audio": true
+    },
+    {
+      "file": "20260701_7657546576251981076.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260701_7657707152869559570.mp4",
+      "valid": true,
+      "duration": 16.137868,
+      "audio": true
+    },
+    {
+      "file": "20260702_7657914175141760274.mp4",
+      "valid": true,
+      "duration": 13.839002,
+      "audio": true
+    },
+    {
+      "file": "20260702_7658069959456656658.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260703_7658334054302895368.mp4",
+      "valid": true,
+      "duration": 15.1,
+      "audio": true
+    },
+    {
+      "file": "20260704_7658654664279264530.mp4",
+      "valid": true,
+      "duration": 22.366667,
+      "audio": true
+    },
+    {
+      "file": "20260706_7659219161666620690.mp4",
+      "valid": true,
+      "duration": 13.235011,
+      "audio": true
+    },
+    {
+      "file": "20260706_7659398983781043474.mp4",
+      "valid": true,
+      "duration": 15.139002,
+      "audio": true
+    },
+    {
+      "file": "20260707_7659575801859296520.mp4",
+      "valid": true,
+      "duration": 10.005011,
+      "audio": true
+    },
+    {
+      "file": "20260707_7659577932691557640.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260708_7659936469016005896.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260708_7659943184583183634.mp4",
+      "valid": true,
+      "duration": 14.0,
+      "audio": true
+    },
+    {
+      "file": "20260709_7660494397716548882.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260709_7660502542371032327.mp4",
+      "valid": true,
+      "duration": 15.069002,
+      "audio": true
+    },
+    {
+      "file": "20260711_7661249660618607880.mp4",
+      "valid": true,
+      "duration": 15.103991,
+      "audio": true
+    },
+    {
+      "file": "20260711_7661253667491777810.mp4",
+      "valid": true,
+      "duration": 15.116009,
+      "audio": true
+    },
+    {
+      "file": "20260711_7661258698110668050.mp4",
+      "valid": true,
+      "duration": 20.866667,
+      "audio": true
+    },
+    {
+      "file": "20260711_7661302270545579282.mp4",
+      "valid": true,
+      "duration": 13.235011,
+      "audio": true
+    },
+    {
+      "file": "20260711_7661335242749250834.mp4",
+      "valid": true,
+      "duration": 20.7,
+      "audio": true
+    },
+    {
+      "file": "20260712_7661327861478984967.mp4",
+      "valid": true,
+      "duration": 10.44898,
+      "audio": true
+    },
+    {
+      "file": "20260718_7663908762499042578.mp4",
+      "valid": true,
+      "duration": 10.7,
+      "audio": true
+    },
+    {
+      "file": "20260718_7663916913847782674.mp4",
+      "valid": true,
+      "duration": 13.3,
+      "audio": true
+    },
+    {
+      "file": "20260718_7663948210968317192.mp4",
+      "valid": true,
+      "duration": 13.3,
+      "audio": true
+    },
+    {
+      "file": "20260719_7663933015105539335.mp4",
+      "valid": true,
+      "duration": 13.235011,
+      "audio": true
+    },
+    {
+      "file": "20260719_7663941088742247687.mp4",
+      "valid": true,
+      "duration": 12.236916,
+      "audio": true
+    },
+    {
+      "file": "20260720_7663936511330585863.mp4",
+      "valid": true,
+      "duration": 13.235011,
+      "audio": true
+    },
+    {
+      "file": "20260720_7663958717712321800.mp4",
+      "valid": true,
+      "duration": 8.010884,
+      "audio": true
+    },
+    {
+      "file": "20260721_7663963450967739656.mp4",
+      "valid": true,
+      "duration": 10.466667,
+      "audio": true
+    },
+    {
+      "file": "20260721_7664018194113334536.mp4",
+      "valid": true,
+      "duration": 12.654875,
+      "audio": true
+    },
+    {
+      "file": "20260722_7664023774018243848.mp4",
+      "valid": true,
+      "duration": 9.240998,
+      "audio": true
+    },
+    {
+      "file": "20260722_7664025747270552850.mp4",
+      "valid": true,
+      "duration": 8.0,
+      "audio": true
+    },
+    {
+      "file": "20260722_7664397577223212296.mp4",
+      "valid": true,
+      "duration": 11.266667,
+      "audio": true
+    },
+    {
+      "file": "20260723_7665525029249027349.mp4",
+      "valid": true,
+      "duration": 8.916009,
+      "audio": true
+    },
+    {
+      "file": "20260723_7665526666311077141.mp4",
+      "valid": true,
+      "duration": 8.833333,
+      "audio": true
+    },
+    {
+      "file": "20260724_7665528075328802069.mp4",
+      "valid": true,
+      "duration": 7.918005,
+      "audio": true
+    },
+    {
+      "file": "20260724_7665529807458897172.mp4",
+      "valid": true,
+      "duration": 7.639002,
+      "audio": true
+    },
+    {
+      "file": "20260724_7666237345535986965.mp4",
+      "valid": true,
+      "duration": 6.617007,
+      "audio": true
+    },
+    {
+      "file": "20260725_7666130931886853396.mp4",
+      "valid": true,
+      "duration": 6.339002,
+      "audio": true
+    },
+    {
+      "file": "20260725_7666133463434562836.mp4",
+      "valid": true,
+      "duration": 8.405011,
+      "audio": true
+    },
+    {
+      "file": "20260725_7666142286777945364.mp4",
+      "valid": true,
+      "duration": 7.476009,
+      "audio": true
+    },
+    {
+      "file": "20260726_7666147252003474708.mp4",
+      "valid": true,
+      "duration": 8.381995,
+      "audio": true
+    },
+    {
+      "file": "20260726_7666149905538338068.mp4",
+      "valid": true,
+      "duration": 8.4,
+      "audio": true
+    },
+    {
+      "file": "20260726_7666152667554581780.mp4",
+      "valid": true,
+      "duration": 6.849887,
+      "audio": true
+    },
+    {
+      "file": "20260727_7666154662239685908.mp4",
+      "valid": true,
+      "duration": 6.315011,
+      "audio": true
+    },
+    {
+      "file": "20260727_7666156572141210900.mp4",
+      "valid": true,
+      "duration": 6.037007,
+      "audio": true
+    },
+    {
+      "file": "20260728_7666230586083773717.mp4",
+      "valid": true,
+      "duration": 7.987007,
+      "audio": true
+    },
+    {
+      "file": "20260728_7666233067731766549.mp4",
+      "valid": true,
+      "duration": 8.8,
+      "audio": true
+    },
+    {
+      "file": "20260728_7666235331909405972.mp4",
+      "valid": true,
+      "duration": 6.687007,
+      "audio": true
+    },
+    {
+      "file": "20260728_7667653466696813844.mp4",
+      "valid": true,
+      "duration": 8.0,
+      "audio": true
+    },
+    {
+      "file": "20260729_7666239988945685781.mp4",
+      "valid": true,
+      "duration": 8.102993,
+      "audio": true
+    },
+    {
+      "file": "20260729_7666245602639957268.mp4",
+      "valid": true,
+      "duration": 7.383946,
+      "audio": true
+    },
+    {
+      "file": "20260730_7666247048613727508.mp4",
+      "valid": true,
+      "duration": 6.9,
+      "audio": true
+    },
+    {
+      "file": "20260730_7666259984052833557.mp4",
+      "valid": true,
+      "duration": 8.637007,
+      "audio": true
+    },
+    {
+      "file": "20260730_7666477296844344596.mp4",
+      "valid": true,
+      "duration": 9.333991,
+      "audio": true
+    },
+    {
+      "file": "20260730_7667554215547374868.mp4",
+      "valid": true,
+      "duration": 8.707007,
+      "audio": true
+    },
+    {
+      "file": "20260731_7667557944023649556.mp4",
+      "valid": true,
+      "duration": 8.066667,
+      "audio": true
+    },
+    {
+      "file": "20260731_7667666974108896532.mp4",
+      "valid": true,
+      "duration": 7.940998,
+      "audio": true
+    },
+    {
+      "file": "20260801_7669014927985610005.mp4",
+      "valid": true,
+      "duration": 5.479909,
+      "audio": true
+    },
+    {
+      "file": "20260801_7669016277360463124.mp4",
+      "valid": true,
+      "duration": 7.174966,
+      "audio": true
+    },
+    {
+      "file": "20260801_7669017558502231317.mp4",
+      "valid": true,
+      "duration": 7.433333,
+      "audio": true
+    },
+    {
+      "file": "20260802_7669463743113268500.mp4",
+      "valid": true,
+      "duration": 6.666667,
+      "audio": true
+    },
+    {
+      "file": "20260802_7669466503317654804.mp4",
+      "valid": true,
+      "duration": 6.71,
+      "audio": true
+    },
+    {
+      "file": "20260803_7669469016464968981.mp4",
+      "valid": true,
+      "duration": 7.848005,
+      "audio": true
+    },
+    {
+      "file": "20260804_7670193732121070868.mp4",
+      "valid": true,
+      "duration": 6.633333,
+      "audio": true
+    },
+    {
+      "file": "20260807_7671411013203397909.mp4",
+      "valid": true,
+      "duration": 5.108005,
+      "audio": true
+    },
+    {
+      "file": "20260807_7671413283697462549.mp4",
+      "valid": true,
+      "duration": 5.6,
+      "audio": true
+    },
+    {
+      "file": "20260808_7671415517839674645.mp4",
+      "valid": true,
+      "duration": 6.269002,
+      "audio": true
+    },
+    {
+      "file": "20260808_7671627636661046549.mp4",
+      "valid": true,
+      "duration": 6.269002,
+      "audio": true
+    },
+    {
+      "file": "20260808_7671629392401009940.mp4",
+      "valid": true,
+      "duration": 8.033991,
+      "audio": true
+    },
+    {
+      "file": "20260808_7671633070230932757.mp4",
+      "valid": true,
+      "duration": 7.766667,
+      "audio": true
+    },
+    {
+      "file": "20260808_7671636069779066133.mp4",
+      "valid": true,
+      "duration": 4.806009,
+      "audio": true
+    },
+    {
+      "file": "20260809_7671631547681787156.mp4",
+      "valid": true,
+      "duration": 8.066667,
+      "audio": true
+    },
+    {
+      "file": "20260809_7671645685741014292.mp4",
+      "valid": true,
+      "duration": 6.333333,
+      "audio": true
+    },
+    {
+      "file": "20260831_7680289118995320084.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260831_7680294352354086164.mp4",
+      "valid": true,
+      "duration": 70.966667,
+      "audio": true
+    },
+    {
+      "file": "20260901_7680295559084789013.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260901_7680296934900256020.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260901_7680297690420268309.mp4",
+      "valid": true,
+      "duration": 29.333333,
+      "audio": true
+    },
+    {
+      "file": "20260901_7680642289945005333.mp4",
+      "valid": true,
+      "duration": 10.053991,
+      "audio": true
+    },
+    {
+      "file": "20260901_7680644641045122325.mp4",
+      "valid": true,
+      "duration": 52.940998,
+      "audio": true
+    },
+    {
+      "file": "20260902_7680640327287360789.mp4",
+      "valid": true,
+      "duration": 10.053991,
+      "audio": true
+    },
+    {
+      "file": "20260902_7680640813608586516.mp4",
+      "valid": true,
+      "duration": 10.053991,
+      "audio": true
+    },
+    {
+      "file": "20260902_7680641636199566613.mp4",
+      "valid": true,
+      "duration": 36.500998,
+      "audio": true
+    },
+    {
+      "file": "20260902_7680642935876078868.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260903_7680643836875558164.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260903_7680645825650871573.mp4",
+      "valid": true,
+      "duration": 52.940998,
+      "audio": true
+    },
+    {
+      "file": "20260903_7680646743268019477.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260903_7680647541737721109.mp4",
+      "valid": true,
+      "duration": 101.833333,
+      "audio": true
+    },
+    {
+      "file": "20260904_7680646437838785813.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260904_7680649274048269588.mp4",
+      "valid": true,
+      "duration": 28.933333,
+      "audio": true
+    },
+    {
+      "file": "20260904_7680649945833032980.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260904_7681015848076725524.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260905_7681016836367879444.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260905_7681017640734739733.mp4",
+      "valid": true,
+      "duration": 29.966667,
+      "audio": true
+    },
+    {
+      "file": "20260905_7681017984042781973.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260905_7681018569244822805.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260906_7681019216471887125.mp4",
+      "valid": true,
+      "duration": 25.8,
+      "audio": true
+    },
+    {
+      "file": "20260906_7681019734611021076.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260906_7682494215506398485.mp4",
+      "valid": true,
+      "duration": 41.366667,
+      "audio": true
+    },
+    {
+      "file": "20260906_7682550111200677140.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260907_7682620553324268820.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260907_7682623130275187989.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260907_7682918243950005524.mp4",
+      "valid": true,
+      "duration": 10.1,
+      "audio": true
+    },
+    {
+      "file": "20260911_7684281701425515796.mp4",
+      "valid": true,
+      "duration": 9.533333,
+      "audio": true
+    },
+    {
+      "file": "20260911_7684288222737779988.mp4",
+      "valid": true,
+      "duration": 10.1,
+      "audio": true
+    },
+    {
+      "file": "20260911_7684289924123643157.mp4",
+      "valid": true,
+      "duration": 10.1,
+      "audio": true
+    },
+    {
+      "file": "20260912_7684291572430589204.mp4",
+      "valid": true,
+      "duration": 10.133333,
+      "audio": true
+    },
+    {
+      "file": "20260912_7684293022636461333.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260912_7684294236572814613.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260913_7684844628083887381.mp4",
+      "valid": true,
+      "duration": 76.433333,
+      "audio": true
+    },
+    {
+      "file": "20260913_7684844879347862805.mp4",
+      "valid": true,
+      "duration": 18.250884,
+      "audio": true
+    },
+    {
+      "file": "20260913_7684845470727802133.mp4",
+      "valid": true,
+      "duration": 24.310998,
+      "audio": true
+    },
+    {
+      "file": "20260913_7684845826476117269.mp4",
+      "valid": true,
+      "duration": 37.337007,
+      "audio": true
+    },
+    {
+      "file": "20260914_7685394922911878420.mp4",
+      "valid": true,
+      "duration": 119.133333,
+      "audio": true
+    },
+    {
+      "file": "20260914_7685395507698601237.mp4",
+      "valid": true,
+      "duration": 85.066667,
+      "audio": true
+    },
+    {
+      "file": "20260914_7685396597278264597.mp4",
+      "valid": true,
+      "duration": 16.7,
+      "audio": true
+    },
+    {
+      "file": "20260914_7685397245042232597.mp4",
+      "valid": true,
+      "duration": 40.333333,
+      "audio": true
+    },
+    {
+      "file": "20260915_7685780464799321365.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260915_7685781871539522837.mp4",
+      "valid": true,
+      "duration": 9.612993,
+      "audio": true
+    },
+    {
+      "file": "20260918_7687025158506188052.mp4",
+      "valid": true,
+      "duration": 10.1,
+      "audio": true
+    },
+    {
+      "file": "20260919_7687077061818715412.mp4",
+      "valid": true,
+      "duration": 42.352993,
+      "audio": true
+    },
+    {
+      "file": "20260919_7687081199797390612.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260919_7687081529427692821.mp4",
+      "valid": true,
+      "duration": 48.6,
+      "audio": true
+    },
+    {
+      "file": "20260919_7687310873370561812.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260920_7687640474273778965.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260920_7687652015119322388.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260920_7687652373321239829.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260921_7687754272670272776.mp4",
+      "valid": true,
+      "duration": 66.966667,
+      "audio": true
+    },
+    {
+      "file": "20260921_7687754737873194258.mp4",
+      "valid": true,
+      "duration": 59.1,
+      "audio": true
+    },
+    {
+      "file": "20260921_7687755278434995464.mp4",
+      "valid": true,
+      "duration": 40.9,
+      "audio": true
+    },
+    {
+      "file": "20260921_7687755867520896263.mp4",
+      "valid": true,
+      "duration": 18.133991,
+      "audio": true
+    },
+    {
+      "file": "20260922_7687756487871040776.mp4",
+      "valid": true,
+      "duration": 137.7,
+      "audio": true
+    },
+    {
+      "file": "20260922_7688366578815143186.mp4",
+      "valid": true,
+      "duration": 10.133333,
+      "audio": true
+    },
+    {
+      "file": "20260922_7688367676950908167.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260922_7688368650008464658.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260922_7688370038373403911.mp4",
+      "valid": true,
+      "duration": 10.077007,
+      "audio": true
+    },
+    {
+      "file": "20260923_7688371617927318791.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260923_7688373184734760210.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260923_7688373840409333000.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260927_7690247553891208466.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260927_7690258808882449671.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20260927_7690259979210640648.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260927_7690260785309797640.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20260928_7690261477869096210.mp4",
+      "valid": true,
+      "duration": 29.233923,
+      "audio": true
+    },
+    {
+      "file": "20260928_7690262039960243463.mp4",
+      "valid": true,
+      "duration": 24.8,
+      "audio": true
+    },
+    {
+      "file": "20260928_7690262430626221320.mp4",
+      "valid": true,
+      "duration": 69.633333,
+      "audio": true
+    },
+    {
+      "file": "20260928_7690262941102312711.mp4",
+      "valid": true,
+      "duration": 29.000998,
+      "audio": true
+    },
+    {
+      "file": "20260930_7691395702672461064.mp4",
+      "valid": true,
+      "duration": 20.015011,
+      "audio": true
+    },
+    {
+      "file": "20260930_7691424574814080264.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261001_7691685625438735634.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20261001_7691714950749752594.mp4",
+      "valid": true,
+      "duration": 8.916667,
+      "audio": true
+    },
+    {
+      "file": "20261002_7692059956664667410.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261002_7692060777477426439.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261003_7692065255882624257.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261003_7692066327866920199.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261004_7692066843187547410.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261004_7692068558741835014.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261005_7692069421375884552.mp4",
+      "valid": true,
+      "duration": 10.166667,
+      "audio": true
+    },
+    {
+      "file": "20261005_7692071643711048968.mp4",
+      "valid": true,
+      "duration": 6.570998,
+      "audio": true
+    },
+    {
+      "file": "20261006_7692072500246711559.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261006_7692075206587714824.mp4",
+      "valid": true,
+      "duration": 10.033333,
+      "audio": true
+    },
+    {
+      "file": "20261007_7692076228844555527.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20261011_7695235610960760071.mp4",
+      "valid": true,
+      "duration": 17.112993,
+      "audio": true
+    },
+    {
+      "file": "20261011_7695236722497441032.mp4",
+      "valid": true,
+      "duration": 10.007007,
+      "audio": true
+    },
+    {
+      "file": "20261012_7695236079170915592.mp4",
+      "valid": true,
+      "duration": 21.896009,
+      "audio": true
+    }
+  ]
+}
