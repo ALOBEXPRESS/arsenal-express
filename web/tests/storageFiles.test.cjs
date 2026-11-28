@@ -1,0 +1,15 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),ts=require('typescript'),path=require('node:path')
+const api={};new Function('exports',ts.transpileModule(fs.readFileSync(path.join(__dirname,'../lib/storage/ownedFiles.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(api)
+const db=tables=>({from:name=>({select:()=>({order:()=>({range:async(a,b)=>({data:tables[name].slice(a,b+1),error:null})})})})})
+test('protects scene, narration, overlay and shared references; ignores archived backups and sorts largest first',async()=>{
+ const assets=['scene','voice','overlay','unused','favorite','pinned'].map((id,i)=>({id,filename:id,project_id:'p',kind:'video',file_size_bytes:i+1,is_favorite:id==='favorite',library_user_id:id==='pinned'?'owner':null,metadata:{storage_provider:'r2'}}))
+ const files=await api.ownedFiles(db({assets,scenes:[{video_asset_id:'scene'}],projects:[{id:'p',name:'Series',config:{subprojects:[{narration_track:[{asset_id:'voice'}],overlays:[{asset_id:'overlay'}]}],organization_backup:{asset_id:'unused'}}},{id:'archived',config:{archived_into:'p',audio_clips:[{asset_id:'unused'}]}}]}))
+ const byId=id=>files.find(f=>f.id===id)
+ assert.equal(byId('unused').protected,false)
+ for(const id of ['scene','voice','overlay','favorite','pinned'])assert.equal(byId(id).protected,true)
+ assert.equal(files[0].id,'pinned');assert.equal(byId('unused').project,'Series')
+})
+test('lists all files beyond the first database page',async()=>{
+ const assets=Array.from({length:1001},(_,i)=>({id:String(i),filename:String(i),file_size_bytes:i}))
+ assert.equal((await api.ownedFiles(db({assets,projects:[],scenes:[]}))).length,1001)
+})
