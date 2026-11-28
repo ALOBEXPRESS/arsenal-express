@@ -36,6 +36,7 @@ export default async function DashboardLayout({
             <Logo subtitle={false} />
           </Link>
           <div className="flex items-center gap-4">
+            <Link href="/settings/api-keys" className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-foreground">Chaves de API</Link>
             <Link href="/tiktok" className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
               TikTok
             </Link>

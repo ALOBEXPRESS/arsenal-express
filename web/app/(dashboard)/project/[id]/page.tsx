@@ -3,7 +3,7 @@
 import { use, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, SlidersHorizontal, FolderDown, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, KeyRound, SlidersHorizontal, FolderDown, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProject, useSetOutputFormat } from '@/lib/hooks/useProjects'
 import {
@@ -390,6 +390,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/settings/api-keys"><Button variant="outline" size="sm"><KeyRound /> Chaves de API</Button></Link>
           <Button variant="outline" size="sm" onClick={() => setShowAssembly(true)}>
             <SlidersHorizontal /> Montagem
           </Button>

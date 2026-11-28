@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server'
 import {z} from 'zod'
 import {createClient} from '@/lib/supabase/server'
+import {personalApiKey} from '@/lib/apiCredentials'
 import {signR2Read} from '@/lib/storage/r2'
 export const runtime='nodejs'
 export const maxDuration=60
@@ -11,7 +12,6 @@ export async function POST(request:Request){
  if(!user)return NextResponse.json({error:'Entre na sua conta.'},{status:401})
  const {data:access,error:accessError}=await client.rpc('system_access_status')
  if(accessError||!access?.allowed)return NextResponse.json({error:'Acesso não autorizado.'},{status:403})
- const key=process.env.OPENAI_API_KEY
 
  const input=z.object({assetId:z.string().uuid()}).safeParse(await request.json().catch(()=>null))
  if(!input.success)return NextResponse.json({error:'Arquivo inválido.'},{status:400})
@@ -19,7 +19,10 @@ export async function POST(request:Request){
  if(error||!asset||!['audio','video'].includes(asset.kind))return NextResponse.json({error:'Arquivo de áudio ou vídeo não encontrado.'},{status:404})
  const cached=asset.metadata?.whisper_transcript
  if(cached?.version===2 && cached.source===asset.storage_path)return NextResponse.json(cached,{headers:{'Cache-Control':'private, no-store'}})
- if(!key)return NextResponse.json({error:'Configure OPENAI_API_KEY no servidor para analisar as falas.'},{status:503})
+ let key:string|null
+ try { key=await personalApiKey(user.id,'openai');if(!key&&access.isAdmin)key=process.env.OPENAI_API_KEY||null }
+ catch { return NextResponse.json({error:'Não foi possível consultar sua chave de API. Tente novamente.'},{status:503}) }
+ if(!key)return NextResponse.json({error:'Configure sua chave OpenAI em Configurações → Chaves de API para transcrever e gerar legendas.'},{status:428})
  try{
  let url:string
  if(asset.metadata?.storage_provider==='r2')url=await signR2Read(asset.storage_path)
