@@ -24,13 +24,13 @@ import { barLayout } from '@/lib/sync/barLayout'
 import { mediaUrl } from '@/lib/storage/media'
 import type { Asset, NarrationSegment, AudioClip, OverlayClip } from '@/types/project'
 
-const videoFrames = new WeakMap<HTMLVideoElement, { input: Input; frames: ReturnType<CanvasSink['canvasesAtTimestamps']> }>()
+const videoFrames = new WeakMap<HTMLVideoElement, { input: Input; frames: ReturnType<CanvasSink['canvasesAtTimestamps']> | null; sink: CanvasSink }>()
 
 /** Decode the requested frame; never capture a stale HTML video after a timer. */
 async function decodedFrame(video: HTMLVideoElement, time: number): Promise<CanvasImageSource> {
   const decoder = videoFrames.get(video)
   if (!decoder) throw new Error('Decodificador de vídeo indisponível.')
-  const frame = (await decoder.frames.next()).value
+  const frame = decoder.frames ? (await decoder.frames.next()).value : await decoder.sink.getCanvas(Math.max(0, Math.min(time, video.duration - 0.000001)))
   if (!frame) throw new Error(`Não foi possível decodificar o quadro em ${time.toFixed(3)}s.`)
   return frame.canvas
 }
@@ -169,7 +169,7 @@ export async function renderMp4(input: RenderInput, options: RenderOptions): Pro
   } finally {
     for (const media of assetCache.values()) {
       const url = media.src
-      if (media instanceof HTMLVideoElement) { void videoFrames.get(media)?.frames.return(undefined).catch(() => {}); videoFrames.get(media)?.input.dispose(); videoFrames.delete(media); media.pause(); media.removeAttribute('src'); media.load() }
+      if (media instanceof HTMLVideoElement) { void videoFrames.get(media)?.frames?.return(undefined).catch(() => {}); videoFrames.get(media)?.input.dispose(); videoFrames.delete(media); media.pause(); media.removeAttribute('src'); media.load() }
       if (url.startsWith('blob:')) URL.revokeObjectURL(url)
     }
     assetCache.clear()
@@ -192,6 +192,7 @@ async function preloadAssets(
   // and lets downloads finish before their signed URLs expire during rendering.
   for (const asset of assets.values()) {
     if (signal?.aborted) throw new Error('Renderização cancelada')
+    if (cache.has(asset.id)) continue
     const url = await mediaUrl(asset)
     const response = await fetch(url, { signal })
     if (!response.ok) throw new Error(`Não foi possível baixar ${asset.filename} (HTTP ${response.status}).`)
@@ -207,7 +208,12 @@ async function preloadAssets(
         signal?.removeEventListener('abort', abort)
         media.onload = null; media.onerror = null
         if (media instanceof HTMLVideoElement) media.onloadeddata = null
-        error ? reject(error) : resolve()
+        if (error) {
+          cache.delete(asset.id)
+          if (media instanceof HTMLVideoElement) {media.pause();media.removeAttribute('src');media.load()}
+          URL.revokeObjectURL(localUrl)
+          reject(error)
+        } else resolve()
       }
       const abort = () => finish(new Error('Renderização cancelada'))
       const timeout = setTimeout(() => finish(new Error(`Tempo esgotado ao abrir ${asset.filename}.`)), 30000)
@@ -237,8 +243,8 @@ async function preloadAssets(
           }
         }
         const sink = new CanvasSink(track, { poolSize: 2 })
-        videoFrames.set(media, { input: decoder, frames: sink.canvasesAtTimestamps(timestamps) })
-      } catch (error) { decoder.dispose(); throw error }
+        videoFrames.set(media, { input: decoder, sink, frames: frameRate > 0 ? sink.canvasesAtTimestamps(timestamps) : null })
+      } catch (error) { decoder.dispose();cache.delete(asset.id);URL.revokeObjectURL(localUrl);throw error }
     }
   }
 }
@@ -703,5 +709,32 @@ async function loadAudioBuffer(url: string, audioCtx: BaseAudioContext, signal?:
     return await audioCtx.decodeAudioData(await blob.arrayBuffer())
   } finally {
     media.dispose()
+  }
+}
+
+/** Preview uses the same compositor and geometry as the final MP4, loading only visible media. */
+export function createExportPreview() {
+  const cache = new Map<string, HTMLVideoElement | HTMLImageElement>()
+  return {
+    async draw(input: RenderInput, canvas: HTMLCanvasElement, time: number, width: number, height: number, signal: AbortSignal) {
+      const last = input.timeline[input.timeline.length - 1]
+      const scene = input.timeline.find(s => time >= s.start && time < s.start+s.duration) || last
+      const visible = { ...input, timeline: scene ? [scene] : [], overlays: input.overlays.filter(o => time >= o.start && time < o.start+o.duration) }
+      await preloadAssets(visible, cache, 0, signal)
+      if (signal.aborted) return
+      const frame = new OffscreenCanvas(width,height)
+      const ctx = frame.getContext('2d',{alpha:false})!
+      await renderFrame(ctx,visible,cache,time,width,height)
+      if (signal.aborted) return
+      canvas.width=width;canvas.height=height
+      canvas.getContext('2d')!.drawImage(frame,0,0)
+    },
+    dispose() {
+      for (const media of cache.values()) {
+        if (media instanceof HTMLVideoElement) {videoFrames.get(media)?.input.dispose();videoFrames.delete(media);media.pause()}
+        if (media.src.startsWith('blob:')) URL.revokeObjectURL(media.src)
+      }
+      cache.clear()
+    },
   }
 }

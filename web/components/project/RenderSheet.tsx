@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { ExportPreview } from './ExportPreview'
 import { Video, Download, Loader2, AlertCircle } from 'lucide-react'
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { renderMp4, type RenderOptions } from '@/lib/render/mp4'
+import { renderMp4, type RenderOptions, type RenderInput } from '@/lib/render/mp4'
 import type { OutputFormat } from '@/types/project'
 import type { TimelineInput } from '@/lib/capcut/draft'
 
@@ -30,10 +31,9 @@ const PRESETS: Record<PresetKey, { label: string; width: number; height: number;
 
 export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activeSubId, outputFormat = 'auto' }: RenderSheetProps) {
   const chosen = timelines.find((t) => t.id === activeSubId) || timelines[0]
-  if (!chosen) return null
 
   // Auto-detect format from first scene
-  const firstScene = chosen.timeline[0]
+  const firstScene = chosen?.timeline[0]
   const firstAsset = firstScene?.videoAsset || firstScene?.imageAsset
   const srcWidth = Number(firstAsset?.metadata?.width) || 1920
   const srcHeight = Number(firstAsset?.metadata?.height) || 1080
@@ -48,6 +48,17 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [resultUrl, setResultUrl] = useState<string | null>(null)
+
+  const renderInput = useMemo<RenderInput>(() => ({
+    timeline: chosen?.timeline || [],
+    narration: (chosen?.narration || []).map(n=>({...n,asset_id:n.asset.id})),
+    audioClips: (chosen?.audioClips || []).map(({clip,asset})=>({...clip,asset})),
+    overlays: [...(chosen?.overlays || []).map(({clip,asset})=>({...clip,asset})),...(chosen?.textOverlays || [])],
+    duration: Math.max(...(chosen?.timeline || []).map(s=>s.start+s.duration),...(chosen?.narration || []).map(n=>n.start+n.duration),...(chosen?.audioClips || []).map(({clip})=>clip.start+clip.duration),0),
+  }),[chosen])
+  useEffect(()=>{setResultUrl(null)},[preset,chosen,outputFormat])
+  useEffect(()=>()=>{if(resultUrl)URL.revokeObjectURL(resultUrl)},[resultUrl])
+  if (!chosen) return null
 
   const handleRender = async () => {
     setRendering(true)
@@ -69,18 +80,7 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
         onProgress: (p) => setProgress(Math.round(p * 100)),
       }
 
-      const totalDuration = Math.max(...chosen.timeline.map((s) => s.start + s.duration), ...chosen.narration.map(n=>n.start+n.duration), ...(chosen.audioClips||[]).map(({clip})=>clip.start+clip.duration), 0)
-
-      const mp4 = await renderMp4(
-        {
-          timeline: chosen.timeline,
-          narration: chosen.narration as any,
-          audioClips: (chosen.audioClips || []).map(({ clip, asset }) => ({ ...clip, asset })) as any,
-          overlays: [...(chosen.overlays || []).map(({ clip, asset }) => ({ ...clip, asset })), ...(chosen.textOverlays || [])] as any,
-          duration: totalDuration,
-        },
-        options
-      )
+      const mp4 = await renderMp4(renderInput, options)
 
       // Create download (force cast to BlobPart - mp4 is already Uint8Array from mediabunny)
       const blob = new Blob([mp4 as unknown as BlobPart], { type: 'video/mp4' })
@@ -115,6 +115,7 @@ export function RenderSheet({ open, onOpenChange, projectTitle, timelines, activ
         </div>
 
         <div className="mt-8 space-y-6">
+          {open && <ExportPreview key={activeSubId} input={renderInput} width={outputPresets[preset].width} height={outputPresets[preset].height} resultUrl={resultUrl} />}
           {/* Source format indicator */}
           <div className="rounded-lg border border-border bg-surface-2/50 p-4">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
